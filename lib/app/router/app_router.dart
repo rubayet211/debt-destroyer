@@ -10,6 +10,7 @@ import '../../features/onboarding/presentation/splash_screen.dart';
 import '../../features/reports/presentation/reports_screen.dart';
 import '../../features/scan_import/domain/import_services.dart';
 import '../../features/scan_import/presentation/scan_screens.dart';
+import '../../features/settings/presentation/data_protection_screens.dart';
 import '../../features/settings/presentation/settings_screens.dart';
 import '../../features/strategy/presentation/strategy_simulator_screen.dart';
 import '../../shared/models/import_models.dart';
@@ -26,6 +27,14 @@ GoRouter buildRouter(Ref ref) {
       GoRoute(
         path: '/unlock',
         builder: (_, __) => const BiometricUnlockScreen(),
+      ),
+      GoRoute(
+        path: '/privacy-upgrade',
+        builder: (_, __) => const PrivacyUpgradeScreen(),
+      ),
+      GoRoute(
+        path: '/data-protection-recovery',
+        builder: (_, __) => const DataProtectionRecoveryScreen(),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>

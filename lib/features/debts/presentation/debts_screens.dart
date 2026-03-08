@@ -364,7 +364,19 @@ class DebtDetailsScreen extends ConsumerWidget {
                               child: ListTile(
                                 contentPadding: EdgeInsets.zero,
                                 title: Text(doc.mimeType),
-                                subtitle: Text(Formatters.date(doc.createdAt)),
+                                subtitle: Text(
+                                  doc.retentionExpiresAt == null
+                                      ? '${Formatters.date(doc.createdAt)} • Manual retention'
+                                      : '${Formatters.date(doc.createdAt)} • Purges ${Formatters.date(doc.retentionExpiresAt)}',
+                                ),
+                                trailing: IconButton(
+                                  onPressed: () async {
+                                    await ref
+                                        .read(documentsRepositoryProvider)
+                                        .purgeDocument(doc.id);
+                                  },
+                                  icon: const Icon(Icons.delete_outline),
+                                ),
                               ),
                             ),
                           );

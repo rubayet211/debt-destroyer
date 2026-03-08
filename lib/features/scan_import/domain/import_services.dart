@@ -1,18 +1,13 @@
-import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-import 'package:http/http.dart' as http;
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/constants/app_constants.dart';
-import '../../../core/errors/app_exception.dart';
-import '../../../core/logging/app_logger.dart';
+import '../../../core/services/vault_services.dart';
 import '../../../core/utils/parsers.dart';
+import '../../../shared/data/repositories.dart';
 import '../../../shared/enums/app_enums.dart';
 import '../../../shared/models/import_models.dart';
 
@@ -134,106 +129,9 @@ abstract class AiExtractionService {
   Future<ExtractionCandidate> extract({
     required DocumentClassification classification,
     required String normalizedText,
+    required DocumentSourceType sourceType,
     required bool allowCloud,
   });
-}
-
-class GeminiAiExtractionService implements AiExtractionService {
-  GeminiAiExtractionService(this._parser);
-
-  final HeuristicExtractionParser _parser;
-
-  @override
-  Future<ExtractionCandidate> extract({
-    required DocumentClassification classification,
-    required String normalizedText,
-    required bool allowCloud,
-  }) async {
-    final apiKey = dotenv.env['GEMINI_API_KEY'];
-    if (!allowCloud || apiKey == null || apiKey.isEmpty) {
-      return _parser.parse(classification, normalizedText);
-    }
-
-    try {
-      final response = await http.post(
-        Uri.parse(
-          'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$apiKey',
-        ),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'contents': [
-            {
-              'parts': [
-                {
-                  'text':
-                      '''
-You extract debt and payment data from OCR text.
-Return strict JSON only. Keys:
-issuer_name, title, debt_type, current_balance, original_balance, apr_percentage, minimum_payment, due_date, payment_date, payment_amount, currency, notes, confidence, last4, raw_detected_labels.
-Use null for unknowns. No prose. Classification: ${classification.name}
-$normalizedText
-''',
-                },
-              ],
-            },
-          ],
-          'generationConfig': {'responseMimeType': 'application/json'},
-        }),
-      );
-
-      if (response.statusCode >= 400) {
-        throw AppException('Gemini request failed: ${response.statusCode}');
-      }
-
-      final body = jsonDecode(response.body) as Map<String, dynamic>;
-      final candidates = body['candidates'] as List<dynamic>? ?? const [];
-      final content = candidates.isEmpty
-          ? null
-          : (candidates.first as Map<String, dynamic>)['content']
-                as Map<String, dynamic>?;
-      final parts = content?['parts'] as List<dynamic>? ?? const [];
-      final text = parts.isEmpty
-          ? null
-          : (parts.first as Map<String, dynamic>)['text'] as String?;
-      if (text == null) {
-        throw const AppException('Gemini returned an empty payload.');
-      }
-
-      final payload = jsonDecode(text) as Map<String, dynamic>;
-      return ExtractionCandidate(
-        title: payload['title']?.toString(),
-        creditorName: payload['issuer_name']?.toString(),
-        debtType: _parser.mapDebtType(payload['debt_type']?.toString()),
-        currentBalance: _asDouble(payload['current_balance']),
-        originalBalance: _asDouble(payload['original_balance']),
-        aprPercentage: _asDouble(payload['apr_percentage']),
-        minimumPayment: _asDouble(payload['minimum_payment']),
-        dueDate: Parsers.parseDate(payload['due_date']?.toString()),
-        paymentDate: Parsers.parseDate(payload['payment_date']?.toString()),
-        paymentAmount: _asDouble(payload['payment_amount']),
-        currency: payload['currency']?.toString(),
-        notes: payload['notes']?.toString(),
-        confidence: _asDouble(payload['confidence']) ?? 0,
-        last4: payload['last4']?.toString(),
-        labels: (payload['raw_detected_labels'] as List<dynamic>? ?? const [])
-            .map((item) => item.toString())
-            .toList(),
-      );
-    } catch (error, stackTrace) {
-      AppLogger.instance.error('AI extraction failed', error, stackTrace);
-      return _parser.parse(classification, normalizedText);
-    }
-  }
-
-  double? _asDouble(dynamic value) {
-    if (value == null) {
-      return null;
-    }
-    if (value is num) {
-      return value.toDouble();
-    }
-    return double.tryParse(value.toString());
-  }
 }
 
 class HeuristicExtractionParser {
@@ -346,56 +244,33 @@ class HeuristicExtractionParser {
   }
 }
 
-class FileStorageService {
-  Future<FileReference> persistImport(FileReference input) async {
-    final directory = await getApplicationSupportDirectory();
-    final importsDirectory = Directory(p.join(directory.path, 'imports'));
-    if (!importsDirectory.existsSync()) {
-      await importsDirectory.create(recursive: true);
-    }
-    final target = p.join(
-      importsDirectory.path,
-      '${const Uuid().v4()}${p.extension(input.path)}',
-    );
-    final file = await File(input.path).copy(target);
-    return FileReference(
-      path: file.path,
-      sourceType: input.sourceType,
-      mimeType: input.mimeType,
-    );
-  }
-
-  Future<void> deleteImport(String path) async {
-    final file = File(path);
-    if (await file.exists()) {
-      await file.delete();
-    }
-  }
-}
-
 class ImportCoordinator {
   ImportCoordinator({
-    required this.fileStorageService,
+    required this.documentVaultService,
     required this.preprocessService,
     required this.ocrService,
     required this.classifier,
     required this.aiExtractionService,
     required this.validationService,
+    required this.preferencesRepository,
+    required this.retentionService,
   });
 
-  final FileStorageService fileStorageService;
+  final SecureDocumentVaultService documentVaultService;
   final ImagePreprocessService preprocessService;
   final OcrService ocrService;
   final DocumentClassifier classifier;
   final AiExtractionService aiExtractionService;
   final ParseValidationService validationService;
+  final PreferencesRepository preferencesRepository;
+  final DataRetentionService retentionService;
 
   Future<ImportReviewBundle> process({
     required FileReference input,
     required bool allowCloud,
   }) async {
-    final stored = await fileStorageService.persistImport(input);
-    final preprocessed = await preprocessService.preprocess(stored);
+    final preferences = await preferencesRepository.loadPreferences();
+    final preprocessed = await preprocessService.preprocess(input);
     final ocr = await ocrService.extractText(preprocessed);
     final multiline = ocr.lines.join('\n').trim();
     final normalized = ocr.text.replaceAll(RegExp(r'\s+'), ' ').trim();
@@ -404,24 +279,40 @@ class ImportCoordinator {
       await aiExtractionService.extract(
         classification: classification,
         normalizedText: multiline,
+        sourceType: input.sourceType,
         allowCloud: allowCloud,
       ),
     );
+    final stored = await documentVaultService.sealImport(input);
+    final now = DateTime.now();
+    final retainRaw = retentionService.shouldRetainRawOcr(preferences);
+    final rawOcrExpiry = retentionService.rawOcrExpiry(preferences, now);
 
     return ImportReviewBundle(
       document: ImportedDocument(
         id: const Uuid().v4(),
-        localPath: stored.path,
-        sourceType: stored.sourceType,
-        mimeType: stored.mimeType,
-        createdAt: DateTime.now(),
+        storageRef: stored.storageRef,
+        sourceType: input.sourceType,
+        mimeType: input.mimeType,
+        createdAt: now,
         linkedDebtId: null,
-        rawOcrText: normalized,
+        rawOcrText: retainRaw ? normalized : null,
         parseStatus: candidate.confidence > 0
             ? ParseStatus.success
             : ParseStatus.failed,
         parseVersion: AppConstants.aiPromptVersion,
         deleted: false,
+        retentionExpiresAt: retentionService.documentExpiry(
+          preferences: preferences,
+          parseStatus: candidate.confidence > 0
+              ? ParseStatus.success
+              : ParseStatus.failed,
+          now: now,
+        ),
+        rawOcrExpiresAt: retainRaw ? rawOcrExpiry : null,
+        purgedAt: null,
+        encryptedAt: stored.encryptedAt,
+        hasRawOcrText: retainRaw && normalized.isNotEmpty,
       ),
       classification: classification,
       normalizedText: multiline,

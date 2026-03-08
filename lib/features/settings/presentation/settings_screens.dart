@@ -343,6 +343,7 @@ class SecurityPrivacyScreen extends ConsumerWidget {
     final preferences =
         ref.watch(userPreferencesProvider).valueOrNull ??
         UserPreferences.defaults();
+    final protection = ref.watch(dataProtectionBootstrapProvider).valueOrNull;
     return AppPage(
       title: 'Security & privacy',
       child: ListView(
@@ -371,9 +372,9 @@ class SecurityPrivacyScreen extends ConsumerWidget {
           ),
           SwitchListTile.adaptive(
             value: preferences.aiConsentEnabled,
-            title: const Text('Allow cloud AI parsing'),
+            title: const Text('Allow secure cloud extraction'),
             subtitle: const Text(
-              'This is still confirmed on each import; local OCR remains available.',
+              'This is still confirmed on each import; local OCR remains available without backend access.',
             ),
             onChanged: (value) async {
               await ref
@@ -383,13 +384,122 @@ class SecurityPrivacyScreen extends ConsumerWidget {
                   );
             },
           ),
+          SwitchListTile.adaptive(
+            value: preferences.rawOcrRetentionEnabled,
+            title: const Text('Temporarily retain OCR text'),
+            subtitle: Text(
+              preferences.rawOcrRetentionEnabled
+                  ? 'OCR text is kept for ${preferences.rawOcrRetentionHours} hour(s) after review.'
+                  : 'OCR text is removed after review by default.',
+            ),
+            onChanged: (value) async {
+              await ref
+                  .read(preferencesRepositoryProvider)
+                  .savePreferences(
+                    preferences.copyWith(
+                      rawOcrRetentionEnabled: value,
+                      rawOcrRetentionHours: value ? 24 : 0,
+                    ),
+                  );
+            },
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Source document retention'),
+            subtitle: Text(switch (preferences.documentRetentionMode) {
+              DocumentRetentionMode.days7 => 'Auto-purge after 7 days',
+              DocumentRetentionMode.days30 => 'Auto-purge after 30 days',
+              DocumentRetentionMode.manual => 'Keep until manually deleted',
+            }),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => _showRetentionSheet(context, ref, preferences),
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Purge saved OCR text now'),
+            subtitle: const Text(
+              'Remove retained OCR text from local storage.',
+            ),
+            trailing: FilledButton.tonal(
+              onPressed: () async {
+                await ref.read(documentsRepositoryProvider).purgeAllRawOcr();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Stored OCR text removed')),
+                  );
+                }
+              },
+              child: const Text('Purge'),
+            ),
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Purge all imported documents now'),
+            subtitle: const Text(
+              'Best-effort removal of encrypted source files and metadata.',
+            ),
+            trailing: FilledButton.tonal(
+              onPressed: () async {
+                await ref.read(documentsRepositoryProvider).purgeAllDocuments();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Imported documents purged')),
+                  );
+                }
+              },
+              child: const Text('Purge'),
+            ),
+          ),
           const SizedBox(height: 12),
-          const AppCard(
-            child: Text(
-              'Imported screenshots are stored locally. Nothing is uploaded silently. You can delete imported documents from debt detail flows.',
+          AppCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  protection?.statusMessage ?? 'Checking local protection...',
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Imported screenshots stay local unless you explicitly allow secure server-side extraction for a single import. Nothing is uploaded silently. Deletion is best effort on device flash storage.',
+                ),
+              ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _showRetentionSheet(
+    BuildContext context,
+    WidgetRef ref,
+    UserPreferences preferences,
+  ) {
+    return showModalBottomSheet<void>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: DocumentRetentionMode.values.map((mode) {
+            final label = switch (mode) {
+              DocumentRetentionMode.days7 => 'Delete after 7 days',
+              DocumentRetentionMode.days30 => 'Delete after 30 days',
+              DocumentRetentionMode.manual => 'Keep until manual delete',
+            };
+            return ListTile(
+              title: Text(label),
+              onTap: () async {
+                await ref
+                    .read(preferencesRepositoryProvider)
+                    .savePreferences(
+                      preferences.copyWith(documentRetentionMode: mode),
+                    );
+                if (context.mounted) {
+                  Navigator.of(context).pop();
+                }
+              },
+            );
+          }).toList(),
+        ),
       ),
     );
   }
@@ -410,7 +520,7 @@ class HelpAboutScreen extends StatelessWidget {
               Text('DEBT DESTROYER'),
               SizedBox(height: 12),
               Text(
-                'Privacy-first debt tracking with local storage, on-device OCR, and optional cloud AI parsing.',
+                'Privacy-first debt tracking with local storage, on-device OCR, and optional secure server-side extraction.',
               ),
               SizedBox(height: 12),
               Text(

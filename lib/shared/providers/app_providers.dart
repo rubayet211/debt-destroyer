@@ -5,6 +5,8 @@ import 'package:csv/csv.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:http/http.dart' as http;
 import 'package:local_auth/local_auth.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -12,12 +14,17 @@ import 'package:uuid/uuid.dart';
 
 import '../../app/router/app_router.dart';
 import '../../core/services/app_services.dart';
+import '../../core/services/backend_services.dart';
+import '../../core/services/data_protection_service.dart';
+import '../../core/services/vault_services.dart';
 import '../../features/dashboard/domain/debt_metrics_service.dart';
 import '../../features/scan_import/domain/import_services.dart';
 import '../../features/strategy/domain/strategy_engine.dart';
 import '../data/local/app_database.dart';
 import '../data/repositories.dart';
 import '../enums/app_enums.dart';
+import '../models/backend_models.dart';
+import '../models/data_protection_models.dart';
 import '../models/dashboard_snapshot.dart';
 import '../models/debt.dart';
 import '../models/import_models.dart';
@@ -29,12 +36,39 @@ import '../models/user_preferences.dart';
 final availableCamerasProvider = Provider<List<CameraDescription>>(
   (ref) => const [],
 );
-final secureStorageProvider = Provider((ref) => const FlutterSecureStorage());
+final secureStorageProvider = Provider(
+  (ref) => const FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+  ),
+);
+final httpClientProvider = Provider<http.Client>((ref) {
+  final client = http.Client();
+  ref.onDispose(client.close);
+  return client;
+});
+final backendConfigProvider = Provider<BackendConfig>((ref) {
+  return BackendConfig(
+    baseUrl: dotenv.env['BACKEND_BASE_URL'] ?? '',
+    environment: dotenv.env['BACKEND_ENV'] ?? 'development',
+    playIntegrityProjectNumber: dotenv.env['PLAY_INTEGRITY_PROJECT_NUMBER'],
+    debugAttestationSecret: dotenv.env['DEBUG_ATTESTATION_SECRET'],
+    requestTimeout: const Duration(seconds: 15),
+  );
+});
 final appDatabaseProvider = Provider<AppDatabase>((ref) {
   final db = AppDatabase();
   ref.onDispose(db.close);
   return db;
 });
+final localVaultKeyServiceProvider = Provider(
+  (ref) => LocalVaultKeyService(ref.watch(secureStorageProvider)),
+);
+final dataRetentionServiceProvider = Provider(
+  (ref) => const DataRetentionService(),
+);
+final secureDocumentVaultServiceProvider = Provider(
+  (ref) => SecureDocumentVaultService(ref.watch(localVaultKeyServiceProvider)),
+);
 final localAuthProvider = Provider((ref) => LocalAuthentication());
 final localNotificationsProvider = Provider(
   (ref) => FlutterLocalNotificationsPlugin(),
@@ -55,13 +89,46 @@ final reminderSchedulerProvider = Provider((ref) {
 });
 final premiumServiceProvider = Provider((ref) => const PremiumService());
 final csvExportServiceProvider = Provider((ref) => CsvExportService());
+final attestationServiceProvider = Provider<AttestationService>(
+  (ref) => PlayIntegrityAttestationService(ref.watch(backendConfigProvider)),
+);
+final backendAuthServiceProvider = Provider<BackendAuthService>(
+  (ref) => BackendAuthService(
+    storage: ref.watch(secureStorageProvider),
+    httpClient: ref.watch(httpClientProvider),
+    config: ref.watch(backendConfigProvider),
+    attestationService: ref.watch(attestationServiceProvider),
+  ),
+);
+final backendApiClientProvider = Provider<BackendApiClient>(
+  (ref) => BackendApiClient(
+    httpClient: ref.watch(httpClientProvider),
+    config: ref.watch(backendConfigProvider),
+    sessionManager: ref.watch(backendAuthServiceProvider),
+  ),
+);
+final backendCapabilitiesServiceProvider = Provider<BackendCapabilitiesService>(
+  (ref) => BackendCapabilitiesService(ref.watch(backendApiClientProvider)),
+);
+final dataProtectionBootstrapServiceProvider =
+    Provider<DataProtectionBootstrapService>(
+      (ref) => DataProtectionBootstrapService(
+        database: ref.watch(appDatabaseProvider),
+        keyService: ref.watch(localVaultKeyServiceProvider),
+        documentVaultService: ref.watch(secureDocumentVaultServiceProvider),
+        retentionService: ref.watch(dataRetentionServiceProvider),
+      ),
+    );
 final strategyEngineProvider = Provider((ref) => const StrategyEngine());
 final debtMetricsServiceProvider = Provider(
   (ref) => DebtMetricsService(ref.watch(strategyEngineProvider)),
 );
 
 final debtsRepositoryProvider = Provider<DebtsRepository>(
-  (ref) => DriftDebtsRepository(ref.watch(appDatabaseProvider)),
+  (ref) => DriftDebtsRepository(
+    ref.watch(appDatabaseProvider),
+    ref.watch(secureDocumentVaultServiceProvider),
+  ),
 );
 final paymentsRepositoryProvider = Provider<PaymentsRepository>(
   (ref) => DriftPaymentsRepository(ref.watch(appDatabaseProvider)),
@@ -70,7 +137,10 @@ final preferencesRepositoryProvider = Provider<PreferencesRepository>(
   (ref) => DriftPreferencesRepository(ref.watch(appDatabaseProvider)),
 );
 final documentsRepositoryProvider = Provider<DocumentsRepository>(
-  (ref) => DriftDocumentsRepository(ref.watch(appDatabaseProvider)),
+  (ref) => DriftDocumentsRepository(
+    ref.watch(appDatabaseProvider),
+    ref.watch(secureDocumentVaultServiceProvider),
+  ),
 );
 final scenariosRepositoryProvider = Provider<ScenariosRepository>(
   (ref) => DriftScenariosRepository(ref.watch(appDatabaseProvider)),
@@ -86,22 +156,33 @@ final ocrServiceProvider = Provider<OcrService>((ref) => MlKitOcrService());
 final documentClassifierProvider = Provider((ref) => DocumentClassifier());
 final heuristicParserProvider = Provider((ref) => HeuristicExtractionParser());
 final aiExtractionServiceProvider = Provider<AiExtractionService>(
-  (ref) => GeminiAiExtractionService(ref.watch(heuristicParserProvider)),
+  (ref) => BackendAiExtractionService(
+    client: ref.watch(backendApiClientProvider),
+    sessionManager: ref.watch(backendAuthServiceProvider),
+    config: ref.watch(backendConfigProvider),
+    parser: ref.watch(heuristicParserProvider),
+  ),
 );
 final parseValidationServiceProvider = Provider(
   (ref) => ParseValidationService(),
 );
-final fileStorageServiceProvider = Provider((ref) => FileStorageService());
 final importCoordinatorProvider = Provider(
   (ref) => ImportCoordinator(
-    fileStorageService: ref.watch(fileStorageServiceProvider),
+    documentVaultService: ref.watch(secureDocumentVaultServiceProvider),
     preprocessService: ref.watch(imagePreprocessServiceProvider),
     ocrService: ref.watch(ocrServiceProvider),
     classifier: ref.watch(documentClassifierProvider),
     aiExtractionService: ref.watch(aiExtractionServiceProvider),
     validationService: ref.watch(parseValidationServiceProvider),
+    preferencesRepository: ref.watch(preferencesRepositoryProvider),
+    retentionService: ref.watch(dataRetentionServiceProvider),
   ),
 );
+final dataProtectionBootstrapProvider = FutureProvider<DataProtectionState>((
+  ref,
+) {
+  return ref.watch(dataProtectionBootstrapServiceProvider).initialize();
+});
 
 final userPreferencesProvider = StreamProvider<UserPreferences>(
   (ref) => ref.watch(preferencesRepositoryProvider).watchPreferences(),
@@ -187,11 +268,13 @@ class ScanImportController
     required bool allowCloud,
   }) async {
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(
-      () => ref
+    state = await AsyncValue.guard(() async {
+      final bundle = await ref
           .read(importCoordinatorProvider)
-          .process(input: input, allowCloud: allowCloud),
-    );
+          .process(input: input, allowCloud: allowCloud);
+      await ref.read(documentsRepositoryProvider).saveDocument(bundle.document);
+      return bundle;
+    });
   }
 
   void clear() => state = const AsyncValue.data(null);

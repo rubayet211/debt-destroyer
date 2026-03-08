@@ -3,9 +3,14 @@ import 'dart:io';
 
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:sqlite3/sqlite3.dart' as sqlite;
+import 'package:sqlite3/open.dart' as sqlite_open;
+import 'package:sqlcipher_flutter_libs/sqlcipher_flutter_libs.dart';
 
+import '../../../core/services/vault_services.dart';
 part 'app_database.g.dart';
 
 class DebtsTable extends Table {
@@ -50,7 +55,8 @@ class PaymentsTable extends Table {
 
 class ImportedDocumentsTable extends Table {
   TextColumn get id => text()();
-  TextColumn get localPath => text()();
+  TextColumn get localPath => text().withDefault(const Constant(''))();
+  TextColumn get storageRef => text().nullable()();
   TextColumn get sourceType => text()();
   TextColumn get mimeType => text()();
   DateTimeColumn get createdAt => dateTime()();
@@ -59,6 +65,12 @@ class ImportedDocumentsTable extends Table {
   TextColumn get parseStatus => text()();
   TextColumn get parseVersion => text()();
   BoolColumn get deleted => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get retentionExpiresAt => dateTime().nullable()();
+  DateTimeColumn get rawOcrExpiresAt => dateTime().nullable()();
+  DateTimeColumn get purgedAt => dateTime().nullable()();
+  DateTimeColumn get encryptedAt => dateTime().nullable()();
+  BoolColumn get hasRawOcrText =>
+      boolean().withDefault(const Constant(false))();
 
   @override
   Set<Column<Object>> get primaryKey => {id};
@@ -120,6 +132,16 @@ class AppPreferencesTable extends Table {
       boolean().withDefault(const Constant(false))();
   BoolColumn get weeklySummaryEnabled =>
       boolean().withDefault(const Constant(false))();
+  BoolColumn get rawOcrRetentionEnabled =>
+      boolean().withDefault(const Constant(false))();
+  IntColumn get rawOcrRetentionHours =>
+      integer().withDefault(const Constant(0))();
+  TextColumn get documentRetentionMode =>
+      text().withDefault(const Constant('days30'))();
+  IntColumn get purgeFailedImportsAfterHours =>
+      integer().withDefault(const Constant(24))();
+  BoolColumn get dataProtectionExplainerSeen =>
+      boolean().withDefault(const Constant(false))();
 
   @override
   Set<Column<Object>> get primaryKey => {key};
@@ -152,7 +174,62 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 3;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onCreate: (migrator) => migrator.createAll(),
+    onUpgrade: (migrator, from, to) async {
+      if (from < 2) {
+        await migrator.addColumn(
+          importedDocumentsTable,
+          importedDocumentsTable.storageRef,
+        );
+        await migrator.addColumn(
+          importedDocumentsTable,
+          importedDocumentsTable.retentionExpiresAt,
+        );
+        await migrator.addColumn(
+          importedDocumentsTable,
+          importedDocumentsTable.purgedAt,
+        );
+        await migrator.addColumn(
+          importedDocumentsTable,
+          importedDocumentsTable.encryptedAt,
+        );
+        await migrator.addColumn(
+          importedDocumentsTable,
+          importedDocumentsTable.hasRawOcrText,
+        );
+        await migrator.addColumn(
+          appPreferencesTable,
+          appPreferencesTable.rawOcrRetentionEnabled,
+        );
+        await migrator.addColumn(
+          appPreferencesTable,
+          appPreferencesTable.rawOcrRetentionHours,
+        );
+        await migrator.addColumn(
+          appPreferencesTable,
+          appPreferencesTable.documentRetentionMode,
+        );
+        await migrator.addColumn(
+          appPreferencesTable,
+          appPreferencesTable.purgeFailedImportsAfterHours,
+        );
+        await migrator.addColumn(
+          appPreferencesTable,
+          appPreferencesTable.dataProtectionExplainerSeen,
+        );
+      }
+      if (from < 3) {
+        await migrator.addColumn(
+          importedDocumentsTable,
+          importedDocumentsTable.rawOcrExpiresAt,
+        );
+      }
+    },
+  );
 
   List<String> decodeStringList(String raw) {
     final decoded = jsonDecode(raw) as List<dynamic>;
@@ -164,8 +241,153 @@ class AppDatabase extends _$AppDatabase {
 
 LazyDatabase _openConnection() {
   return LazyDatabase(() async {
-    final directory = await getApplicationDocumentsDirectory();
+    final keyService = const LocalVaultKeyService();
+    final directory = await getApplicationSupportDirectory();
+    final legacyDirectory = await getApplicationDocumentsDirectory();
     final dbFile = File(p.join(directory.path, 'debt_destroyer.sqlite'));
-    return NativeDatabase.createInBackground(dbFile);
+    final legacyDbFile = File(
+      p.join(legacyDirectory.path, 'debt_destroyer.sqlite'),
+    );
+    final passphrase = await keyService.databasePassphrase();
+    await _prepareEncryptedDatabase(
+      dbFile: dbFile,
+      legacyDbFile: legacyDbFile,
+      passphrase: passphrase,
+      keyService: keyService,
+    );
+    return NativeDatabase.createInBackground(
+      dbFile,
+      isolateSetup: () {
+        sqlite_open.open.overrideFor(
+          sqlite_open.OperatingSystem.android,
+          openCipherOnAndroid,
+        );
+      },
+      setup: (rawDb) {
+        rawDb.execute("PRAGMA key = '${_escapeSql(passphrase)}';");
+        rawDb.execute('PRAGMA foreign_keys = ON;');
+        rawDb.execute('PRAGMA journal_mode = WAL;');
+        if (kDebugMode) {
+          final version = rawDb.select('PRAGMA cipher_version;');
+          if (version.isEmpty || version.first.values.first == null) {
+            throw StateError(
+              'Encrypted SQLite support unavailable. Check SQLCipher bundling.',
+            );
+          }
+        }
+      },
+    );
   });
+}
+
+Future<void> _prepareEncryptedDatabase({
+  required File dbFile,
+  required File legacyDbFile,
+  required String passphrase,
+  required LocalVaultKeyService keyService,
+}) async {
+  _configureCipherOpen();
+  final backupFile = File('${dbFile.path}.plaintext.bak');
+  final existingEncrypted = await _canOpenEncrypted(dbFile, passphrase);
+  if (existingEncrypted) {
+    await keyService.clearMigrationStage();
+    await keyService.setMigrationFailure(null);
+    if (await backupFile.exists()) {
+      await backupFile.delete();
+    }
+    return;
+  }
+
+  if (await dbFile.exists()) {
+    await keyService.setMigrationStage('encrypting_database');
+    await _encryptPlaintextDatabase(
+      target: dbFile,
+      backup: backupFile,
+      passphrase: passphrase,
+    );
+    await keyService.setUpgradeExplainerPending(true);
+    await keyService.clearMigrationStage();
+    await keyService.setMigrationFailure(null);
+    return;
+  }
+
+  if (await legacyDbFile.exists()) {
+    await keyService.setMigrationStage('copying_legacy_database');
+    if (!await dbFile.parent.exists()) {
+      await dbFile.parent.create(recursive: true);
+    }
+    await legacyDbFile.copy(dbFile.path);
+    await _encryptPlaintextDatabase(
+      target: dbFile,
+      backup: backupFile,
+      passphrase: passphrase,
+    );
+    await keyService.setUpgradeExplainerPending(true);
+    await keyService.clearMigrationStage();
+    await keyService.setMigrationFailure(null);
+  }
+}
+
+Future<bool> _canOpenEncrypted(File file, String passphrase) async {
+  if (!await file.exists()) {
+    return false;
+  }
+  sqlite.Database? db;
+  try {
+    db = sqlite.sqlite3.open(file.path);
+    db.execute("PRAGMA key = '${_escapeSql(passphrase)}';");
+    db.select('SELECT count(*) FROM sqlite_master;');
+    final cipher = db.select('PRAGMA cipher_version;');
+    return cipher.isNotEmpty;
+  } catch (_) {
+    return false;
+  } finally {
+    db?.dispose();
+  }
+}
+
+Future<void> _encryptPlaintextDatabase({
+  required File target,
+  required File backup,
+  required String passphrase,
+}) async {
+  if (!await backup.exists()) {
+    await target.copy(backup.path);
+  }
+  sqlite.Database? db;
+  try {
+    db = sqlite.sqlite3.open(target.path);
+    db.execute("PRAGMA rekey = '${_escapeSql(passphrase)}';");
+    db.dispose();
+    db = null;
+    if (!await _canOpenEncrypted(target, passphrase)) {
+      throw StateError('Encrypted database verification failed');
+    }
+    if (await backup.exists()) {
+      await backup.delete();
+    }
+  } catch (error) {
+    if (db != null) {
+      db.dispose();
+    }
+    if (await backup.exists()) {
+      if (await target.exists()) {
+        await target.delete();
+      }
+      await backup.copy(target.path);
+    }
+    await const LocalVaultKeyService().setMigrationFailure(
+      'Local database protection could not be completed.',
+    );
+    rethrow;
+  }
+}
+
+String _escapeSql(String value) => value.replaceAll("'", "''");
+
+void _configureCipherOpen() {
+  sqlite_open.open.overrideFor(
+    sqlite_open.OperatingSystem.android,
+    openCipherOnAndroid,
+  );
 }

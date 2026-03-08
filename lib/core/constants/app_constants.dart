@@ -5,4 +5,5 @@ class AppConstants {
   static const defaultLocaleCode = 'en_US';
   static const aiPromptVersion = '2026.1';
   static const dashboardScenarioLabel = 'Default simulation';
+  static const appVersion = '1.0.0+1';
 }
