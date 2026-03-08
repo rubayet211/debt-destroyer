@@ -1710,6 +1710,18 @@ class $ImportedDocumentsTableTable extends ImportedDocumentsTable
         type: DriftSqlType.dateTime,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _rawOcrExpiresAtMeta = const VerificationMeta(
+    'rawOcrExpiresAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> rawOcrExpiresAt =
+      GeneratedColumn<DateTime>(
+        'raw_ocr_expires_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _purgedAtMeta = const VerificationMeta(
     'purgedAt',
   );
@@ -1761,6 +1773,7 @@ class $ImportedDocumentsTableTable extends ImportedDocumentsTable
     parseVersion,
     deleted,
     retentionExpiresAt,
+    rawOcrExpiresAt,
     purgedAt,
     encryptedAt,
     hasRawOcrText,
@@ -1873,6 +1886,15 @@ class $ImportedDocumentsTableTable extends ImportedDocumentsTable
         ),
       );
     }
+    if (data.containsKey('raw_ocr_expires_at')) {
+      context.handle(
+        _rawOcrExpiresAtMeta,
+        rawOcrExpiresAt.isAcceptableOrUnknown(
+          data['raw_ocr_expires_at']!,
+          _rawOcrExpiresAtMeta,
+        ),
+      );
+    }
     if (data.containsKey('purged_at')) {
       context.handle(
         _purgedAtMeta,
@@ -1957,6 +1979,10 @@ class $ImportedDocumentsTableTable extends ImportedDocumentsTable
         DriftSqlType.dateTime,
         data['${effectivePrefix}retention_expires_at'],
       ),
+      rawOcrExpiresAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}raw_ocr_expires_at'],
+      ),
       purgedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}purged_at'],
@@ -1992,6 +2018,7 @@ class ImportedDocumentsTableData extends DataClass
   final String parseVersion;
   final bool deleted;
   final DateTime? retentionExpiresAt;
+  final DateTime? rawOcrExpiresAt;
   final DateTime? purgedAt;
   final DateTime? encryptedAt;
   final bool hasRawOcrText;
@@ -2008,6 +2035,7 @@ class ImportedDocumentsTableData extends DataClass
     required this.parseVersion,
     required this.deleted,
     this.retentionExpiresAt,
+    this.rawOcrExpiresAt,
     this.purgedAt,
     this.encryptedAt,
     required this.hasRawOcrText,
@@ -2034,6 +2062,9 @@ class ImportedDocumentsTableData extends DataClass
     map['deleted'] = Variable<bool>(deleted);
     if (!nullToAbsent || retentionExpiresAt != null) {
       map['retention_expires_at'] = Variable<DateTime>(retentionExpiresAt);
+    }
+    if (!nullToAbsent || rawOcrExpiresAt != null) {
+      map['raw_ocr_expires_at'] = Variable<DateTime>(rawOcrExpiresAt);
     }
     if (!nullToAbsent || purgedAt != null) {
       map['purged_at'] = Variable<DateTime>(purgedAt);
@@ -2067,6 +2098,9 @@ class ImportedDocumentsTableData extends DataClass
       retentionExpiresAt: retentionExpiresAt == null && nullToAbsent
           ? const Value.absent()
           : Value(retentionExpiresAt),
+      rawOcrExpiresAt: rawOcrExpiresAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(rawOcrExpiresAt),
       purgedAt: purgedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(purgedAt),
@@ -2097,6 +2131,7 @@ class ImportedDocumentsTableData extends DataClass
       retentionExpiresAt: serializer.fromJson<DateTime?>(
         json['retentionExpiresAt'],
       ),
+      rawOcrExpiresAt: serializer.fromJson<DateTime?>(json['rawOcrExpiresAt']),
       purgedAt: serializer.fromJson<DateTime?>(json['purgedAt']),
       encryptedAt: serializer.fromJson<DateTime?>(json['encryptedAt']),
       hasRawOcrText: serializer.fromJson<bool>(json['hasRawOcrText']),
@@ -2118,6 +2153,7 @@ class ImportedDocumentsTableData extends DataClass
       'parseVersion': serializer.toJson<String>(parseVersion),
       'deleted': serializer.toJson<bool>(deleted),
       'retentionExpiresAt': serializer.toJson<DateTime?>(retentionExpiresAt),
+      'rawOcrExpiresAt': serializer.toJson<DateTime?>(rawOcrExpiresAt),
       'purgedAt': serializer.toJson<DateTime?>(purgedAt),
       'encryptedAt': serializer.toJson<DateTime?>(encryptedAt),
       'hasRawOcrText': serializer.toJson<bool>(hasRawOcrText),
@@ -2137,6 +2173,7 @@ class ImportedDocumentsTableData extends DataClass
     String? parseVersion,
     bool? deleted,
     Value<DateTime?> retentionExpiresAt = const Value.absent(),
+    Value<DateTime?> rawOcrExpiresAt = const Value.absent(),
     Value<DateTime?> purgedAt = const Value.absent(),
     Value<DateTime?> encryptedAt = const Value.absent(),
     bool? hasRawOcrText,
@@ -2155,6 +2192,9 @@ class ImportedDocumentsTableData extends DataClass
     retentionExpiresAt: retentionExpiresAt.present
         ? retentionExpiresAt.value
         : this.retentionExpiresAt,
+    rawOcrExpiresAt: rawOcrExpiresAt.present
+        ? rawOcrExpiresAt.value
+        : this.rawOcrExpiresAt,
     purgedAt: purgedAt.present ? purgedAt.value : this.purgedAt,
     encryptedAt: encryptedAt.present ? encryptedAt.value : this.encryptedAt,
     hasRawOcrText: hasRawOcrText ?? this.hasRawOcrText,
@@ -2189,6 +2229,9 @@ class ImportedDocumentsTableData extends DataClass
       retentionExpiresAt: data.retentionExpiresAt.present
           ? data.retentionExpiresAt.value
           : this.retentionExpiresAt,
+      rawOcrExpiresAt: data.rawOcrExpiresAt.present
+          ? data.rawOcrExpiresAt.value
+          : this.rawOcrExpiresAt,
       purgedAt: data.purgedAt.present ? data.purgedAt.value : this.purgedAt,
       encryptedAt: data.encryptedAt.present
           ? data.encryptedAt.value
@@ -2214,6 +2257,7 @@ class ImportedDocumentsTableData extends DataClass
           ..write('parseVersion: $parseVersion, ')
           ..write('deleted: $deleted, ')
           ..write('retentionExpiresAt: $retentionExpiresAt, ')
+          ..write('rawOcrExpiresAt: $rawOcrExpiresAt, ')
           ..write('purgedAt: $purgedAt, ')
           ..write('encryptedAt: $encryptedAt, ')
           ..write('hasRawOcrText: $hasRawOcrText')
@@ -2235,6 +2279,7 @@ class ImportedDocumentsTableData extends DataClass
     parseVersion,
     deleted,
     retentionExpiresAt,
+    rawOcrExpiresAt,
     purgedAt,
     encryptedAt,
     hasRawOcrText,
@@ -2255,6 +2300,7 @@ class ImportedDocumentsTableData extends DataClass
           other.parseVersion == this.parseVersion &&
           other.deleted == this.deleted &&
           other.retentionExpiresAt == this.retentionExpiresAt &&
+          other.rawOcrExpiresAt == this.rawOcrExpiresAt &&
           other.purgedAt == this.purgedAt &&
           other.encryptedAt == this.encryptedAt &&
           other.hasRawOcrText == this.hasRawOcrText);
@@ -2274,6 +2320,7 @@ class ImportedDocumentsTableCompanion
   final Value<String> parseVersion;
   final Value<bool> deleted;
   final Value<DateTime?> retentionExpiresAt;
+  final Value<DateTime?> rawOcrExpiresAt;
   final Value<DateTime?> purgedAt;
   final Value<DateTime?> encryptedAt;
   final Value<bool> hasRawOcrText;
@@ -2291,6 +2338,7 @@ class ImportedDocumentsTableCompanion
     this.parseVersion = const Value.absent(),
     this.deleted = const Value.absent(),
     this.retentionExpiresAt = const Value.absent(),
+    this.rawOcrExpiresAt = const Value.absent(),
     this.purgedAt = const Value.absent(),
     this.encryptedAt = const Value.absent(),
     this.hasRawOcrText = const Value.absent(),
@@ -2309,6 +2357,7 @@ class ImportedDocumentsTableCompanion
     required String parseVersion,
     this.deleted = const Value.absent(),
     this.retentionExpiresAt = const Value.absent(),
+    this.rawOcrExpiresAt = const Value.absent(),
     this.purgedAt = const Value.absent(),
     this.encryptedAt = const Value.absent(),
     this.hasRawOcrText = const Value.absent(),
@@ -2332,6 +2381,7 @@ class ImportedDocumentsTableCompanion
     Expression<String>? parseVersion,
     Expression<bool>? deleted,
     Expression<DateTime>? retentionExpiresAt,
+    Expression<DateTime>? rawOcrExpiresAt,
     Expression<DateTime>? purgedAt,
     Expression<DateTime>? encryptedAt,
     Expression<bool>? hasRawOcrText,
@@ -2351,6 +2401,7 @@ class ImportedDocumentsTableCompanion
       if (deleted != null) 'deleted': deleted,
       if (retentionExpiresAt != null)
         'retention_expires_at': retentionExpiresAt,
+      if (rawOcrExpiresAt != null) 'raw_ocr_expires_at': rawOcrExpiresAt,
       if (purgedAt != null) 'purged_at': purgedAt,
       if (encryptedAt != null) 'encrypted_at': encryptedAt,
       if (hasRawOcrText != null) 'has_raw_ocr_text': hasRawOcrText,
@@ -2371,6 +2422,7 @@ class ImportedDocumentsTableCompanion
     Value<String>? parseVersion,
     Value<bool>? deleted,
     Value<DateTime?>? retentionExpiresAt,
+    Value<DateTime?>? rawOcrExpiresAt,
     Value<DateTime?>? purgedAt,
     Value<DateTime?>? encryptedAt,
     Value<bool>? hasRawOcrText,
@@ -2389,6 +2441,7 @@ class ImportedDocumentsTableCompanion
       parseVersion: parseVersion ?? this.parseVersion,
       deleted: deleted ?? this.deleted,
       retentionExpiresAt: retentionExpiresAt ?? this.retentionExpiresAt,
+      rawOcrExpiresAt: rawOcrExpiresAt ?? this.rawOcrExpiresAt,
       purgedAt: purgedAt ?? this.purgedAt,
       encryptedAt: encryptedAt ?? this.encryptedAt,
       hasRawOcrText: hasRawOcrText ?? this.hasRawOcrText,
@@ -2437,6 +2490,9 @@ class ImportedDocumentsTableCompanion
         retentionExpiresAt.value,
       );
     }
+    if (rawOcrExpiresAt.present) {
+      map['raw_ocr_expires_at'] = Variable<DateTime>(rawOcrExpiresAt.value);
+    }
     if (purgedAt.present) {
       map['purged_at'] = Variable<DateTime>(purgedAt.value);
     }
@@ -2467,6 +2523,7 @@ class ImportedDocumentsTableCompanion
           ..write('parseVersion: $parseVersion, ')
           ..write('deleted: $deleted, ')
           ..write('retentionExpiresAt: $retentionExpiresAt, ')
+          ..write('rawOcrExpiresAt: $rawOcrExpiresAt, ')
           ..write('purgedAt: $purgedAt, ')
           ..write('encryptedAt: $encryptedAt, ')
           ..write('hasRawOcrText: $hasRawOcrText, ')
@@ -6315,6 +6372,7 @@ typedef $$ImportedDocumentsTableTableCreateCompanionBuilder =
       required String parseVersion,
       Value<bool> deleted,
       Value<DateTime?> retentionExpiresAt,
+      Value<DateTime?> rawOcrExpiresAt,
       Value<DateTime?> purgedAt,
       Value<DateTime?> encryptedAt,
       Value<bool> hasRawOcrText,
@@ -6334,6 +6392,7 @@ typedef $$ImportedDocumentsTableTableUpdateCompanionBuilder =
       Value<String> parseVersion,
       Value<bool> deleted,
       Value<DateTime?> retentionExpiresAt,
+      Value<DateTime?> rawOcrExpiresAt,
       Value<DateTime?> purgedAt,
       Value<DateTime?> encryptedAt,
       Value<bool> hasRawOcrText,
@@ -6451,6 +6510,11 @@ class $$ImportedDocumentsTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<DateTime> get rawOcrExpiresAt => $composableBuilder(
+    column: $table.rawOcrExpiresAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<DateTime> get purgedAt => $composableBuilder(
     column: $table.purgedAt,
     builder: (column) => ColumnFilters(column),
@@ -6562,6 +6626,11 @@ class $$ImportedDocumentsTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get rawOcrExpiresAt => $composableBuilder(
+    column: $table.rawOcrExpiresAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get purgedAt => $composableBuilder(
     column: $table.purgedAt,
     builder: (column) => ColumnOrderings(column),
@@ -6634,6 +6703,11 @@ class $$ImportedDocumentsTableTableAnnotationComposer
 
   GeneratedColumn<DateTime> get retentionExpiresAt => $composableBuilder(
     column: $table.retentionExpiresAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get rawOcrExpiresAt => $composableBuilder(
+    column: $table.rawOcrExpiresAt,
     builder: (column) => column,
   );
 
@@ -6728,6 +6802,7 @@ class $$ImportedDocumentsTableTableTableManager
                 Value<String> parseVersion = const Value.absent(),
                 Value<bool> deleted = const Value.absent(),
                 Value<DateTime?> retentionExpiresAt = const Value.absent(),
+                Value<DateTime?> rawOcrExpiresAt = const Value.absent(),
                 Value<DateTime?> purgedAt = const Value.absent(),
                 Value<DateTime?> encryptedAt = const Value.absent(),
                 Value<bool> hasRawOcrText = const Value.absent(),
@@ -6745,6 +6820,7 @@ class $$ImportedDocumentsTableTableTableManager
                 parseVersion: parseVersion,
                 deleted: deleted,
                 retentionExpiresAt: retentionExpiresAt,
+                rawOcrExpiresAt: rawOcrExpiresAt,
                 purgedAt: purgedAt,
                 encryptedAt: encryptedAt,
                 hasRawOcrText: hasRawOcrText,
@@ -6764,6 +6840,7 @@ class $$ImportedDocumentsTableTableTableManager
                 required String parseVersion,
                 Value<bool> deleted = const Value.absent(),
                 Value<DateTime?> retentionExpiresAt = const Value.absent(),
+                Value<DateTime?> rawOcrExpiresAt = const Value.absent(),
                 Value<DateTime?> purgedAt = const Value.absent(),
                 Value<DateTime?> encryptedAt = const Value.absent(),
                 Value<bool> hasRawOcrText = const Value.absent(),
@@ -6781,6 +6858,7 @@ class $$ImportedDocumentsTableTableTableManager
                 parseVersion: parseVersion,
                 deleted: deleted,
                 retentionExpiresAt: retentionExpiresAt,
+                rawOcrExpiresAt: rawOcrExpiresAt,
                 purgedAt: purgedAt,
                 encryptedAt: encryptedAt,
                 hasRawOcrText: hasRawOcrText,

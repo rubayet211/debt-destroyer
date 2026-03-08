@@ -20,6 +20,7 @@ import {
   hashToken,
   monthKeyFor,
   type AppStore,
+  type UsageSnapshot,
 } from './services/storage.js';
 import { normalizeExtraction } from './services/schema.js';
 
@@ -127,7 +128,16 @@ export async function createApp(options: CreateAppOptions = {}) {
       throw new AppError(401, 'attestation_failed', verdict.reason ?? 'Invalid attestation');
     }
 
-    await store.consumeChallenge(body.challenge_id);
+    const challengeConsumed = await store.consumeChallengeIfUnused(
+      body.challenge_id,
+    );
+    if (!challengeConsumed) {
+      throw new AppError(
+        400,
+        'challenge_consumed',
+        'Challenge already used',
+      );
+    }
     await store.upsertInstall({
       installId: body.install_id,
       attestationStatus: verdict.status,
@@ -235,14 +245,29 @@ export async function createApp(options: CreateAppOptions = {}) {
       });
     }
 
-    const quota = await getQuotaSnapshot(store, config, installId);
-    if (!quota.allowed) {
-      throw new AppError(429, 'quota_exhausted', 'No cloud extraction quota remaining', {
-        quota,
-      });
+    const entitlement = await store.getEntitlement(installId);
+    const monthKey = monthKeyFor(new Date());
+    const reservedQuota = entitlement.isPremium
+      ? null
+      : await store.reserveQuotaSlot(
+          installId,
+          monthKey,
+          config.freeScanLimit,
+          quotaReservationTtlSeconds(config),
+        );
+    if (reservedQuota !== null && !reservedQuota.allowed) {
+      throw new AppError(
+        429,
+        'quota_exhausted',
+        'No cloud extraction quota remaining',
+        {
+          quota: makeQuotaSnapshot(config, reservedQuota.usage, true),
+        },
+      );
     }
 
     const startedAt = Date.now();
+    const reservationId = reservedQuota?.reservationId ?? null;
     let rawResult: Record<string, unknown>;
     try {
       rawResult = await provider.extract({
@@ -258,55 +283,75 @@ export async function createApp(options: CreateAppOptions = {}) {
           message: error instanceof Error ? error.message : 'unknown',
         },
       });
+      if (reservationId !== null) {
+        await store.releaseQuotaSlot(reservationId);
+      }
       throw error;
     }
 
-    const normalized = normalizeExtraction(rawResult);
-    const usageCount = await store.incrementUsageCount(
-      installId,
-      monthKeyFor(new Date()),
-    );
-    const nextQuota = makeQuotaSnapshot(config, usageCount, false);
-    const durationMs = Date.now() - startedAt;
+    try {
+      const normalized = normalizeExtraction(rawResult);
+      const durationMs = Date.now() - startedAt;
 
-    await store.saveExtractionAudit({
-      requestId: body.request_id,
-      installId,
-      classification: body.document_classification,
-      provider: provider.providerName,
-      model: provider.modelName,
-      status: 'success',
-      latencyMs: durationMs,
-      ocrHash: sha256(body.normalized_ocr_text),
-      ocrPreview: redactTextPreview(body.normalized_ocr_text),
-      warnings: normalized.warnings,
-    });
-
-    await store.saveAuditEvent({
-      installId,
-      requestId: body.request_id,
-      eventType: 'extraction.completed',
-      payload: {
+      await store.saveExtractionAudit({
+        requestId: body.request_id,
+        installId,
         classification: body.document_classification,
-        durationMs,
-        warnings: normalized.warnings,
-      },
-    });
-
-    const response = extractionResponseSchema.parse({
-      extraction: normalized.payload,
-      warnings: normalized.warnings,
-      quota: nextQuota,
-      meta: {
-        request_id: body.request_id,
         provider: provider.providerName,
         model: provider.modelName,
-        classification: body.document_classification,
-        duration_ms: durationMs,
-      },
-    });
+        status: 'success',
+        latencyMs: durationMs,
+        ocrHash: sha256(body.normalized_ocr_text),
+        ocrPreview: redactTextPreview(body.normalized_ocr_text),
+        warnings: normalized.warnings,
+      });
 
-    return reply.send(response);
+      await store.saveAuditEvent({
+        installId,
+        requestId: body.request_id,
+        eventType: 'extraction.completed',
+        payload: {
+          classification: body.document_classification,
+          durationMs,
+          warnings: normalized.warnings,
+        },
+      });
+
+      if (reservationId !== null) {
+        await store.commitQuotaSlot(reservationId);
+      }
+      const usageSnapshot = entitlement.isPremium
+        ? null
+        : await store.getUsageSnapshot(installId, monthKey);
+      const nextQuota = entitlement.isPremium
+        ? {
+            allowed: true,
+            remaining_free_scans: config.freeScanLimit,
+            premium_required: false,
+            reset_at: nextMonthReset().toISOString(),
+          }
+        : makeQuotaSnapshot(config, usageSnapshot!, false);
+
+      const response = extractionResponseSchema.parse({
+        extraction: normalized.payload,
+        warnings: normalized.warnings,
+        quota: nextQuota,
+        meta: {
+          request_id: body.request_id,
+          provider: provider.providerName,
+          model: provider.modelName,
+          classification: body.document_classification,
+          duration_ms: durationMs,
+        },
+      });
+
+      return reply.send(response);
+    } catch (error) {
+      if (reservationId !== null) {
+        await store.releaseQuotaSlot(reservationId);
+      }
+      throw error;
+    }
   });
 
   return app;
@@ -363,22 +408,27 @@ async function getQuotaSnapshot(
       reset_at: nextMonthReset().toISOString(),
     };
   }
-  const usageCount = await store.getUsageCount(installId, monthKeyFor(new Date()));
-  return makeQuotaSnapshot(config, usageCount, true);
+  const usage = await store.getUsageSnapshot(installId, monthKeyFor(new Date()));
+  return makeQuotaSnapshot(config, usage, true);
 }
 
 function makeQuotaSnapshot(
   config: AppConfig,
-  usageCount: number,
+  usage: UsageSnapshot,
   premiumRequiredOnExhaustion: boolean,
 ) {
-  const remaining = Math.max(0, config.freeScanLimit - usageCount);
+  const effectiveCount = usage.cloudExtractions + usage.reservedExtractions;
+  const remaining = Math.max(0, config.freeScanLimit - effectiveCount);
   return {
     allowed: remaining > 0,
     remaining_free_scans: remaining,
     premium_required: premiumRequiredOnExhaustion && remaining <= 0,
     reset_at: nextMonthReset().toISOString(),
   };
+}
+
+function quotaReservationTtlSeconds(config: AppConfig) {
+  return Math.max(30, Math.ceil(config.requestTimeoutMs / 1000) * 2);
 }
 
 function nextMonthReset() {

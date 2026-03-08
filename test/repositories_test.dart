@@ -168,6 +168,7 @@ void main() {
         parseVersion: 'v2',
         deleted: false,
         retentionExpiresAt: DateTime(2026, 4, 1),
+        rawOcrExpiresAt: null,
         purgedAt: null,
         encryptedAt: stored.encryptedAt,
         hasRawOcrText: false,
@@ -183,6 +184,89 @@ void main() {
         '${tempDir.path}${Platform.pathSeparator}secure_vault${Platform.pathSeparator}documents${Platform.pathSeparator}${stored.storageRef}',
       ).existsSync(),
       isFalse,
+    );
+  });
+
+  test('document purge failure leaves database rows intact', () async {
+    final failingDatabase = AppDatabase(NativeDatabase.memory());
+    addTearDown(() async => failingDatabase.close());
+    final failingVault = _ThrowingVaultService();
+    final failingDebtsRepository = DriftDebtsRepository(
+      failingDatabase,
+      failingVault,
+    );
+    final failingDocumentsRepository = DriftDocumentsRepository(
+      failingDatabase,
+      failingVault,
+    );
+
+    final debt = Debt(
+      id: 'd4',
+      title: 'Loan',
+      creditorName: 'Credit Union',
+      type: DebtType.personalLoan,
+      currency: 'USD',
+      originalBalance: 900,
+      currentBalance: 900,
+      apr: 12,
+      minimumPayment: 75,
+      dueDate: null,
+      paymentFrequency: PaymentFrequency.monthly,
+      createdAt: DateTime(2026, 1, 1),
+      updatedAt: DateTime(2026, 1, 1),
+      notes: '',
+      tags: const [],
+      status: DebtStatus.active,
+      remindersEnabled: false,
+      customPriority: 2,
+    );
+    await failingDebtsRepository.saveDebt(debt);
+    await failingDocumentsRepository.saveDocument(
+      ImportedDocument(
+        id: 'doc-failure',
+        storageRef: 'missing.vault',
+        sourceType: DocumentSourceType.gallery,
+        mimeType: 'text/plain',
+        createdAt: DateTime(2026, 1, 2),
+        linkedDebtId: debt.id,
+        rawOcrText: 'OCR',
+        parseStatus: ParseStatus.success,
+        parseVersion: 'v2',
+        deleted: false,
+        retentionExpiresAt: DateTime(2026, 4, 1),
+        rawOcrExpiresAt: DateTime(2026, 1, 3),
+        purgedAt: null,
+        encryptedAt: DateTime(2026, 1, 2),
+        hasRawOcrText: true,
+      ),
+    );
+    await failingDocumentsRepository.saveParsedExtraction(
+      ParsedExtraction(
+        id: 'parse-failure',
+        documentId: 'doc-failure',
+        classification: DocumentClassification.genericFinanceScreenshot,
+        confidence: 0.8,
+        payloadJson: '{}',
+        ambiguityNotes: '',
+        createdAt: DateTime(2026, 1, 2),
+      ),
+    );
+
+    await expectLater(
+      failingDebtsRepository.deleteDebt(debt.id),
+      throwsA(isA<StateError>()),
+    );
+
+    expect(await failingDocumentsRepository.loadDocuments(), hasLength(1));
+    expect(
+      await failingDatabase
+          .select(failingDatabase.parsedExtractionsTable)
+          .get(),
+      hasLength(1),
+    );
+    expect(
+      await failingDatabase.select(failingDatabase.debtsTable).get(),
+      hasLength(1),
     );
   });
 }
@@ -202,4 +286,13 @@ class _FakeKeyService extends LocalVaultKeyService {
 
   @override
   Future<SecretKey> documentSecretKey() async => SecretKey(_key);
+}
+
+class _ThrowingVaultService extends SecureDocumentVaultService {
+  _ThrowingVaultService() : super(_FakeKeyService());
+
+  @override
+  Future<void> purgeStoredDocument(String? storageRef) {
+    throw StateError('simulated purge failure');
+  }
 }

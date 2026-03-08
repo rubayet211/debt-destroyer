@@ -14,6 +14,7 @@ class ImportedDocument {
     required this.parseVersion,
     required this.deleted,
     required this.retentionExpiresAt,
+    required this.rawOcrExpiresAt,
     required this.purgedAt,
     required this.encryptedAt,
     required this.hasRawOcrText,
@@ -30,6 +31,7 @@ class ImportedDocument {
   final String parseVersion;
   final bool deleted;
   final DateTime? retentionExpiresAt;
+  final DateTime? rawOcrExpiresAt;
   final DateTime? purgedAt;
   final DateTime? encryptedAt;
   final bool hasRawOcrText;
@@ -41,6 +43,7 @@ class ImportedDocument {
     ParseStatus? parseStatus,
     bool? deleted,
     DateTime? retentionExpiresAt,
+    DateTime? rawOcrExpiresAt,
     DateTime? purgedAt,
     DateTime? encryptedAt,
     bool? hasRawOcrText,
@@ -57,6 +60,7 @@ class ImportedDocument {
       parseVersion: parseVersion,
       deleted: deleted ?? this.deleted,
       retentionExpiresAt: retentionExpiresAt ?? this.retentionExpiresAt,
+      rawOcrExpiresAt: rawOcrExpiresAt ?? this.rawOcrExpiresAt,
       purgedAt: purgedAt ?? this.purgedAt,
       encryptedAt: encryptedAt ?? this.encryptedAt,
       hasRawOcrText: hasRawOcrText ?? this.hasRawOcrText,

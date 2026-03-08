@@ -154,6 +154,121 @@ void main() {
       final rows = await database.select(database.importedDocumentsTable).get();
       expect(rows, isEmpty);
     });
+
+    test('trims expired OCR text without deleting retained document', () async {
+      final tempDir = await Directory.systemTemp.createTemp('protect_ocr');
+      addTearDown(() async => tempDir.delete(recursive: true));
+      final source = File('${tempDir.path}/ocr.txt')
+        ..writeAsStringSync('ocr payload');
+      final keyService = _FakeKeyService();
+      final vault = SecureDocumentVaultService(
+        keyService,
+        baseDirectoryLoader: () async => tempDir,
+      );
+      final stored = await vault.sealImport(
+        const FileReference(
+          path: '',
+          sourceType: DocumentSourceType.gallery,
+          mimeType: 'text/plain',
+        ).copyWith(path: source.path),
+      );
+
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(() async => database.close());
+      await database
+          .into(database.importedDocumentsTable)
+          .insert(
+            ImportedDocumentsTableCompanion.insert(
+              id: 'doc-ocr-expired',
+              localPath: const Value(''),
+              storageRef: Value(stored.storageRef),
+              sourceType: DocumentSourceType.gallery.name,
+              mimeType: 'text/plain',
+              createdAt: DateTime(2026, 3, 9),
+              rawOcrText: const Value('OCR BODY'),
+              parseStatus: ParseStatus.success.name,
+              parseVersion: 'v2',
+              retentionExpiresAt: Value(
+                DateTime.now().add(const Duration(days: 7)),
+              ),
+              rawOcrExpiresAt: Value(
+                DateTime.now().subtract(const Duration(hours: 1)),
+              ),
+              encryptedAt: Value(stored.encryptedAt),
+              hasRawOcrText: const Value(true),
+            ),
+          );
+
+      final service = DataProtectionBootstrapService(
+        database: database,
+        keyService: keyService,
+        documentVaultService: vault,
+        retentionService: const DataRetentionService(),
+      );
+
+      await service.initialize();
+      final row = await database
+          .select(database.importedDocumentsTable)
+          .getSingle();
+      expect(row.storageRef, isNotNull);
+      expect(row.rawOcrText, isNull);
+      expect(row.hasRawOcrText, isFalse);
+      expect(row.rawOcrExpiresAt, isNull);
+    });
+
+    test('backfills OCR expiry for retained OCR during migration', () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'protect_ocr_migration',
+      );
+      addTearDown(() async => tempDir.delete(recursive: true));
+      final legacy = File('${tempDir.path}/legacy-ocr.txt')
+        ..writeAsStringSync('legacy payload');
+
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(() async => database.close());
+      await database
+          .into(database.appPreferencesTable)
+          .insert(
+            AppPreferencesTableCompanion.insert(
+              rawOcrRetentionEnabled: const Value(true),
+              rawOcrRetentionHours: const Value(12),
+            ),
+          );
+      await database
+          .into(database.importedDocumentsTable)
+          .insert(
+            ImportedDocumentsTableCompanion.insert(
+              id: 'doc-ocr-legacy',
+              localPath: Value(legacy.path),
+              sourceType: DocumentSourceType.gallery.name,
+              mimeType: 'text/plain',
+              createdAt: DateTime(2026, 3, 9),
+              rawOcrText: const Value('OCR BODY'),
+              parseStatus: ParseStatus.success.name,
+              parseVersion: 'v1',
+            ),
+          );
+
+      final service = DataProtectionBootstrapService(
+        database: database,
+        keyService: _FakeKeyService(),
+        documentVaultService: SecureDocumentVaultService(
+          _FakeKeyService(),
+          baseDirectoryLoader: () async => tempDir,
+        ),
+        retentionService: const DataRetentionService(),
+      );
+
+      await service.initialize();
+      final row = await database
+          .select(database.importedDocumentsTable)
+          .getSingle();
+      expect(row.rawOcrText, 'OCR BODY');
+      expect(row.hasRawOcrText, isTrue);
+      expect(row.rawOcrExpiresAt, isNotNull);
+      expect(row.retentionExpiresAt, isNotNull);
+      expect(row.rawOcrExpiresAt!.isBefore(row.retentionExpiresAt!), isTrue);
+    });
   });
 
   test('logger redacts sensitive terms', () {

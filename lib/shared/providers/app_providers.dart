@@ -51,6 +51,7 @@ final backendConfigProvider = Provider<BackendConfig>((ref) {
     baseUrl: dotenv.env['BACKEND_BASE_URL'] ?? '',
     environment: dotenv.env['BACKEND_ENV'] ?? 'development',
     playIntegrityProjectNumber: dotenv.env['PLAY_INTEGRITY_PROJECT_NUMBER'],
+    debugAttestationSecret: dotenv.env['DEBUG_ATTESTATION_SECRET'],
     requestTimeout: const Duration(seconds: 15),
   );
 });

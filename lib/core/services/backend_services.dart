@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:cryptography/cryptography.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
@@ -39,14 +40,50 @@ class PlayIntegrityAttestationService implements AttestationService {
             'installId': installId,
             'nonce': nonce,
             'projectNumber': _config.playIntegrityProjectNumber,
+            'debugSecret': _config.debugAttestationSecret,
           });
       if (token != null && token.isNotEmpty) {
         return token;
       }
-    } catch (_) {
-      AppLogger.instance.info('Falling back to debug attestation token.');
+    } catch (error, stackTrace) {
+      AppLogger.instance.error(
+        'Play Integrity method channel failed',
+        error,
+        stackTrace,
+      );
     }
-    return 'debug-attestation:$installId:$nonce';
+    final localDebugToken = await _buildLocalDebugToken(
+      installId: installId,
+      nonce: nonce,
+    );
+    if (localDebugToken != null) {
+      return localDebugToken;
+    }
+    throw const AppException(
+      'Attestation token unavailable for secure backend extraction.',
+      code: 'attestation_unavailable',
+    );
+  }
+
+  Future<String?> _buildLocalDebugToken({
+    required String installId,
+    required String nonce,
+  }) async {
+    if ((_config.environment != 'development' &&
+            _config.environment != 'test') ||
+        _config.debugAttestationSecret == null ||
+        _config.debugAttestationSecret!.isEmpty) {
+      return null;
+    }
+    final hmac = Hmac.sha256();
+    final mac = await hmac.calculateMac(
+      utf8.encode('$installId:$nonce'),
+      secretKey: SecretKey(utf8.encode(_config.debugAttestationSecret!)),
+    );
+    final signature = mac.bytes
+        .map((byte) => byte.toRadixString(16).padLeft(2, '0'))
+        .join();
+    return 'debug-attestation:v1:$signature';
   }
 }
 

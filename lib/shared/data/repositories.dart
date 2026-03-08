@@ -448,6 +448,7 @@ class DriftDocumentsRepository implements DocumentsRepository {
             parseVersion: document.parseVersion,
             deleted: Value(document.deleted),
             retentionExpiresAt: Value(document.retentionExpiresAt),
+            rawOcrExpiresAt: Value(document.rawOcrExpiresAt),
             purgedAt: Value(document.purgedAt),
             encryptedAt: Value(document.encryptedAt),
             hasRawOcrText: Value(document.hasRawOcrText),
@@ -538,6 +539,7 @@ class DriftDocumentsRepository implements DocumentsRepository {
       const ImportedDocumentsTableCompanion(
         rawOcrText: Value(null),
         hasRawOcrText: Value(false),
+        rawOcrExpiresAt: Value(null),
       ),
     );
   }
@@ -560,6 +562,7 @@ class DriftDocumentsRepository implements DocumentsRepository {
           const ImportedDocumentsTableCompanion(
             rawOcrText: Value(null),
             hasRawOcrText: Value(false),
+            rawOcrExpiresAt: Value(null),
           ),
         );
   }
@@ -585,6 +588,7 @@ class DriftDocumentsRepository implements DocumentsRepository {
       parseVersion: row.parseVersion,
       deleted: row.deleted,
       retentionExpiresAt: row.retentionExpiresAt,
+      rawOcrExpiresAt: row.rawOcrExpiresAt,
       purgedAt: row.purgedAt,
       encryptedAt: row.encryptedAt,
       hasRawOcrText: row.hasRawOcrText,
@@ -710,11 +714,13 @@ Future<void> _purgeDocumentRows({
     await vaultService.purgeLegacyPlaintext(
       row.localPath.isEmpty ? null : row.localPath,
     );
-    await (database.delete(
-      database.parsedExtractionsTable,
-    )..where((tbl) => tbl.documentId.equals(row.id))).go();
-    await (database.delete(
-      database.importedDocumentsTable,
-    )..where((tbl) => tbl.id.equals(row.id))).go();
+    await database.transaction(() async {
+      await (database.delete(
+        database.parsedExtractionsTable,
+      )..where((tbl) => tbl.documentId.equals(row.id))).go();
+      await (database.delete(
+        database.importedDocumentsTable,
+      )..where((tbl) => tbl.id.equals(row.id))).go();
+    });
   }
 }

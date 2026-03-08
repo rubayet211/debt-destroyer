@@ -27,6 +27,7 @@ class DataProtectionBootstrapService {
     try {
       await database.customSelect('SELECT 1').get();
       await _migrateLegacyDocuments();
+      await _reconcileRawOcrRetention();
       await _purgeExpiredContent();
       final shouldShowExplainer = await _shouldShowUpgradeExplainer();
       await keyService.setMigrationFailure(null);
@@ -78,6 +79,7 @@ class DataProtectionBootstrapService {
           const ImportedDocumentsTableCompanion(
             rawOcrText: drift.Value(null),
             hasRawOcrText: drift.Value(false),
+            rawOcrExpiresAt: drift.Value(null),
           ),
         );
   }
@@ -110,6 +112,8 @@ class DataProtectionBootstrapService {
       }
 
       final retainRaw = retentionService.shouldRetainRawOcr(preferences);
+      final rawOcrExists =
+          row.rawOcrText != null && row.rawOcrText!.trim().isNotEmpty;
       await (database.update(
         database.importedDocumentsTable,
       )..where((tbl) => tbl.id.equals(row.id))).write(
@@ -125,16 +129,45 @@ class DataProtectionBootstrapService {
             ),
           ),
           rawOcrText: drift.Value(retainRaw ? row.rawOcrText : null),
-          hasRawOcrText: drift.Value(
-            retainRaw &&
-                row.rawOcrText != null &&
-                row.rawOcrText!.trim().isNotEmpty,
+          rawOcrExpiresAt: drift.Value(
+            retainRaw && rawOcrExists
+                ? retentionService.rawOcrExpiry(preferences, DateTime.now())
+                : null,
           ),
+          hasRawOcrText: drift.Value(retainRaw && rawOcrExists),
         ),
       );
     }
     await keyService.setUpgradeExplainerPending(true);
     await keyService.clearMigrationStage();
+  }
+
+  Future<void> _reconcileRawOcrRetention() async {
+    final preferences = await _loadPreferences();
+    final now = DateTime.now();
+    if (!retentionService.shouldRetainRawOcr(preferences)) {
+      await (database.update(
+        database.importedDocumentsTable,
+      )..where((tbl) => tbl.hasRawOcrText.equals(true))).write(
+        const ImportedDocumentsTableCompanion(
+          rawOcrText: drift.Value(null),
+          hasRawOcrText: drift.Value(false),
+          rawOcrExpiresAt: drift.Value(null),
+        ),
+      );
+      return;
+    }
+
+    await (database.update(database.importedDocumentsTable)
+          ..where((tbl) => tbl.hasRawOcrText.equals(true))
+          ..where((tbl) => tbl.rawOcrExpiresAt.isNull()))
+        .write(
+          ImportedDocumentsTableCompanion(
+            rawOcrExpiresAt: drift.Value(
+              retentionService.rawOcrExpiry(preferences, now),
+            ),
+          ),
+        );
   }
 
   Future<void> _purgeExpiredContent() async {
@@ -154,11 +187,12 @@ class DataProtectionBootstrapService {
 
     await (database.update(database.importedDocumentsTable)
           ..where((tbl) => tbl.hasRawOcrText.equals(true))
-          ..where((tbl) => tbl.retentionExpiresAt.isSmallerThanValue(now)))
+          ..where((tbl) => tbl.rawOcrExpiresAt.isSmallerThanValue(now)))
         .write(
           const ImportedDocumentsTableCompanion(
             rawOcrText: drift.Value(null),
             hasRawOcrText: drift.Value(false),
+            rawOcrExpiresAt: drift.Value(null),
           ),
         );
   }

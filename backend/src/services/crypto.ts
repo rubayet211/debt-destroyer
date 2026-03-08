@@ -1,4 +1,4 @@
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 
 export function makeId() {
   return randomUUID();
@@ -14,6 +14,10 @@ export function makeOpaqueToken() {
 
 export function sha256(input: string) {
   return createHash('sha256').update(input).digest('hex');
+}
+
+export function hmacSha256(secret: string, input: string) {
+  return createHmac('sha256', secret).update(input).digest('hex');
 }
 
 export function redactTextPreview(input: string) {

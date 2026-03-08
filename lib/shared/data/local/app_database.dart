@@ -66,6 +66,7 @@ class ImportedDocumentsTable extends Table {
   TextColumn get parseVersion => text()();
   BoolColumn get deleted => boolean().withDefault(const Constant(false))();
   DateTimeColumn get retentionExpiresAt => dateTime().nullable()();
+  DateTimeColumn get rawOcrExpiresAt => dateTime().nullable()();
   DateTimeColumn get purgedAt => dateTime().nullable()();
   DateTimeColumn get encryptedAt => dateTime().nullable()();
   BoolColumn get hasRawOcrText =>
@@ -173,7 +174,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -221,6 +222,12 @@ class AppDatabase extends _$AppDatabase {
           appPreferencesTable.dataProtectionExplainerSeen,
         );
       }
+      if (from < 3) {
+        await migrator.addColumn(
+          importedDocumentsTable,
+          importedDocumentsTable.rawOcrExpiresAt,
+        );
+      }
     },
   );
 
@@ -264,7 +271,7 @@ LazyDatabase _openConnection() {
           final version = rawDb.select('PRAGMA cipher_version;');
           if (version.isEmpty || version.first.values.first == null) {
             throw StateError(
-              'Encrypted SQLite support unavailable. Check sqlite3mc bundling.',
+              'Encrypted SQLite support unavailable. Check SQLCipher bundling.',
             );
           }
         }

@@ -286,6 +286,7 @@ class ImportCoordinator {
     final stored = await documentVaultService.sealImport(input);
     final now = DateTime.now();
     final retainRaw = retentionService.shouldRetainRawOcr(preferences);
+    final rawOcrExpiry = retentionService.rawOcrExpiry(preferences, now);
 
     return ImportReviewBundle(
       document: ImportedDocument(
@@ -308,6 +309,7 @@ class ImportCoordinator {
               : ParseStatus.failed,
           now: now,
         ),
+        rawOcrExpiresAt: retainRaw ? rawOcrExpiry : null,
         purgedAt: null,
         encryptedAt: stored.encryptedAt,
         hasRawOcrText: retainRaw && normalized.isNotEmpty,

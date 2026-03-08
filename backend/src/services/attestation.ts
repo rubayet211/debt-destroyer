@@ -1,4 +1,5 @@
 import type { AppConfig } from '../config.js';
+import { hmacSha256 } from './crypto.js';
 
 export type AttestationVerdict = {
   valid: boolean;
@@ -22,9 +23,15 @@ export class ConfigurableAttestationVerifier implements AttestationVerifier {
     installId: string;
     nonce: string;
   }): Promise<AttestationVerdict> {
-    const debugToken = `debug-attestation:${input.installId}:${input.nonce}`;
+    const debugToken = buildDebugAttestationToken({
+      secret: this.config.debugAttestationSecret,
+      installId: input.installId,
+      nonce: input.nonce,
+    });
     if (
       this.config.allowDebugAttestation &&
+      isDebugAttestationEnvironment(this.config.environment) &&
+      debugToken !== null &&
       input.attestationToken === debugToken
     ) {
       return { valid: true, status: 'debug' };
@@ -37,4 +44,23 @@ export class ConfigurableAttestationVerifier implements AttestationVerifier {
         'Real Play Integrity verification is not configured for this environment.',
     };
   }
+}
+
+export function isDebugAttestationEnvironment(environment: string) {
+  return environment === 'development' || environment === 'test';
+}
+
+export function buildDebugAttestationToken(input: {
+  secret?: string;
+  installId: string;
+  nonce: string;
+}) {
+  if (!input.secret) {
+    return null;
+  }
+  const signature = hmacSha256(
+    input.secret,
+    `${input.installId}:${input.nonce}`,
+  );
+  return `debug-attestation:v1:${signature}`;
 }

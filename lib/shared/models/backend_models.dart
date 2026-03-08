@@ -3,12 +3,14 @@ class BackendConfig {
     required this.baseUrl,
     required this.environment,
     required this.playIntegrityProjectNumber,
+    required this.debugAttestationSecret,
     required this.requestTimeout,
   });
 
   final String baseUrl;
   final String environment;
   final String? playIntegrityProjectNumber;
+  final String? debugAttestationSecret;
   final Duration requestTimeout;
 
   bool get isConfigured => baseUrl.isNotEmpty;

@@ -13,6 +13,10 @@ import '../../shared/enums/app_enums.dart';
 import '../../shared/models/user_preferences.dart';
 import '../../features/scan_import/domain/import_services.dart';
 
+const _defaultVaultStorage = FlutterSecureStorage(
+  aOptions: AndroidOptions(encryptedSharedPreferences: true),
+);
+
 class StagedImportFile {
   const StagedImportFile({
     required this.path,
@@ -36,7 +40,7 @@ class StoredVaultDocument {
 }
 
 class LocalVaultKeyService {
-  const LocalVaultKeyService([this._storage = const FlutterSecureStorage()]);
+  const LocalVaultKeyService([this._storage = _defaultVaultStorage]);
 
   final FlutterSecureStorage _storage;
 

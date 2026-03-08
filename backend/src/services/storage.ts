@@ -1,5 +1,4 @@
 import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
 
 import { Pool } from 'pg';
 
@@ -28,6 +27,17 @@ export type RefreshTokenRecord = {
   revokedAt: Date | null;
 };
 
+export type UsageSnapshot = {
+  cloudExtractions: number;
+  reservedExtractions: number;
+};
+
+export type QuotaReservationResult = {
+  allowed: boolean;
+  reservationId: string | null;
+  usage: UsageSnapshot;
+};
+
 export type EntitlementRecord = {
   installId: string;
   isPremium: boolean;
@@ -50,14 +60,21 @@ export type ExtractionAuditRecord = {
 export interface AppStore {
   createChallenge(record: ChallengeRecord): Promise<void>;
   getChallenge(challengeId: string): Promise<ChallengeRecord | null>;
-  consumeChallenge(challengeId: string): Promise<void>;
+  consumeChallengeIfUnused(challengeId: string): Promise<boolean>;
   upsertInstall(record: InstallRecord): Promise<void>;
   getInstall(installId: string): Promise<InstallRecord | null>;
   saveRefreshToken(record: RefreshTokenRecord): Promise<void>;
   getRefreshTokenByHash(tokenHash: string): Promise<RefreshTokenRecord | null>;
   revokeRefreshToken(tokenHash: string): Promise<void>;
-  getUsageCount(installId: string, monthKey: string): Promise<number>;
-  incrementUsageCount(installId: string, monthKey: string): Promise<number>;
+  getUsageSnapshot(installId: string, monthKey: string): Promise<UsageSnapshot>;
+  reserveQuotaSlot(
+    installId: string,
+    monthKey: string,
+    freeScanLimit: number,
+    reservationTtlSeconds: number,
+  ): Promise<QuotaReservationResult>;
+  commitQuotaSlot(reservationId: string): Promise<void>;
+  releaseQuotaSlot(reservationId: string): Promise<void>;
   getEntitlement(installId: string): Promise<EntitlementRecord>;
   saveExtractionAudit(record: ExtractionAuditRecord): Promise<void>;
   saveAuditEvent(input: {
@@ -83,6 +100,16 @@ export class MemoryAppStore implements AppStore {
   private readonly refreshTokens = new Map<string, RefreshTokenRecord>();
   private readonly usage = new Map<string, number>();
   private readonly entitlements = new Map<string, EntitlementRecord>();
+  private readonly reservations = new Map<
+    string,
+    {
+      reservationId: string;
+      installId: string;
+      monthKey: string;
+      status: 'reserved' | 'committed' | 'released';
+      expiresAt: Date;
+    }
+  >();
 
   async createChallenge(record: ChallengeRecord) {
     this.challenges.set(record.challengeId, record);
@@ -92,14 +119,16 @@ export class MemoryAppStore implements AppStore {
     return this.challenges.get(challengeId) ?? null;
   }
 
-  async consumeChallenge(challengeId: string) {
+  async consumeChallengeIfUnused(challengeId: string) {
     const challenge = this.challenges.get(challengeId);
-    if (challenge) {
-      this.challenges.set(challengeId, {
-        ...challenge,
-        consumedAt: new Date(),
-      });
+    if (!challenge || challenge.consumedAt) {
+      return false;
     }
+    this.challenges.set(challengeId, {
+      ...challenge,
+      consumedAt: new Date(),
+    });
+    return true;
   }
 
   async upsertInstall(record: InstallRecord) {
@@ -125,15 +154,65 @@ export class MemoryAppStore implements AppStore {
     }
   }
 
-  async getUsageCount(installId: string, monthKey: string) {
-    return this.usage.get(`${installId}:${monthKey}`) ?? 0;
+  async getUsageSnapshot(installId: string, monthKey: string) {
+    this.reclaimExpiredReservations();
+    return {
+      cloudExtractions: this.usage.get(`${installId}:${monthKey}`) ?? 0,
+      reservedExtractions: this.countActiveReservations(installId, monthKey),
+    };
   }
 
-  async incrementUsageCount(installId: string, monthKey: string) {
-    const key = `${installId}:${monthKey}`;
+  async reserveQuotaSlot(
+    installId: string,
+    monthKey: string,
+    freeScanLimit: number,
+    reservationTtlSeconds: number,
+  ) {
+    this.reclaimExpiredReservations();
+    const usage = await this.getUsageSnapshot(installId, monthKey);
+    if (usage.cloudExtractions + usage.reservedExtractions >= freeScanLimit) {
+      return {
+        allowed: false,
+        reservationId: null,
+        usage,
+      };
+    }
+    const reservationId = makeId();
+    this.reservations.set(reservationId, {
+      reservationId,
+      installId,
+      monthKey,
+      status: 'reserved',
+      expiresAt: new Date(Date.now() + reservationTtlSeconds * 1000),
+    });
+    return {
+      allowed: true,
+      reservationId,
+      usage: {
+        cloudExtractions: usage.cloudExtractions,
+        reservedExtractions: usage.reservedExtractions + 1,
+      },
+    };
+  }
+
+  async commitQuotaSlot(reservationId: string) {
+    this.reclaimExpiredReservations();
+    const reservation = this.reservations.get(reservationId);
+    if (!reservation || reservation.status !== 'reserved') {
+      return;
+    }
+    reservation.status = 'committed';
+    const key = `${reservation.installId}:${reservation.monthKey}`;
     const next = (this.usage.get(key) ?? 0) + 1;
     this.usage.set(key, next);
-    return next;
+  }
+
+  async releaseQuotaSlot(reservationId: string) {
+    const reservation = this.reservations.get(reservationId);
+    if (!reservation || reservation.status !== 'reserved') {
+      return;
+    }
+    reservation.status = 'released';
   }
 
   async getEntitlement(installId: string) {
@@ -163,6 +242,32 @@ export class MemoryAppStore implements AppStore {
     remaining: number;
     resetAt: Date;
   }) {}
+
+  private reclaimExpiredReservations() {
+    const now = Date.now();
+    for (const reservation of this.reservations.values()) {
+      if (
+        reservation.status === 'reserved' &&
+        reservation.expiresAt.getTime() <= now
+      ) {
+        reservation.status = 'released';
+      }
+    }
+  }
+
+  private countActiveReservations(installId: string, monthKey: string) {
+    let count = 0;
+    for (const reservation of this.reservations.values()) {
+      if (
+        reservation.installId === installId &&
+        reservation.monthKey === monthKey &&
+        reservation.status === 'reserved'
+      ) {
+        count += 1;
+      }
+    }
+    return count;
+  }
 }
 
 export class PostgresAppStore implements AppStore {
@@ -176,10 +281,7 @@ export class PostgresAppStore implements AppStore {
   }
 
   async ensureSchema() {
-    const sql = await readFile(
-      join(process.cwd(), 'backend', 'sql', '001_init.sql'),
-      'utf8',
-    );
+    const sql = await readSchemaSql();
     await this.pool.query(sql);
   }
 
@@ -221,11 +323,16 @@ export class PostgresAppStore implements AppStore {
       : null;
   }
 
-  async consumeChallenge(challengeId: string) {
-    await this.pool.query(
-      `update attestation_challenges set consumed_at = now() where challenge_id = $1`,
+  async consumeChallengeIfUnused(challengeId: string) {
+    const result = await this.pool.query(
+      `
+        update attestation_challenges
+        set consumed_at = now()
+        where challenge_id = $1 and consumed_at is null
+      `,
       [challengeId],
     );
+    return result.rowCount === 1;
   }
 
   async upsertInstall(record: InstallRecord) {
@@ -315,32 +422,265 @@ export class PostgresAppStore implements AppStore {
     );
   }
 
-  async getUsageCount(installId: string, monthKey: string) {
-    const result = await this.pool.query(
+  async getUsageSnapshot(installId: string, monthKey: string) {
+    await this.pool.query(
       `
-        select cloud_extractions
-        from usage_counters
-        where install_id = $1 and month_key = $2
+        update quota_reservations
+        set status = 'released', released_at = coalesce(released_at, now())
+        where install_id = $1
+          and month_key = $2
+          and status = 'reserved'
+          and expires_at <= now()
       `,
       [installId, monthKey],
     );
-    return result.rows[0]?.cloud_extractions ?? 0;
+    const result = await this.pool.query(
+      `
+        select
+          coalesce(counters.cloud_extractions, 0) as cloud_extractions,
+          coalesce(active.active_reserved, 0) as reserved_extractions
+        from (
+          select $1::text as install_id, $2::text as month_key
+        ) lookup
+        left join usage_counters counters
+          on counters.install_id = lookup.install_id
+          and counters.month_key = lookup.month_key
+        left join (
+          select install_id, month_key, count(*)::integer as active_reserved
+          from quota_reservations
+          where status = 'reserved' and expires_at > now()
+          group by install_id, month_key
+        ) active
+          on active.install_id = lookup.install_id
+          and active.month_key = lookup.month_key
+      `,
+      [installId, monthKey],
+    );
+    return {
+      cloudExtractions: result.rows[0]?.cloud_extractions ?? 0,
+      reservedExtractions: result.rows[0]?.reserved_extractions ?? 0,
+    };
   }
 
-  async incrementUsageCount(installId: string, monthKey: string) {
-    const result = await this.pool.query(
-      `
-        insert into usage_counters (install_id, month_key, cloud_extractions)
-        values ($1, $2, 1)
-        on conflict (install_id, month_key)
-        do update set
-          cloud_extractions = usage_counters.cloud_extractions + 1,
-          updated_at = now()
-        returning cloud_extractions
-      `,
-      [installId, monthKey],
-    );
-    return result.rows[0].cloud_extractions as number;
+  async reserveQuotaSlot(
+    installId: string,
+    monthKey: string,
+    freeScanLimit: number,
+    reservationTtlSeconds: number,
+  ) {
+    const client = await this.pool.connect();
+    try {
+      await client.query('begin');
+      await client.query(
+        `
+          update quota_reservations
+          set status = 'released', released_at = now()
+          where install_id = $1
+            and month_key = $2
+            and status = 'reserved'
+            and expires_at <= now()
+        `,
+        [installId, monthKey],
+      );
+      await client.query(
+        `
+          insert into usage_counters
+            (install_id, month_key, cloud_extractions, reserved_extractions)
+          values ($1, $2, 0, 0)
+          on conflict (install_id, month_key) do nothing
+        `,
+        [installId, monthKey],
+      );
+      const activeReservationsResult = await client.query(
+        `
+          select count(*)::integer as active_reserved
+          from quota_reservations
+          where install_id = $1
+            and month_key = $2
+            and status = 'reserved'
+            and expires_at > now()
+        `,
+        [installId, monthKey],
+      );
+      const activeReserved = activeReservationsResult.rows[0]?.active_reserved ?? 0;
+      await client.query(
+        `
+          update usage_counters
+          set reserved_extractions = $3,
+            updated_at = now()
+          where install_id = $1 and month_key = $2
+        `,
+        [installId, monthKey, activeReserved],
+      );
+      const usageResult = await client.query(
+        `
+          select cloud_extractions, reserved_extractions
+          from usage_counters
+          where install_id = $1 and month_key = $2
+          for update
+        `,
+        [installId, monthKey],
+      );
+      const usage = {
+        cloudExtractions: usageResult.rows[0]?.cloud_extractions ?? 0,
+        reservedExtractions: usageResult.rows[0]?.reserved_extractions ?? 0,
+      };
+      if (usage.cloudExtractions + usage.reservedExtractions >= freeScanLimit) {
+        await client.query('commit');
+        return {
+          allowed: false,
+          reservationId: null,
+          usage,
+        };
+      }
+      const reservationId = makeId();
+      await client.query(
+        `
+          update usage_counters
+          set reserved_extractions = reserved_extractions + 1,
+            updated_at = now()
+          where install_id = $1 and month_key = $2
+        `,
+        [installId, monthKey],
+      );
+      await client.query(
+        `
+          insert into quota_reservations
+            (reservation_id, install_id, month_key, status, expires_at)
+          values ($1, $2, $3, 'reserved', $4)
+        `,
+        [
+          reservationId,
+          installId,
+          monthKey,
+          new Date(Date.now() + reservationTtlSeconds * 1000),
+        ],
+      );
+      await client.query('commit');
+      return {
+        allowed: true,
+        reservationId,
+        usage: {
+          cloudExtractions: usage.cloudExtractions,
+          reservedExtractions: usage.reservedExtractions + 1,
+        },
+      };
+    } catch (error) {
+      await client.query('rollback');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async commitQuotaSlot(reservationId: string) {
+    const client = await this.pool.connect();
+    try {
+      await client.query('begin');
+      const reservationResult = await client.query(
+        `
+          select reservation_id, install_id, month_key, status, expires_at
+          from quota_reservations
+          where reservation_id = $1
+          for update
+        `,
+        [reservationId],
+      );
+      const reservation = reservationResult.rows[0];
+      if (!reservation || reservation.status !== 'reserved') {
+        await client.query('rollback');
+        return;
+      }
+      if (new Date(reservation.expires_at).getTime() <= Date.now()) {
+        await client.query(
+          `
+            update quota_reservations
+            set status = 'released', released_at = now()
+            where reservation_id = $1 and status = 'reserved'
+          `,
+          [reservationId],
+        );
+        await client.query(
+          `
+            update usage_counters
+            set reserved_extractions = greatest(0, reserved_extractions - 1),
+              updated_at = now()
+            where install_id = $1 and month_key = $2
+          `,
+          [reservation.install_id, reservation.month_key],
+        );
+        await client.query('commit');
+        return;
+      }
+      await client.query(
+        `
+          update quota_reservations
+          set status = 'committed', committed_at = now()
+          where reservation_id = $1
+        `,
+        [reservationId],
+      );
+      await client.query(
+        `
+          update usage_counters
+          set reserved_extractions = greatest(0, reserved_extractions - 1),
+            cloud_extractions = cloud_extractions + 1,
+            updated_at = now()
+          where install_id = $1 and month_key = $2
+        `,
+        [reservation.install_id, reservation.month_key],
+      );
+      await client.query('commit');
+    } catch (error) {
+      await client.query('rollback');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async releaseQuotaSlot(reservationId: string) {
+    const client = await this.pool.connect();
+    try {
+      await client.query('begin');
+      const reservationResult = await client.query(
+        `
+          select reservation_id, install_id, month_key, status
+          from quota_reservations
+          where reservation_id = $1
+          for update
+        `,
+        [reservationId],
+      );
+      const reservation = reservationResult.rows[0];
+      if (!reservation || reservation.status !== 'reserved') {
+        await client.query('rollback');
+        return;
+      }
+      await client.query(
+        `
+          update quota_reservations
+          set status = 'released', released_at = now()
+          where reservation_id = $1
+        `,
+        [reservationId],
+      );
+      await client.query(
+        `
+          update usage_counters
+          set reserved_extractions = greatest(0, reserved_extractions - 1),
+            updated_at = now()
+          where install_id = $1 and month_key = $2
+        `,
+        [reservation.install_id, reservation.month_key],
+      );
+      await client.query('commit');
+    } catch (error) {
+      await client.query('rollback');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async getEntitlement(installId: string) {
@@ -436,6 +776,10 @@ export async function createStore(postgresUrl?: string) {
     return new MemoryAppStore();
   }
   return PostgresAppStore.create(postgresUrl);
+}
+
+export async function readSchemaSql() {
+  return readFile(new URL('../../sql/001_init.sql', import.meta.url), 'utf8');
 }
 
 export function monthKeyFor(date: Date) {
