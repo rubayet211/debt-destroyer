@@ -91,7 +91,16 @@ class ScanImportHubScreen extends ConsumerWidget {
                                   contentPadding: EdgeInsets.zero,
                                   title: Text(doc.mimeType),
                                   subtitle: Text(
-                                    '${doc.sourceType.name} • ${doc.parseStatus.name}',
+                                    '${doc.sourceType.name} • ${doc.parseStatus.name}'
+                                    '${doc.retentionExpiresAt == null ? ' • manual retention' : ' • auto purge ${Formatters.date(doc.retentionExpiresAt)}'}',
+                                  ),
+                                  trailing: IconButton(
+                                    onPressed: () async {
+                                      await ref
+                                          .read(documentsRepositoryProvider)
+                                          .purgeDocument(doc.id);
+                                    },
+                                    icon: const Icon(Icons.delete_outline),
                                   ),
                                 ),
                               ),
@@ -649,7 +658,7 @@ class _ParsedReviewConfirmScreenState
                   onPressed: () async {
                     await ref
                         .read(documentsRepositoryProvider)
-                        .markDeleted(widget.bundle.document.id);
+                        .purgeDocument(widget.bundle.document.id);
                     if (context.mounted) {
                       context.go('/scan');
                     }

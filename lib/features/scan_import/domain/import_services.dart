@@ -1,13 +1,13 @@
 import 'dart:io';
 
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/services/vault_services.dart';
 import '../../../core/utils/parsers.dart';
+import '../../../shared/data/repositories.dart';
 import '../../../shared/enums/app_enums.dart';
 import '../../../shared/models/import_models.dart';
 
@@ -244,56 +244,33 @@ class HeuristicExtractionParser {
   }
 }
 
-class FileStorageService {
-  Future<FileReference> persistImport(FileReference input) async {
-    final directory = await getApplicationSupportDirectory();
-    final importsDirectory = Directory(p.join(directory.path, 'imports'));
-    if (!importsDirectory.existsSync()) {
-      await importsDirectory.create(recursive: true);
-    }
-    final target = p.join(
-      importsDirectory.path,
-      '${const Uuid().v4()}${p.extension(input.path)}',
-    );
-    final file = await File(input.path).copy(target);
-    return FileReference(
-      path: file.path,
-      sourceType: input.sourceType,
-      mimeType: input.mimeType,
-    );
-  }
-
-  Future<void> deleteImport(String path) async {
-    final file = File(path);
-    if (await file.exists()) {
-      await file.delete();
-    }
-  }
-}
-
 class ImportCoordinator {
   ImportCoordinator({
-    required this.fileStorageService,
+    required this.documentVaultService,
     required this.preprocessService,
     required this.ocrService,
     required this.classifier,
     required this.aiExtractionService,
     required this.validationService,
+    required this.preferencesRepository,
+    required this.retentionService,
   });
 
-  final FileStorageService fileStorageService;
+  final SecureDocumentVaultService documentVaultService;
   final ImagePreprocessService preprocessService;
   final OcrService ocrService;
   final DocumentClassifier classifier;
   final AiExtractionService aiExtractionService;
   final ParseValidationService validationService;
+  final PreferencesRepository preferencesRepository;
+  final DataRetentionService retentionService;
 
   Future<ImportReviewBundle> process({
     required FileReference input,
     required bool allowCloud,
   }) async {
-    final stored = await fileStorageService.persistImport(input);
-    final preprocessed = await preprocessService.preprocess(stored);
+    final preferences = await preferencesRepository.loadPreferences();
+    final preprocessed = await preprocessService.preprocess(input);
     final ocr = await ocrService.extractText(preprocessed);
     final multiline = ocr.lines.join('\n').trim();
     final normalized = ocr.text.replaceAll(RegExp(r'\s+'), ' ').trim();
@@ -302,25 +279,38 @@ class ImportCoordinator {
       await aiExtractionService.extract(
         classification: classification,
         normalizedText: multiline,
-        sourceType: stored.sourceType,
+        sourceType: input.sourceType,
         allowCloud: allowCloud,
       ),
     );
+    final stored = await documentVaultService.sealImport(input);
+    final now = DateTime.now();
+    final retainRaw = retentionService.shouldRetainRawOcr(preferences);
 
     return ImportReviewBundle(
       document: ImportedDocument(
         id: const Uuid().v4(),
-        localPath: stored.path,
-        sourceType: stored.sourceType,
-        mimeType: stored.mimeType,
-        createdAt: DateTime.now(),
+        storageRef: stored.storageRef,
+        sourceType: input.sourceType,
+        mimeType: input.mimeType,
+        createdAt: now,
         linkedDebtId: null,
-        rawOcrText: normalized,
+        rawOcrText: retainRaw ? normalized : null,
         parseStatus: candidate.confidence > 0
             ? ParseStatus.success
             : ParseStatus.failed,
         parseVersion: AppConstants.aiPromptVersion,
         deleted: false,
+        retentionExpiresAt: retentionService.documentExpiry(
+          preferences: preferences,
+          parseStatus: candidate.confidence > 0
+              ? ParseStatus.success
+              : ParseStatus.failed,
+          now: now,
+        ),
+        purgedAt: null,
+        encryptedAt: stored.encryptedAt,
+        hasRawOcrText: retainRaw && normalized.isNotEmpty,
       ),
       classification: classification,
       normalizedText: multiline,

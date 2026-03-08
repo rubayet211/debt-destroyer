@@ -12,6 +12,11 @@ class UserPreferences {
     required this.notificationsEnabled,
     required this.onboardingCompleted,
     required this.weeklySummaryEnabled,
+    required this.rawOcrRetentionEnabled,
+    required this.rawOcrRetentionHours,
+    required this.documentRetentionMode,
+    required this.purgeFailedImportsAfterHours,
+    required this.dataProtectionExplainerSeen,
   });
 
   factory UserPreferences.defaults() => const UserPreferences(
@@ -25,6 +30,11 @@ class UserPreferences {
     notificationsEnabled: true,
     onboardingCompleted: false,
     weeklySummaryEnabled: false,
+    rawOcrRetentionEnabled: false,
+    rawOcrRetentionHours: 0,
+    documentRetentionMode: DocumentRetentionMode.days30,
+    purgeFailedImportsAfterHours: 24,
+    dataProtectionExplainerSeen: false,
   );
 
   final ThemePreference themeMode;
@@ -37,6 +47,11 @@ class UserPreferences {
   final bool notificationsEnabled;
   final bool onboardingCompleted;
   final bool weeklySummaryEnabled;
+  final bool rawOcrRetentionEnabled;
+  final int rawOcrRetentionHours;
+  final DocumentRetentionMode documentRetentionMode;
+  final int purgeFailedImportsAfterHours;
+  final bool dataProtectionExplainerSeen;
 
   UserPreferences copyWith({
     ThemePreference? themeMode,
@@ -49,6 +64,11 @@ class UserPreferences {
     bool? notificationsEnabled,
     bool? onboardingCompleted,
     bool? weeklySummaryEnabled,
+    bool? rawOcrRetentionEnabled,
+    int? rawOcrRetentionHours,
+    DocumentRetentionMode? documentRetentionMode,
+    int? purgeFailedImportsAfterHours,
+    bool? dataProtectionExplainerSeen,
   }) {
     return UserPreferences(
       themeMode: themeMode ?? this.themeMode,
@@ -61,6 +81,15 @@ class UserPreferences {
       notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
       weeklySummaryEnabled: weeklySummaryEnabled ?? this.weeklySummaryEnabled,
+      rawOcrRetentionEnabled:
+          rawOcrRetentionEnabled ?? this.rawOcrRetentionEnabled,
+      rawOcrRetentionHours: rawOcrRetentionHours ?? this.rawOcrRetentionHours,
+      documentRetentionMode:
+          documentRetentionMode ?? this.documentRetentionMode,
+      purgeFailedImportsAfterHours:
+          purgeFailedImportsAfterHours ?? this.purgeFailedImportsAfterHours,
+      dataProtectionExplainerSeen:
+          dataProtectionExplainerSeen ?? this.dataProtectionExplainerSeen,
     );
   }
 }

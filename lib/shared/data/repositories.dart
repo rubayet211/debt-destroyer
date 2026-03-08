@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 
+import '../../core/services/vault_services.dart';
 import '../enums/app_enums.dart';
 import '../models/debt.dart';
 import '../models/import_models.dart';
@@ -39,11 +40,18 @@ abstract class PreferencesRepository {
 
 abstract class DocumentsRepository {
   Stream<List<ImportedDocument>> watchDocuments({String? debtId});
+  Future<List<ImportedDocument>> loadDocuments({String? debtId});
   Future<void> saveDocument(ImportedDocument document);
   Future<void> saveParsedExtraction(ParsedExtraction extraction);
   Future<void> markDeleted(String documentId);
   Future<void> linkDocument(String documentId, String? debtId);
   Future<int> countSuccessfulScansInMonth(DateTime month);
+  Future<void> purgeDocument(String documentId);
+  Future<void> purgeExpiredDocuments(DateTime now);
+  Future<void> trimRawOcr(String documentId);
+  Future<void> purgeAllDocuments();
+  Future<void> purgeAllRawOcr();
+  Future<Uint8List?> readDocumentBytes(String documentId);
 }
 
 abstract class ScenariosRepository {
@@ -59,9 +67,10 @@ abstract class SubscriptionRepository {
 }
 
 class DriftDebtsRepository implements DebtsRepository {
-  const DriftDebtsRepository(this.database);
+  DriftDebtsRepository(this.database, this.vaultService);
 
   final AppDatabase database;
+  final SecureDocumentVaultService vaultService;
 
   @override
   Stream<List<Debt>> watchDebts({bool includeArchived = false}) {
@@ -128,12 +137,17 @@ class DriftDebtsRepository implements DebtsRepository {
 
   @override
   Future<void> deleteDebt(String id) async {
+    final documents = await (database.select(
+      database.importedDocumentsTable,
+    )..where((tbl) => tbl.linkedDebtId.equals(id))).get();
+    await _purgeDocumentRows(
+      database: database,
+      vaultService: vaultService,
+      rows: documents,
+    );
     await (database.delete(
       database.paymentsTable,
     )..where((tbl) => tbl.debtId.equals(id))).go();
-    await (database.delete(
-      database.importedDocumentsTable,
-    )..where((tbl) => tbl.linkedDebtId.equals(id))).go();
     await (database.delete(
       database.debtsTable,
     )..where((tbl) => tbl.id.equals(id))).go();
@@ -344,6 +358,17 @@ class DriftPreferencesRepository implements PreferencesRepository {
             notificationsEnabled: Value(preferences.notificationsEnabled),
             onboardingCompleted: Value(preferences.onboardingCompleted),
             weeklySummaryEnabled: Value(preferences.weeklySummaryEnabled),
+            rawOcrRetentionEnabled: Value(preferences.rawOcrRetentionEnabled),
+            rawOcrRetentionHours: Value(preferences.rawOcrRetentionHours),
+            documentRetentionMode: Value(
+              preferences.documentRetentionMode.name,
+            ),
+            purgeFailedImportsAfterHours: Value(
+              preferences.purgeFailedImportsAfterHours,
+            ),
+            dataProtectionExplainerSeen: Value(
+              preferences.dataProtectionExplainerSeen,
+            ),
           ),
         );
   }
@@ -360,14 +385,22 @@ class DriftPreferencesRepository implements PreferencesRepository {
       notificationsEnabled: row.notificationsEnabled,
       onboardingCompleted: row.onboardingCompleted,
       weeklySummaryEnabled: row.weeklySummaryEnabled,
+      rawOcrRetentionEnabled: row.rawOcrRetentionEnabled,
+      rawOcrRetentionHours: row.rawOcrRetentionHours,
+      documentRetentionMode: DocumentRetentionMode.values.byName(
+        row.documentRetentionMode,
+      ),
+      purgeFailedImportsAfterHours: row.purgeFailedImportsAfterHours,
+      dataProtectionExplainerSeen: row.dataProtectionExplainerSeen,
     );
   }
 }
 
 class DriftDocumentsRepository implements DocumentsRepository {
-  const DriftDocumentsRepository(this.database);
+  DriftDocumentsRepository(this.database, this.vaultService);
 
   final AppDatabase database;
+  final SecureDocumentVaultService vaultService;
 
   @override
   Stream<List<ImportedDocument>> watchDocuments({String? debtId}) {
@@ -384,13 +417,28 @@ class DriftDocumentsRepository implements DocumentsRepository {
   }
 
   @override
+  Future<List<ImportedDocument>> loadDocuments({String? debtId}) async {
+    final query = database.select(database.importedDocumentsTable)
+      ..orderBy([
+        (table) =>
+            OrderingTerm(expression: table.createdAt, mode: OrderingMode.desc),
+      ]);
+    query.where((table) => table.deleted.equals(false));
+    if (debtId != null) {
+      query.where((table) => table.linkedDebtId.equals(debtId));
+    }
+    return (await query.get()).map(_mapDocument).toList();
+  }
+
+  @override
   Future<void> saveDocument(ImportedDocument document) {
     return database
         .into(database.importedDocumentsTable)
         .insertOnConflictUpdate(
           ImportedDocumentsTableCompanion.insert(
             id: document.id,
-            localPath: document.localPath,
+            localPath: const Value(''),
+            storageRef: Value(document.storageRef),
             sourceType: document.sourceType.name,
             mimeType: document.mimeType,
             createdAt: document.createdAt,
@@ -399,6 +447,10 @@ class DriftDocumentsRepository implements DocumentsRepository {
             parseStatus: document.parseStatus.name,
             parseVersion: document.parseVersion,
             deleted: Value(document.deleted),
+            retentionExpiresAt: Value(document.retentionExpiresAt),
+            purgedAt: Value(document.purgedAt),
+            encryptedAt: Value(document.encryptedAt),
+            hasRawOcrText: Value(document.hasRawOcrText),
           ),
         );
   }
@@ -422,9 +474,7 @@ class DriftDocumentsRepository implements DocumentsRepository {
 
   @override
   Future<void> markDeleted(String documentId) {
-    return (database.update(database.importedDocumentsTable)
-          ..where((tbl) => tbl.id.equals(documentId)))
-        .write(const ImportedDocumentsTableCompanion(deleted: Value(true)));
+    return purgeDocument(documentId);
   }
 
   @override
@@ -453,10 +503,79 @@ class DriftDocumentsRepository implements DocumentsRepository {
     return row.read(countExp) ?? 0;
   }
 
+  @override
+  Future<void> purgeDocument(String documentId) async {
+    final row = await (database.select(
+      database.importedDocumentsTable,
+    )..where((tbl) => tbl.id.equals(documentId))).getSingleOrNull();
+    if (row == null) {
+      return;
+    }
+    await _purgeDocumentRows(
+      database: database,
+      vaultService: vaultService,
+      rows: [row],
+    );
+  }
+
+  @override
+  Future<void> purgeExpiredDocuments(DateTime now) async {
+    final rows = await (database.select(
+      database.importedDocumentsTable,
+    )..where((tbl) => tbl.retentionExpiresAt.isSmallerThanValue(now))).get();
+    await _purgeDocumentRows(
+      database: database,
+      vaultService: vaultService,
+      rows: rows,
+    );
+  }
+
+  @override
+  Future<void> trimRawOcr(String documentId) {
+    return (database.update(
+      database.importedDocumentsTable,
+    )..where((tbl) => tbl.id.equals(documentId))).write(
+      const ImportedDocumentsTableCompanion(
+        rawOcrText: Value(null),
+        hasRawOcrText: Value(false),
+      ),
+    );
+  }
+
+  @override
+  Future<void> purgeAllDocuments() async {
+    final rows = await database.select(database.importedDocumentsTable).get();
+    await _purgeDocumentRows(
+      database: database,
+      vaultService: vaultService,
+      rows: rows,
+    );
+  }
+
+  @override
+  Future<void> purgeAllRawOcr() async {
+    await database
+        .update(database.importedDocumentsTable)
+        .write(
+          const ImportedDocumentsTableCompanion(
+            rawOcrText: Value(null),
+            hasRawOcrText: Value(false),
+          ),
+        );
+  }
+
+  @override
+  Future<Uint8List?> readDocumentBytes(String documentId) async {
+    final row = await (database.select(
+      database.importedDocumentsTable,
+    )..where((tbl) => tbl.id.equals(documentId))).getSingleOrNull();
+    return vaultService.readDocumentBytes(row?.storageRef);
+  }
+
   ImportedDocument _mapDocument(ImportedDocumentsTableData row) {
     return ImportedDocument(
       id: row.id,
-      localPath: row.localPath,
+      storageRef: row.storageRef,
       sourceType: DocumentSourceType.values.byName(row.sourceType),
       mimeType: row.mimeType,
       createdAt: row.createdAt,
@@ -465,6 +584,10 @@ class DriftDocumentsRepository implements DocumentsRepository {
       parseStatus: ParseStatus.values.byName(row.parseStatus),
       parseVersion: row.parseVersion,
       deleted: row.deleted,
+      retentionExpiresAt: row.retentionExpiresAt,
+      purgedAt: row.purgedAt,
+      encryptedAt: row.encryptedAt,
+      hasRawOcrText: row.hasRawOcrText,
     );
   }
 }
@@ -574,5 +697,24 @@ class DriftSubscriptionRepository implements SubscriptionRepository {
       expiresAt: row.expiresAt,
       unlockedFeatures: features,
     );
+  }
+}
+
+Future<void> _purgeDocumentRows({
+  required AppDatabase database,
+  required SecureDocumentVaultService vaultService,
+  required List<ImportedDocumentsTableData> rows,
+}) async {
+  for (final row in rows) {
+    await vaultService.purgeStoredDocument(row.storageRef);
+    await vaultService.purgeLegacyPlaintext(
+      row.localPath.isEmpty ? null : row.localPath,
+    );
+    await (database.delete(
+      database.parsedExtractionsTable,
+    )..where((tbl) => tbl.documentId.equals(row.id))).go();
+    await (database.delete(
+      database.importedDocumentsTable,
+    )..where((tbl) => tbl.id.equals(row.id))).go();
   }
 }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 enum ThemePreference { system, light, dark }
 
+enum DocumentRetentionMode { days7, days30, manual }
+
 extension ThemePreferenceX on ThemePreference {
   ThemeMode toThemeMode() {
     switch (this) {

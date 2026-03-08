@@ -4,7 +4,7 @@ import '../enums/app_enums.dart';
 class ImportedDocument {
   const ImportedDocument({
     required this.id,
-    required this.localPath,
+    required this.storageRef,
     required this.sourceType,
     required this.mimeType,
     required this.createdAt,
@@ -13,10 +13,14 @@ class ImportedDocument {
     required this.parseStatus,
     required this.parseVersion,
     required this.deleted,
+    required this.retentionExpiresAt,
+    required this.purgedAt,
+    required this.encryptedAt,
+    required this.hasRawOcrText,
   });
 
   final String id;
-  final String localPath;
+  final String? storageRef;
   final DocumentSourceType sourceType;
   final String mimeType;
   final DateTime createdAt;
@@ -25,16 +29,25 @@ class ImportedDocument {
   final ParseStatus parseStatus;
   final String parseVersion;
   final bool deleted;
+  final DateTime? retentionExpiresAt;
+  final DateTime? purgedAt;
+  final DateTime? encryptedAt;
+  final bool hasRawOcrText;
 
   ImportedDocument copyWith({
+    String? storageRef,
     String? linkedDebtId,
     String? rawOcrText,
     ParseStatus? parseStatus,
     bool? deleted,
+    DateTime? retentionExpiresAt,
+    DateTime? purgedAt,
+    DateTime? encryptedAt,
+    bool? hasRawOcrText,
   }) {
     return ImportedDocument(
       id: id,
-      localPath: localPath,
+      storageRef: storageRef ?? this.storageRef,
       sourceType: sourceType,
       mimeType: mimeType,
       createdAt: createdAt,
@@ -43,6 +56,10 @@ class ImportedDocument {
       parseStatus: parseStatus ?? this.parseStatus,
       parseVersion: parseVersion,
       deleted: deleted ?? this.deleted,
+      retentionExpiresAt: retentionExpiresAt ?? this.retentionExpiresAt,
+      purgedAt: purgedAt ?? this.purgedAt,
+      encryptedAt: encryptedAt ?? this.encryptedAt,
+      hasRawOcrText: hasRawOcrText ?? this.hasRawOcrText,
     );
   }
 }

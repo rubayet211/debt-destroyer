@@ -1593,7 +1593,19 @@ class $ImportedDocumentsTableTable extends ImportedDocumentsTable
     aliasedName,
     false,
     type: DriftSqlType.string,
-    requiredDuringInsert: true,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _storageRefMeta = const VerificationMeta(
+    'storageRef',
+  );
+  @override
+  late final GeneratedColumn<String> storageRef = GeneratedColumn<String>(
+    'storage_ref',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
   );
   static const VerificationMeta _sourceTypeMeta = const VerificationMeta(
     'sourceType',
@@ -1687,10 +1699,59 @@ class $ImportedDocumentsTableTable extends ImportedDocumentsTable
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _retentionExpiresAtMeta =
+      const VerificationMeta('retentionExpiresAt');
+  @override
+  late final GeneratedColumn<DateTime> retentionExpiresAt =
+      GeneratedColumn<DateTime>(
+        'retention_expires_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _purgedAtMeta = const VerificationMeta(
+    'purgedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> purgedAt = GeneratedColumn<DateTime>(
+    'purged_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _encryptedAtMeta = const VerificationMeta(
+    'encryptedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> encryptedAt = GeneratedColumn<DateTime>(
+    'encrypted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _hasRawOcrTextMeta = const VerificationMeta(
+    'hasRawOcrText',
+  );
+  @override
+  late final GeneratedColumn<bool> hasRawOcrText = GeneratedColumn<bool>(
+    'has_raw_ocr_text',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("has_raw_ocr_text" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
     localPath,
+    storageRef,
     sourceType,
     mimeType,
     createdAt,
@@ -1699,6 +1760,10 @@ class $ImportedDocumentsTableTable extends ImportedDocumentsTable
     parseStatus,
     parseVersion,
     deleted,
+    retentionExpiresAt,
+    purgedAt,
+    encryptedAt,
+    hasRawOcrText,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1722,8 +1787,12 @@ class $ImportedDocumentsTableTable extends ImportedDocumentsTable
         _localPathMeta,
         localPath.isAcceptableOrUnknown(data['local_path']!, _localPathMeta),
       );
-    } else if (isInserting) {
-      context.missing(_localPathMeta);
+    }
+    if (data.containsKey('storage_ref')) {
+      context.handle(
+        _storageRefMeta,
+        storageRef.isAcceptableOrUnknown(data['storage_ref']!, _storageRefMeta),
+      );
     }
     if (data.containsKey('source_type')) {
       context.handle(
@@ -1795,6 +1864,39 @@ class $ImportedDocumentsTableTable extends ImportedDocumentsTable
         deleted.isAcceptableOrUnknown(data['deleted']!, _deletedMeta),
       );
     }
+    if (data.containsKey('retention_expires_at')) {
+      context.handle(
+        _retentionExpiresAtMeta,
+        retentionExpiresAt.isAcceptableOrUnknown(
+          data['retention_expires_at']!,
+          _retentionExpiresAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('purged_at')) {
+      context.handle(
+        _purgedAtMeta,
+        purgedAt.isAcceptableOrUnknown(data['purged_at']!, _purgedAtMeta),
+      );
+    }
+    if (data.containsKey('encrypted_at')) {
+      context.handle(
+        _encryptedAtMeta,
+        encryptedAt.isAcceptableOrUnknown(
+          data['encrypted_at']!,
+          _encryptedAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('has_raw_ocr_text')) {
+      context.handle(
+        _hasRawOcrTextMeta,
+        hasRawOcrText.isAcceptableOrUnknown(
+          data['has_raw_ocr_text']!,
+          _hasRawOcrTextMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1815,6 +1917,10 @@ class $ImportedDocumentsTableTable extends ImportedDocumentsTable
         DriftSqlType.string,
         data['${effectivePrefix}local_path'],
       )!,
+      storageRef: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}storage_ref'],
+      ),
       sourceType: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}source_type'],
@@ -1847,6 +1953,22 @@ class $ImportedDocumentsTableTable extends ImportedDocumentsTable
         DriftSqlType.bool,
         data['${effectivePrefix}deleted'],
       )!,
+      retentionExpiresAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}retention_expires_at'],
+      ),
+      purgedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}purged_at'],
+      ),
+      encryptedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}encrypted_at'],
+      ),
+      hasRawOcrText: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}has_raw_ocr_text'],
+      )!,
     );
   }
 
@@ -1860,6 +1982,7 @@ class ImportedDocumentsTableData extends DataClass
     implements Insertable<ImportedDocumentsTableData> {
   final String id;
   final String localPath;
+  final String? storageRef;
   final String sourceType;
   final String mimeType;
   final DateTime createdAt;
@@ -1868,9 +1991,14 @@ class ImportedDocumentsTableData extends DataClass
   final String parseStatus;
   final String parseVersion;
   final bool deleted;
+  final DateTime? retentionExpiresAt;
+  final DateTime? purgedAt;
+  final DateTime? encryptedAt;
+  final bool hasRawOcrText;
   const ImportedDocumentsTableData({
     required this.id,
     required this.localPath,
+    this.storageRef,
     required this.sourceType,
     required this.mimeType,
     required this.createdAt,
@@ -1879,12 +2007,19 @@ class ImportedDocumentsTableData extends DataClass
     required this.parseStatus,
     required this.parseVersion,
     required this.deleted,
+    this.retentionExpiresAt,
+    this.purgedAt,
+    this.encryptedAt,
+    required this.hasRawOcrText,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
     map['local_path'] = Variable<String>(localPath);
+    if (!nullToAbsent || storageRef != null) {
+      map['storage_ref'] = Variable<String>(storageRef);
+    }
     map['source_type'] = Variable<String>(sourceType);
     map['mime_type'] = Variable<String>(mimeType);
     map['created_at'] = Variable<DateTime>(createdAt);
@@ -1897,6 +2032,16 @@ class ImportedDocumentsTableData extends DataClass
     map['parse_status'] = Variable<String>(parseStatus);
     map['parse_version'] = Variable<String>(parseVersion);
     map['deleted'] = Variable<bool>(deleted);
+    if (!nullToAbsent || retentionExpiresAt != null) {
+      map['retention_expires_at'] = Variable<DateTime>(retentionExpiresAt);
+    }
+    if (!nullToAbsent || purgedAt != null) {
+      map['purged_at'] = Variable<DateTime>(purgedAt);
+    }
+    if (!nullToAbsent || encryptedAt != null) {
+      map['encrypted_at'] = Variable<DateTime>(encryptedAt);
+    }
+    map['has_raw_ocr_text'] = Variable<bool>(hasRawOcrText);
     return map;
   }
 
@@ -1904,6 +2049,9 @@ class ImportedDocumentsTableData extends DataClass
     return ImportedDocumentsTableCompanion(
       id: Value(id),
       localPath: Value(localPath),
+      storageRef: storageRef == null && nullToAbsent
+          ? const Value.absent()
+          : Value(storageRef),
       sourceType: Value(sourceType),
       mimeType: Value(mimeType),
       createdAt: Value(createdAt),
@@ -1916,6 +2064,16 @@ class ImportedDocumentsTableData extends DataClass
       parseStatus: Value(parseStatus),
       parseVersion: Value(parseVersion),
       deleted: Value(deleted),
+      retentionExpiresAt: retentionExpiresAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(retentionExpiresAt),
+      purgedAt: purgedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(purgedAt),
+      encryptedAt: encryptedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(encryptedAt),
+      hasRawOcrText: Value(hasRawOcrText),
     );
   }
 
@@ -1927,6 +2085,7 @@ class ImportedDocumentsTableData extends DataClass
     return ImportedDocumentsTableData(
       id: serializer.fromJson<String>(json['id']),
       localPath: serializer.fromJson<String>(json['localPath']),
+      storageRef: serializer.fromJson<String?>(json['storageRef']),
       sourceType: serializer.fromJson<String>(json['sourceType']),
       mimeType: serializer.fromJson<String>(json['mimeType']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
@@ -1935,6 +2094,12 @@ class ImportedDocumentsTableData extends DataClass
       parseStatus: serializer.fromJson<String>(json['parseStatus']),
       parseVersion: serializer.fromJson<String>(json['parseVersion']),
       deleted: serializer.fromJson<bool>(json['deleted']),
+      retentionExpiresAt: serializer.fromJson<DateTime?>(
+        json['retentionExpiresAt'],
+      ),
+      purgedAt: serializer.fromJson<DateTime?>(json['purgedAt']),
+      encryptedAt: serializer.fromJson<DateTime?>(json['encryptedAt']),
+      hasRawOcrText: serializer.fromJson<bool>(json['hasRawOcrText']),
     );
   }
   @override
@@ -1943,6 +2108,7 @@ class ImportedDocumentsTableData extends DataClass
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
       'localPath': serializer.toJson<String>(localPath),
+      'storageRef': serializer.toJson<String?>(storageRef),
       'sourceType': serializer.toJson<String>(sourceType),
       'mimeType': serializer.toJson<String>(mimeType),
       'createdAt': serializer.toJson<DateTime>(createdAt),
@@ -1951,12 +2117,17 @@ class ImportedDocumentsTableData extends DataClass
       'parseStatus': serializer.toJson<String>(parseStatus),
       'parseVersion': serializer.toJson<String>(parseVersion),
       'deleted': serializer.toJson<bool>(deleted),
+      'retentionExpiresAt': serializer.toJson<DateTime?>(retentionExpiresAt),
+      'purgedAt': serializer.toJson<DateTime?>(purgedAt),
+      'encryptedAt': serializer.toJson<DateTime?>(encryptedAt),
+      'hasRawOcrText': serializer.toJson<bool>(hasRawOcrText),
     };
   }
 
   ImportedDocumentsTableData copyWith({
     String? id,
     String? localPath,
+    Value<String?> storageRef = const Value.absent(),
     String? sourceType,
     String? mimeType,
     DateTime? createdAt,
@@ -1965,9 +2136,14 @@ class ImportedDocumentsTableData extends DataClass
     String? parseStatus,
     String? parseVersion,
     bool? deleted,
+    Value<DateTime?> retentionExpiresAt = const Value.absent(),
+    Value<DateTime?> purgedAt = const Value.absent(),
+    Value<DateTime?> encryptedAt = const Value.absent(),
+    bool? hasRawOcrText,
   }) => ImportedDocumentsTableData(
     id: id ?? this.id,
     localPath: localPath ?? this.localPath,
+    storageRef: storageRef.present ? storageRef.value : this.storageRef,
     sourceType: sourceType ?? this.sourceType,
     mimeType: mimeType ?? this.mimeType,
     createdAt: createdAt ?? this.createdAt,
@@ -1976,6 +2152,12 @@ class ImportedDocumentsTableData extends DataClass
     parseStatus: parseStatus ?? this.parseStatus,
     parseVersion: parseVersion ?? this.parseVersion,
     deleted: deleted ?? this.deleted,
+    retentionExpiresAt: retentionExpiresAt.present
+        ? retentionExpiresAt.value
+        : this.retentionExpiresAt,
+    purgedAt: purgedAt.present ? purgedAt.value : this.purgedAt,
+    encryptedAt: encryptedAt.present ? encryptedAt.value : this.encryptedAt,
+    hasRawOcrText: hasRawOcrText ?? this.hasRawOcrText,
   );
   ImportedDocumentsTableData copyWithCompanion(
     ImportedDocumentsTableCompanion data,
@@ -1983,6 +2165,9 @@ class ImportedDocumentsTableData extends DataClass
     return ImportedDocumentsTableData(
       id: data.id.present ? data.id.value : this.id,
       localPath: data.localPath.present ? data.localPath.value : this.localPath,
+      storageRef: data.storageRef.present
+          ? data.storageRef.value
+          : this.storageRef,
       sourceType: data.sourceType.present
           ? data.sourceType.value
           : this.sourceType,
@@ -2001,6 +2186,16 @@ class ImportedDocumentsTableData extends DataClass
           ? data.parseVersion.value
           : this.parseVersion,
       deleted: data.deleted.present ? data.deleted.value : this.deleted,
+      retentionExpiresAt: data.retentionExpiresAt.present
+          ? data.retentionExpiresAt.value
+          : this.retentionExpiresAt,
+      purgedAt: data.purgedAt.present ? data.purgedAt.value : this.purgedAt,
+      encryptedAt: data.encryptedAt.present
+          ? data.encryptedAt.value
+          : this.encryptedAt,
+      hasRawOcrText: data.hasRawOcrText.present
+          ? data.hasRawOcrText.value
+          : this.hasRawOcrText,
     );
   }
 
@@ -2009,6 +2204,7 @@ class ImportedDocumentsTableData extends DataClass
     return (StringBuffer('ImportedDocumentsTableData(')
           ..write('id: $id, ')
           ..write('localPath: $localPath, ')
+          ..write('storageRef: $storageRef, ')
           ..write('sourceType: $sourceType, ')
           ..write('mimeType: $mimeType, ')
           ..write('createdAt: $createdAt, ')
@@ -2016,7 +2212,11 @@ class ImportedDocumentsTableData extends DataClass
           ..write('rawOcrText: $rawOcrText, ')
           ..write('parseStatus: $parseStatus, ')
           ..write('parseVersion: $parseVersion, ')
-          ..write('deleted: $deleted')
+          ..write('deleted: $deleted, ')
+          ..write('retentionExpiresAt: $retentionExpiresAt, ')
+          ..write('purgedAt: $purgedAt, ')
+          ..write('encryptedAt: $encryptedAt, ')
+          ..write('hasRawOcrText: $hasRawOcrText')
           ..write(')'))
         .toString();
   }
@@ -2025,6 +2225,7 @@ class ImportedDocumentsTableData extends DataClass
   int get hashCode => Object.hash(
     id,
     localPath,
+    storageRef,
     sourceType,
     mimeType,
     createdAt,
@@ -2033,6 +2234,10 @@ class ImportedDocumentsTableData extends DataClass
     parseStatus,
     parseVersion,
     deleted,
+    retentionExpiresAt,
+    purgedAt,
+    encryptedAt,
+    hasRawOcrText,
   );
   @override
   bool operator ==(Object other) =>
@@ -2040,6 +2245,7 @@ class ImportedDocumentsTableData extends DataClass
       (other is ImportedDocumentsTableData &&
           other.id == this.id &&
           other.localPath == this.localPath &&
+          other.storageRef == this.storageRef &&
           other.sourceType == this.sourceType &&
           other.mimeType == this.mimeType &&
           other.createdAt == this.createdAt &&
@@ -2047,13 +2253,18 @@ class ImportedDocumentsTableData extends DataClass
           other.rawOcrText == this.rawOcrText &&
           other.parseStatus == this.parseStatus &&
           other.parseVersion == this.parseVersion &&
-          other.deleted == this.deleted);
+          other.deleted == this.deleted &&
+          other.retentionExpiresAt == this.retentionExpiresAt &&
+          other.purgedAt == this.purgedAt &&
+          other.encryptedAt == this.encryptedAt &&
+          other.hasRawOcrText == this.hasRawOcrText);
 }
 
 class ImportedDocumentsTableCompanion
     extends UpdateCompanion<ImportedDocumentsTableData> {
   final Value<String> id;
   final Value<String> localPath;
+  final Value<String?> storageRef;
   final Value<String> sourceType;
   final Value<String> mimeType;
   final Value<DateTime> createdAt;
@@ -2062,10 +2273,15 @@ class ImportedDocumentsTableCompanion
   final Value<String> parseStatus;
   final Value<String> parseVersion;
   final Value<bool> deleted;
+  final Value<DateTime?> retentionExpiresAt;
+  final Value<DateTime?> purgedAt;
+  final Value<DateTime?> encryptedAt;
+  final Value<bool> hasRawOcrText;
   final Value<int> rowid;
   const ImportedDocumentsTableCompanion({
     this.id = const Value.absent(),
     this.localPath = const Value.absent(),
+    this.storageRef = const Value.absent(),
     this.sourceType = const Value.absent(),
     this.mimeType = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -2074,11 +2290,16 @@ class ImportedDocumentsTableCompanion
     this.parseStatus = const Value.absent(),
     this.parseVersion = const Value.absent(),
     this.deleted = const Value.absent(),
+    this.retentionExpiresAt = const Value.absent(),
+    this.purgedAt = const Value.absent(),
+    this.encryptedAt = const Value.absent(),
+    this.hasRawOcrText = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ImportedDocumentsTableCompanion.insert({
     required String id,
-    required String localPath,
+    this.localPath = const Value.absent(),
+    this.storageRef = const Value.absent(),
     required String sourceType,
     required String mimeType,
     required DateTime createdAt,
@@ -2087,9 +2308,12 @@ class ImportedDocumentsTableCompanion
     required String parseStatus,
     required String parseVersion,
     this.deleted = const Value.absent(),
+    this.retentionExpiresAt = const Value.absent(),
+    this.purgedAt = const Value.absent(),
+    this.encryptedAt = const Value.absent(),
+    this.hasRawOcrText = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
-       localPath = Value(localPath),
        sourceType = Value(sourceType),
        mimeType = Value(mimeType),
        createdAt = Value(createdAt),
@@ -2098,6 +2322,7 @@ class ImportedDocumentsTableCompanion
   static Insertable<ImportedDocumentsTableData> custom({
     Expression<String>? id,
     Expression<String>? localPath,
+    Expression<String>? storageRef,
     Expression<String>? sourceType,
     Expression<String>? mimeType,
     Expression<DateTime>? createdAt,
@@ -2106,11 +2331,16 @@ class ImportedDocumentsTableCompanion
     Expression<String>? parseStatus,
     Expression<String>? parseVersion,
     Expression<bool>? deleted,
+    Expression<DateTime>? retentionExpiresAt,
+    Expression<DateTime>? purgedAt,
+    Expression<DateTime>? encryptedAt,
+    Expression<bool>? hasRawOcrText,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (localPath != null) 'local_path': localPath,
+      if (storageRef != null) 'storage_ref': storageRef,
       if (sourceType != null) 'source_type': sourceType,
       if (mimeType != null) 'mime_type': mimeType,
       if (createdAt != null) 'created_at': createdAt,
@@ -2119,6 +2349,11 @@ class ImportedDocumentsTableCompanion
       if (parseStatus != null) 'parse_status': parseStatus,
       if (parseVersion != null) 'parse_version': parseVersion,
       if (deleted != null) 'deleted': deleted,
+      if (retentionExpiresAt != null)
+        'retention_expires_at': retentionExpiresAt,
+      if (purgedAt != null) 'purged_at': purgedAt,
+      if (encryptedAt != null) 'encrypted_at': encryptedAt,
+      if (hasRawOcrText != null) 'has_raw_ocr_text': hasRawOcrText,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2126,6 +2361,7 @@ class ImportedDocumentsTableCompanion
   ImportedDocumentsTableCompanion copyWith({
     Value<String>? id,
     Value<String>? localPath,
+    Value<String?>? storageRef,
     Value<String>? sourceType,
     Value<String>? mimeType,
     Value<DateTime>? createdAt,
@@ -2134,11 +2370,16 @@ class ImportedDocumentsTableCompanion
     Value<String>? parseStatus,
     Value<String>? parseVersion,
     Value<bool>? deleted,
+    Value<DateTime?>? retentionExpiresAt,
+    Value<DateTime?>? purgedAt,
+    Value<DateTime?>? encryptedAt,
+    Value<bool>? hasRawOcrText,
     Value<int>? rowid,
   }) {
     return ImportedDocumentsTableCompanion(
       id: id ?? this.id,
       localPath: localPath ?? this.localPath,
+      storageRef: storageRef ?? this.storageRef,
       sourceType: sourceType ?? this.sourceType,
       mimeType: mimeType ?? this.mimeType,
       createdAt: createdAt ?? this.createdAt,
@@ -2147,6 +2388,10 @@ class ImportedDocumentsTableCompanion
       parseStatus: parseStatus ?? this.parseStatus,
       parseVersion: parseVersion ?? this.parseVersion,
       deleted: deleted ?? this.deleted,
+      retentionExpiresAt: retentionExpiresAt ?? this.retentionExpiresAt,
+      purgedAt: purgedAt ?? this.purgedAt,
+      encryptedAt: encryptedAt ?? this.encryptedAt,
+      hasRawOcrText: hasRawOcrText ?? this.hasRawOcrText,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2159,6 +2404,9 @@ class ImportedDocumentsTableCompanion
     }
     if (localPath.present) {
       map['local_path'] = Variable<String>(localPath.value);
+    }
+    if (storageRef.present) {
+      map['storage_ref'] = Variable<String>(storageRef.value);
     }
     if (sourceType.present) {
       map['source_type'] = Variable<String>(sourceType.value);
@@ -2184,6 +2432,20 @@ class ImportedDocumentsTableCompanion
     if (deleted.present) {
       map['deleted'] = Variable<bool>(deleted.value);
     }
+    if (retentionExpiresAt.present) {
+      map['retention_expires_at'] = Variable<DateTime>(
+        retentionExpiresAt.value,
+      );
+    }
+    if (purgedAt.present) {
+      map['purged_at'] = Variable<DateTime>(purgedAt.value);
+    }
+    if (encryptedAt.present) {
+      map['encrypted_at'] = Variable<DateTime>(encryptedAt.value);
+    }
+    if (hasRawOcrText.present) {
+      map['has_raw_ocr_text'] = Variable<bool>(hasRawOcrText.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2195,6 +2457,7 @@ class ImportedDocumentsTableCompanion
     return (StringBuffer('ImportedDocumentsTableCompanion(')
           ..write('id: $id, ')
           ..write('localPath: $localPath, ')
+          ..write('storageRef: $storageRef, ')
           ..write('sourceType: $sourceType, ')
           ..write('mimeType: $mimeType, ')
           ..write('createdAt: $createdAt, ')
@@ -2203,6 +2466,10 @@ class ImportedDocumentsTableCompanion
           ..write('parseStatus: $parseStatus, ')
           ..write('parseVersion: $parseVersion, ')
           ..write('deleted: $deleted, ')
+          ..write('retentionExpiresAt: $retentionExpiresAt, ')
+          ..write('purgedAt: $purgedAt, ')
+          ..write('encryptedAt: $encryptedAt, ')
+          ..write('hasRawOcrText: $hasRawOcrText, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3748,6 +4015,71 @@ class $AppPreferencesTableTable extends AppPreferencesTable
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _rawOcrRetentionEnabledMeta =
+      const VerificationMeta('rawOcrRetentionEnabled');
+  @override
+  late final GeneratedColumn<bool> rawOcrRetentionEnabled =
+      GeneratedColumn<bool>(
+        'raw_ocr_retention_enabled',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("raw_ocr_retention_enabled" IN (0, 1))',
+        ),
+        defaultValue: const Constant(false),
+      );
+  static const VerificationMeta _rawOcrRetentionHoursMeta =
+      const VerificationMeta('rawOcrRetentionHours');
+  @override
+  late final GeneratedColumn<int> rawOcrRetentionHours = GeneratedColumn<int>(
+    'raw_ocr_retention_hours',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _documentRetentionModeMeta =
+      const VerificationMeta('documentRetentionMode');
+  @override
+  late final GeneratedColumn<String> documentRetentionMode =
+      GeneratedColumn<String>(
+        'document_retention_mode',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('days30'),
+      );
+  static const VerificationMeta _purgeFailedImportsAfterHoursMeta =
+      const VerificationMeta('purgeFailedImportsAfterHours');
+  @override
+  late final GeneratedColumn<int> purgeFailedImportsAfterHours =
+      GeneratedColumn<int>(
+        'purge_failed_imports_after_hours',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(24),
+      );
+  static const VerificationMeta _dataProtectionExplainerSeenMeta =
+      const VerificationMeta('dataProtectionExplainerSeen');
+  @override
+  late final GeneratedColumn<bool> dataProtectionExplainerSeen =
+      GeneratedColumn<bool>(
+        'data_protection_explainer_seen',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("data_protection_explainer_seen" IN (0, 1))',
+        ),
+        defaultValue: const Constant(false),
+      );
   @override
   List<GeneratedColumn> get $columns => [
     key,
@@ -3761,6 +4093,11 @@ class $AppPreferencesTableTable extends AppPreferencesTable
     notificationsEnabled,
     onboardingCompleted,
     weeklySummaryEnabled,
+    rawOcrRetentionEnabled,
+    rawOcrRetentionHours,
+    documentRetentionMode,
+    purgeFailedImportsAfterHours,
+    dataProtectionExplainerSeen,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3864,6 +4201,51 @@ class $AppPreferencesTableTable extends AppPreferencesTable
         ),
       );
     }
+    if (data.containsKey('raw_ocr_retention_enabled')) {
+      context.handle(
+        _rawOcrRetentionEnabledMeta,
+        rawOcrRetentionEnabled.isAcceptableOrUnknown(
+          data['raw_ocr_retention_enabled']!,
+          _rawOcrRetentionEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('raw_ocr_retention_hours')) {
+      context.handle(
+        _rawOcrRetentionHoursMeta,
+        rawOcrRetentionHours.isAcceptableOrUnknown(
+          data['raw_ocr_retention_hours']!,
+          _rawOcrRetentionHoursMeta,
+        ),
+      );
+    }
+    if (data.containsKey('document_retention_mode')) {
+      context.handle(
+        _documentRetentionModeMeta,
+        documentRetentionMode.isAcceptableOrUnknown(
+          data['document_retention_mode']!,
+          _documentRetentionModeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('purge_failed_imports_after_hours')) {
+      context.handle(
+        _purgeFailedImportsAfterHoursMeta,
+        purgeFailedImportsAfterHours.isAcceptableOrUnknown(
+          data['purge_failed_imports_after_hours']!,
+          _purgeFailedImportsAfterHoursMeta,
+        ),
+      );
+    }
+    if (data.containsKey('data_protection_explainer_seen')) {
+      context.handle(
+        _dataProtectionExplainerSeenMeta,
+        dataProtectionExplainerSeen.isAcceptableOrUnknown(
+          data['data_protection_explainer_seen']!,
+          _dataProtectionExplainerSeenMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -3920,6 +4302,26 @@ class $AppPreferencesTableTable extends AppPreferencesTable
         DriftSqlType.bool,
         data['${effectivePrefix}weekly_summary_enabled'],
       )!,
+      rawOcrRetentionEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}raw_ocr_retention_enabled'],
+      )!,
+      rawOcrRetentionHours: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}raw_ocr_retention_hours'],
+      )!,
+      documentRetentionMode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}document_retention_mode'],
+      )!,
+      purgeFailedImportsAfterHours: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}purge_failed_imports_after_hours'],
+      )!,
+      dataProtectionExplainerSeen: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}data_protection_explainer_seen'],
+      )!,
     );
   }
 
@@ -3942,6 +4344,11 @@ class AppPreferencesTableData extends DataClass
   final bool notificationsEnabled;
   final bool onboardingCompleted;
   final bool weeklySummaryEnabled;
+  final bool rawOcrRetentionEnabled;
+  final int rawOcrRetentionHours;
+  final String documentRetentionMode;
+  final int purgeFailedImportsAfterHours;
+  final bool dataProtectionExplainerSeen;
   const AppPreferencesTableData({
     required this.key,
     required this.themeMode,
@@ -3954,6 +4361,11 @@ class AppPreferencesTableData extends DataClass
     required this.notificationsEnabled,
     required this.onboardingCompleted,
     required this.weeklySummaryEnabled,
+    required this.rawOcrRetentionEnabled,
+    required this.rawOcrRetentionHours,
+    required this.documentRetentionMode,
+    required this.purgeFailedImportsAfterHours,
+    required this.dataProtectionExplainerSeen,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3969,6 +4381,15 @@ class AppPreferencesTableData extends DataClass
     map['notifications_enabled'] = Variable<bool>(notificationsEnabled);
     map['onboarding_completed'] = Variable<bool>(onboardingCompleted);
     map['weekly_summary_enabled'] = Variable<bool>(weeklySummaryEnabled);
+    map['raw_ocr_retention_enabled'] = Variable<bool>(rawOcrRetentionEnabled);
+    map['raw_ocr_retention_hours'] = Variable<int>(rawOcrRetentionHours);
+    map['document_retention_mode'] = Variable<String>(documentRetentionMode);
+    map['purge_failed_imports_after_hours'] = Variable<int>(
+      purgeFailedImportsAfterHours,
+    );
+    map['data_protection_explainer_seen'] = Variable<bool>(
+      dataProtectionExplainerSeen,
+    );
     return map;
   }
 
@@ -3985,6 +4406,11 @@ class AppPreferencesTableData extends DataClass
       notificationsEnabled: Value(notificationsEnabled),
       onboardingCompleted: Value(onboardingCompleted),
       weeklySummaryEnabled: Value(weeklySummaryEnabled),
+      rawOcrRetentionEnabled: Value(rawOcrRetentionEnabled),
+      rawOcrRetentionHours: Value(rawOcrRetentionHours),
+      documentRetentionMode: Value(documentRetentionMode),
+      purgeFailedImportsAfterHours: Value(purgeFailedImportsAfterHours),
+      dataProtectionExplainerSeen: Value(dataProtectionExplainerSeen),
     );
   }
 
@@ -4011,6 +4437,21 @@ class AppPreferencesTableData extends DataClass
       weeklySummaryEnabled: serializer.fromJson<bool>(
         json['weeklySummaryEnabled'],
       ),
+      rawOcrRetentionEnabled: serializer.fromJson<bool>(
+        json['rawOcrRetentionEnabled'],
+      ),
+      rawOcrRetentionHours: serializer.fromJson<int>(
+        json['rawOcrRetentionHours'],
+      ),
+      documentRetentionMode: serializer.fromJson<String>(
+        json['documentRetentionMode'],
+      ),
+      purgeFailedImportsAfterHours: serializer.fromJson<int>(
+        json['purgeFailedImportsAfterHours'],
+      ),
+      dataProtectionExplainerSeen: serializer.fromJson<bool>(
+        json['dataProtectionExplainerSeen'],
+      ),
     );
   }
   @override
@@ -4028,6 +4469,15 @@ class AppPreferencesTableData extends DataClass
       'notificationsEnabled': serializer.toJson<bool>(notificationsEnabled),
       'onboardingCompleted': serializer.toJson<bool>(onboardingCompleted),
       'weeklySummaryEnabled': serializer.toJson<bool>(weeklySummaryEnabled),
+      'rawOcrRetentionEnabled': serializer.toJson<bool>(rawOcrRetentionEnabled),
+      'rawOcrRetentionHours': serializer.toJson<int>(rawOcrRetentionHours),
+      'documentRetentionMode': serializer.toJson<String>(documentRetentionMode),
+      'purgeFailedImportsAfterHours': serializer.toJson<int>(
+        purgeFailedImportsAfterHours,
+      ),
+      'dataProtectionExplainerSeen': serializer.toJson<bool>(
+        dataProtectionExplainerSeen,
+      ),
     };
   }
 
@@ -4043,6 +4493,11 @@ class AppPreferencesTableData extends DataClass
     bool? notificationsEnabled,
     bool? onboardingCompleted,
     bool? weeklySummaryEnabled,
+    bool? rawOcrRetentionEnabled,
+    int? rawOcrRetentionHours,
+    String? documentRetentionMode,
+    int? purgeFailedImportsAfterHours,
+    bool? dataProtectionExplainerSeen,
   }) => AppPreferencesTableData(
     key: key ?? this.key,
     themeMode: themeMode ?? this.themeMode,
@@ -4055,6 +4510,14 @@ class AppPreferencesTableData extends DataClass
     notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
     onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
     weeklySummaryEnabled: weeklySummaryEnabled ?? this.weeklySummaryEnabled,
+    rawOcrRetentionEnabled:
+        rawOcrRetentionEnabled ?? this.rawOcrRetentionEnabled,
+    rawOcrRetentionHours: rawOcrRetentionHours ?? this.rawOcrRetentionHours,
+    documentRetentionMode: documentRetentionMode ?? this.documentRetentionMode,
+    purgeFailedImportsAfterHours:
+        purgeFailedImportsAfterHours ?? this.purgeFailedImportsAfterHours,
+    dataProtectionExplainerSeen:
+        dataProtectionExplainerSeen ?? this.dataProtectionExplainerSeen,
   );
   AppPreferencesTableData copyWithCompanion(AppPreferencesTableCompanion data) {
     return AppPreferencesTableData(
@@ -4087,6 +4550,21 @@ class AppPreferencesTableData extends DataClass
       weeklySummaryEnabled: data.weeklySummaryEnabled.present
           ? data.weeklySummaryEnabled.value
           : this.weeklySummaryEnabled,
+      rawOcrRetentionEnabled: data.rawOcrRetentionEnabled.present
+          ? data.rawOcrRetentionEnabled.value
+          : this.rawOcrRetentionEnabled,
+      rawOcrRetentionHours: data.rawOcrRetentionHours.present
+          ? data.rawOcrRetentionHours.value
+          : this.rawOcrRetentionHours,
+      documentRetentionMode: data.documentRetentionMode.present
+          ? data.documentRetentionMode.value
+          : this.documentRetentionMode,
+      purgeFailedImportsAfterHours: data.purgeFailedImportsAfterHours.present
+          ? data.purgeFailedImportsAfterHours.value
+          : this.purgeFailedImportsAfterHours,
+      dataProtectionExplainerSeen: data.dataProtectionExplainerSeen.present
+          ? data.dataProtectionExplainerSeen.value
+          : this.dataProtectionExplainerSeen,
     );
   }
 
@@ -4103,7 +4581,14 @@ class AppPreferencesTableData extends DataClass
           ..write('aiConsentEnabled: $aiConsentEnabled, ')
           ..write('notificationsEnabled: $notificationsEnabled, ')
           ..write('onboardingCompleted: $onboardingCompleted, ')
-          ..write('weeklySummaryEnabled: $weeklySummaryEnabled')
+          ..write('weeklySummaryEnabled: $weeklySummaryEnabled, ')
+          ..write('rawOcrRetentionEnabled: $rawOcrRetentionEnabled, ')
+          ..write('rawOcrRetentionHours: $rawOcrRetentionHours, ')
+          ..write('documentRetentionMode: $documentRetentionMode, ')
+          ..write(
+            'purgeFailedImportsAfterHours: $purgeFailedImportsAfterHours, ',
+          )
+          ..write('dataProtectionExplainerSeen: $dataProtectionExplainerSeen')
           ..write(')'))
         .toString();
   }
@@ -4121,6 +4606,11 @@ class AppPreferencesTableData extends DataClass
     notificationsEnabled,
     onboardingCompleted,
     weeklySummaryEnabled,
+    rawOcrRetentionEnabled,
+    rawOcrRetentionHours,
+    documentRetentionMode,
+    purgeFailedImportsAfterHours,
+    dataProtectionExplainerSeen,
   );
   @override
   bool operator ==(Object other) =>
@@ -4136,7 +4626,14 @@ class AppPreferencesTableData extends DataClass
           other.aiConsentEnabled == this.aiConsentEnabled &&
           other.notificationsEnabled == this.notificationsEnabled &&
           other.onboardingCompleted == this.onboardingCompleted &&
-          other.weeklySummaryEnabled == this.weeklySummaryEnabled);
+          other.weeklySummaryEnabled == this.weeklySummaryEnabled &&
+          other.rawOcrRetentionEnabled == this.rawOcrRetentionEnabled &&
+          other.rawOcrRetentionHours == this.rawOcrRetentionHours &&
+          other.documentRetentionMode == this.documentRetentionMode &&
+          other.purgeFailedImportsAfterHours ==
+              this.purgeFailedImportsAfterHours &&
+          other.dataProtectionExplainerSeen ==
+              this.dataProtectionExplainerSeen);
 }
 
 class AppPreferencesTableCompanion
@@ -4152,6 +4649,11 @@ class AppPreferencesTableCompanion
   final Value<bool> notificationsEnabled;
   final Value<bool> onboardingCompleted;
   final Value<bool> weeklySummaryEnabled;
+  final Value<bool> rawOcrRetentionEnabled;
+  final Value<int> rawOcrRetentionHours;
+  final Value<String> documentRetentionMode;
+  final Value<int> purgeFailedImportsAfterHours;
+  final Value<bool> dataProtectionExplainerSeen;
   const AppPreferencesTableCompanion({
     this.key = const Value.absent(),
     this.themeMode = const Value.absent(),
@@ -4164,6 +4666,11 @@ class AppPreferencesTableCompanion
     this.notificationsEnabled = const Value.absent(),
     this.onboardingCompleted = const Value.absent(),
     this.weeklySummaryEnabled = const Value.absent(),
+    this.rawOcrRetentionEnabled = const Value.absent(),
+    this.rawOcrRetentionHours = const Value.absent(),
+    this.documentRetentionMode = const Value.absent(),
+    this.purgeFailedImportsAfterHours = const Value.absent(),
+    this.dataProtectionExplainerSeen = const Value.absent(),
   });
   AppPreferencesTableCompanion.insert({
     this.key = const Value.absent(),
@@ -4177,6 +4684,11 @@ class AppPreferencesTableCompanion
     this.notificationsEnabled = const Value.absent(),
     this.onboardingCompleted = const Value.absent(),
     this.weeklySummaryEnabled = const Value.absent(),
+    this.rawOcrRetentionEnabled = const Value.absent(),
+    this.rawOcrRetentionHours = const Value.absent(),
+    this.documentRetentionMode = const Value.absent(),
+    this.purgeFailedImportsAfterHours = const Value.absent(),
+    this.dataProtectionExplainerSeen = const Value.absent(),
   });
   static Insertable<AppPreferencesTableData> custom({
     Expression<int>? key,
@@ -4190,6 +4702,11 @@ class AppPreferencesTableCompanion
     Expression<bool>? notificationsEnabled,
     Expression<bool>? onboardingCompleted,
     Expression<bool>? weeklySummaryEnabled,
+    Expression<bool>? rawOcrRetentionEnabled,
+    Expression<int>? rawOcrRetentionHours,
+    Expression<String>? documentRetentionMode,
+    Expression<int>? purgeFailedImportsAfterHours,
+    Expression<bool>? dataProtectionExplainerSeen,
   }) {
     return RawValuesInsertable({
       if (key != null) 'key': key,
@@ -4206,6 +4723,16 @@ class AppPreferencesTableCompanion
         'onboarding_completed': onboardingCompleted,
       if (weeklySummaryEnabled != null)
         'weekly_summary_enabled': weeklySummaryEnabled,
+      if (rawOcrRetentionEnabled != null)
+        'raw_ocr_retention_enabled': rawOcrRetentionEnabled,
+      if (rawOcrRetentionHours != null)
+        'raw_ocr_retention_hours': rawOcrRetentionHours,
+      if (documentRetentionMode != null)
+        'document_retention_mode': documentRetentionMode,
+      if (purgeFailedImportsAfterHours != null)
+        'purge_failed_imports_after_hours': purgeFailedImportsAfterHours,
+      if (dataProtectionExplainerSeen != null)
+        'data_protection_explainer_seen': dataProtectionExplainerSeen,
     });
   }
 
@@ -4221,6 +4748,11 @@ class AppPreferencesTableCompanion
     Value<bool>? notificationsEnabled,
     Value<bool>? onboardingCompleted,
     Value<bool>? weeklySummaryEnabled,
+    Value<bool>? rawOcrRetentionEnabled,
+    Value<int>? rawOcrRetentionHours,
+    Value<String>? documentRetentionMode,
+    Value<int>? purgeFailedImportsAfterHours,
+    Value<bool>? dataProtectionExplainerSeen,
   }) {
     return AppPreferencesTableCompanion(
       key: key ?? this.key,
@@ -4234,6 +4766,15 @@ class AppPreferencesTableCompanion
       notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
       weeklySummaryEnabled: weeklySummaryEnabled ?? this.weeklySummaryEnabled,
+      rawOcrRetentionEnabled:
+          rawOcrRetentionEnabled ?? this.rawOcrRetentionEnabled,
+      rawOcrRetentionHours: rawOcrRetentionHours ?? this.rawOcrRetentionHours,
+      documentRetentionMode:
+          documentRetentionMode ?? this.documentRetentionMode,
+      purgeFailedImportsAfterHours:
+          purgeFailedImportsAfterHours ?? this.purgeFailedImportsAfterHours,
+      dataProtectionExplainerSeen:
+          dataProtectionExplainerSeen ?? this.dataProtectionExplainerSeen,
     );
   }
 
@@ -4275,6 +4816,31 @@ class AppPreferencesTableCompanion
         weeklySummaryEnabled.value,
       );
     }
+    if (rawOcrRetentionEnabled.present) {
+      map['raw_ocr_retention_enabled'] = Variable<bool>(
+        rawOcrRetentionEnabled.value,
+      );
+    }
+    if (rawOcrRetentionHours.present) {
+      map['raw_ocr_retention_hours'] = Variable<int>(
+        rawOcrRetentionHours.value,
+      );
+    }
+    if (documentRetentionMode.present) {
+      map['document_retention_mode'] = Variable<String>(
+        documentRetentionMode.value,
+      );
+    }
+    if (purgeFailedImportsAfterHours.present) {
+      map['purge_failed_imports_after_hours'] = Variable<int>(
+        purgeFailedImportsAfterHours.value,
+      );
+    }
+    if (dataProtectionExplainerSeen.present) {
+      map['data_protection_explainer_seen'] = Variable<bool>(
+        dataProtectionExplainerSeen.value,
+      );
+    }
     return map;
   }
 
@@ -4291,7 +4857,14 @@ class AppPreferencesTableCompanion
           ..write('aiConsentEnabled: $aiConsentEnabled, ')
           ..write('notificationsEnabled: $notificationsEnabled, ')
           ..write('onboardingCompleted: $onboardingCompleted, ')
-          ..write('weeklySummaryEnabled: $weeklySummaryEnabled')
+          ..write('weeklySummaryEnabled: $weeklySummaryEnabled, ')
+          ..write('rawOcrRetentionEnabled: $rawOcrRetentionEnabled, ')
+          ..write('rawOcrRetentionHours: $rawOcrRetentionHours, ')
+          ..write('documentRetentionMode: $documentRetentionMode, ')
+          ..write(
+            'purgeFailedImportsAfterHours: $purgeFailedImportsAfterHours, ',
+          )
+          ..write('dataProtectionExplainerSeen: $dataProtectionExplainerSeen')
           ..write(')'))
         .toString();
   }
@@ -5731,7 +6304,8 @@ typedef $$PaymentsTableTableProcessedTableManager =
 typedef $$ImportedDocumentsTableTableCreateCompanionBuilder =
     ImportedDocumentsTableCompanion Function({
       required String id,
-      required String localPath,
+      Value<String> localPath,
+      Value<String?> storageRef,
       required String sourceType,
       required String mimeType,
       required DateTime createdAt,
@@ -5740,12 +6314,17 @@ typedef $$ImportedDocumentsTableTableCreateCompanionBuilder =
       required String parseStatus,
       required String parseVersion,
       Value<bool> deleted,
+      Value<DateTime?> retentionExpiresAt,
+      Value<DateTime?> purgedAt,
+      Value<DateTime?> encryptedAt,
+      Value<bool> hasRawOcrText,
       Value<int> rowid,
     });
 typedef $$ImportedDocumentsTableTableUpdateCompanionBuilder =
     ImportedDocumentsTableCompanion Function({
       Value<String> id,
       Value<String> localPath,
+      Value<String?> storageRef,
       Value<String> sourceType,
       Value<String> mimeType,
       Value<DateTime> createdAt,
@@ -5754,6 +6333,10 @@ typedef $$ImportedDocumentsTableTableUpdateCompanionBuilder =
       Value<String> parseStatus,
       Value<String> parseVersion,
       Value<bool> deleted,
+      Value<DateTime?> retentionExpiresAt,
+      Value<DateTime?> purgedAt,
+      Value<DateTime?> encryptedAt,
+      Value<bool> hasRawOcrText,
       Value<int> rowid,
     });
 
@@ -5818,6 +6401,11 @@ class $$ImportedDocumentsTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get storageRef => $composableBuilder(
+    column: $table.storageRef,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get sourceType => $composableBuilder(
     column: $table.sourceType,
     builder: (column) => ColumnFilters(column),
@@ -5855,6 +6443,26 @@ class $$ImportedDocumentsTableTableFilterComposer
 
   ColumnFilters<bool> get deleted => $composableBuilder(
     column: $table.deleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get retentionExpiresAt => $composableBuilder(
+    column: $table.retentionExpiresAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get purgedAt => $composableBuilder(
+    column: $table.purgedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get encryptedAt => $composableBuilder(
+    column: $table.encryptedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get hasRawOcrText => $composableBuilder(
+    column: $table.hasRawOcrText,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5904,6 +6512,11 @@ class $$ImportedDocumentsTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get storageRef => $composableBuilder(
+    column: $table.storageRef,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get sourceType => $composableBuilder(
     column: $table.sourceType,
     builder: (column) => ColumnOrderings(column),
@@ -5943,6 +6556,26 @@ class $$ImportedDocumentsTableTableOrderingComposer
     column: $table.deleted,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<DateTime> get retentionExpiresAt => $composableBuilder(
+    column: $table.retentionExpiresAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get purgedAt => $composableBuilder(
+    column: $table.purgedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get encryptedAt => $composableBuilder(
+    column: $table.encryptedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get hasRawOcrText => $composableBuilder(
+    column: $table.hasRawOcrText,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ImportedDocumentsTableTableAnnotationComposer
@@ -5959,6 +6592,11 @@ class $$ImportedDocumentsTableTableAnnotationComposer
 
   GeneratedColumn<String> get localPath =>
       $composableBuilder(column: $table.localPath, builder: (column) => column);
+
+  GeneratedColumn<String> get storageRef => $composableBuilder(
+    column: $table.storageRef,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get sourceType => $composableBuilder(
     column: $table.sourceType,
@@ -5993,6 +6631,24 @@ class $$ImportedDocumentsTableTableAnnotationComposer
 
   GeneratedColumn<bool> get deleted =>
       $composableBuilder(column: $table.deleted, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get retentionExpiresAt => $composableBuilder(
+    column: $table.retentionExpiresAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get purgedAt =>
+      $composableBuilder(column: $table.purgedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get encryptedAt => $composableBuilder(
+    column: $table.encryptedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get hasRawOcrText => $composableBuilder(
+    column: $table.hasRawOcrText,
+    builder: (column) => column,
+  );
 
   Expression<T> parsedExtractionsTableRefs<T extends Object>(
     Expression<T> Function($$ParsedExtractionsTableTableAnnotationComposer a) f,
@@ -6062,6 +6718,7 @@ class $$ImportedDocumentsTableTableTableManager
               ({
                 Value<String> id = const Value.absent(),
                 Value<String> localPath = const Value.absent(),
+                Value<String?> storageRef = const Value.absent(),
                 Value<String> sourceType = const Value.absent(),
                 Value<String> mimeType = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
@@ -6070,10 +6727,15 @@ class $$ImportedDocumentsTableTableTableManager
                 Value<String> parseStatus = const Value.absent(),
                 Value<String> parseVersion = const Value.absent(),
                 Value<bool> deleted = const Value.absent(),
+                Value<DateTime?> retentionExpiresAt = const Value.absent(),
+                Value<DateTime?> purgedAt = const Value.absent(),
+                Value<DateTime?> encryptedAt = const Value.absent(),
+                Value<bool> hasRawOcrText = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ImportedDocumentsTableCompanion(
                 id: id,
                 localPath: localPath,
+                storageRef: storageRef,
                 sourceType: sourceType,
                 mimeType: mimeType,
                 createdAt: createdAt,
@@ -6082,12 +6744,17 @@ class $$ImportedDocumentsTableTableTableManager
                 parseStatus: parseStatus,
                 parseVersion: parseVersion,
                 deleted: deleted,
+                retentionExpiresAt: retentionExpiresAt,
+                purgedAt: purgedAt,
+                encryptedAt: encryptedAt,
+                hasRawOcrText: hasRawOcrText,
                 rowid: rowid,
               ),
           createCompanionCallback:
               ({
                 required String id,
-                required String localPath,
+                Value<String> localPath = const Value.absent(),
+                Value<String?> storageRef = const Value.absent(),
                 required String sourceType,
                 required String mimeType,
                 required DateTime createdAt,
@@ -6096,10 +6763,15 @@ class $$ImportedDocumentsTableTableTableManager
                 required String parseStatus,
                 required String parseVersion,
                 Value<bool> deleted = const Value.absent(),
+                Value<DateTime?> retentionExpiresAt = const Value.absent(),
+                Value<DateTime?> purgedAt = const Value.absent(),
+                Value<DateTime?> encryptedAt = const Value.absent(),
+                Value<bool> hasRawOcrText = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ImportedDocumentsTableCompanion.insert(
                 id: id,
                 localPath: localPath,
+                storageRef: storageRef,
                 sourceType: sourceType,
                 mimeType: mimeType,
                 createdAt: createdAt,
@@ -6108,6 +6780,10 @@ class $$ImportedDocumentsTableTableTableManager
                 parseStatus: parseStatus,
                 parseVersion: parseVersion,
                 deleted: deleted,
+                retentionExpiresAt: retentionExpiresAt,
+                purgedAt: purgedAt,
+                encryptedAt: encryptedAt,
+                hasRawOcrText: hasRawOcrText,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -7184,6 +7860,11 @@ typedef $$AppPreferencesTableTableCreateCompanionBuilder =
       Value<bool> notificationsEnabled,
       Value<bool> onboardingCompleted,
       Value<bool> weeklySummaryEnabled,
+      Value<bool> rawOcrRetentionEnabled,
+      Value<int> rawOcrRetentionHours,
+      Value<String> documentRetentionMode,
+      Value<int> purgeFailedImportsAfterHours,
+      Value<bool> dataProtectionExplainerSeen,
     });
 typedef $$AppPreferencesTableTableUpdateCompanionBuilder =
     AppPreferencesTableCompanion Function({
@@ -7198,6 +7879,11 @@ typedef $$AppPreferencesTableTableUpdateCompanionBuilder =
       Value<bool> notificationsEnabled,
       Value<bool> onboardingCompleted,
       Value<bool> weeklySummaryEnabled,
+      Value<bool> rawOcrRetentionEnabled,
+      Value<int> rawOcrRetentionHours,
+      Value<String> documentRetentionMode,
+      Value<int> purgeFailedImportsAfterHours,
+      Value<bool> dataProtectionExplainerSeen,
     });
 
 class $$AppPreferencesTableTableFilterComposer
@@ -7261,6 +7947,31 @@ class $$AppPreferencesTableTableFilterComposer
 
   ColumnFilters<bool> get weeklySummaryEnabled => $composableBuilder(
     column: $table.weeklySummaryEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get rawOcrRetentionEnabled => $composableBuilder(
+    column: $table.rawOcrRetentionEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get rawOcrRetentionHours => $composableBuilder(
+    column: $table.rawOcrRetentionHours,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get documentRetentionMode => $composableBuilder(
+    column: $table.documentRetentionMode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get purgeFailedImportsAfterHours => $composableBuilder(
+    column: $table.purgeFailedImportsAfterHours,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get dataProtectionExplainerSeen => $composableBuilder(
+    column: $table.dataProtectionExplainerSeen,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -7328,6 +8039,31 @@ class $$AppPreferencesTableTableOrderingComposer
     column: $table.weeklySummaryEnabled,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get rawOcrRetentionEnabled => $composableBuilder(
+    column: $table.rawOcrRetentionEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get rawOcrRetentionHours => $composableBuilder(
+    column: $table.rawOcrRetentionHours,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get documentRetentionMode => $composableBuilder(
+    column: $table.documentRetentionMode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get purgeFailedImportsAfterHours => $composableBuilder(
+    column: $table.purgeFailedImportsAfterHours,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get dataProtectionExplainerSeen => $composableBuilder(
+    column: $table.dataProtectionExplainerSeen,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$AppPreferencesTableTableAnnotationComposer
@@ -7389,6 +8125,31 @@ class $$AppPreferencesTableTableAnnotationComposer
     column: $table.weeklySummaryEnabled,
     builder: (column) => column,
   );
+
+  GeneratedColumn<bool> get rawOcrRetentionEnabled => $composableBuilder(
+    column: $table.rawOcrRetentionEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get rawOcrRetentionHours => $composableBuilder(
+    column: $table.rawOcrRetentionHours,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get documentRetentionMode => $composableBuilder(
+    column: $table.documentRetentionMode,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get purgeFailedImportsAfterHours => $composableBuilder(
+    column: $table.purgeFailedImportsAfterHours,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get dataProtectionExplainerSeen => $composableBuilder(
+    column: $table.dataProtectionExplainerSeen,
+    builder: (column) => column,
+  );
 }
 
 class $$AppPreferencesTableTableTableManager
@@ -7445,6 +8206,11 @@ class $$AppPreferencesTableTableTableManager
                 Value<bool> notificationsEnabled = const Value.absent(),
                 Value<bool> onboardingCompleted = const Value.absent(),
                 Value<bool> weeklySummaryEnabled = const Value.absent(),
+                Value<bool> rawOcrRetentionEnabled = const Value.absent(),
+                Value<int> rawOcrRetentionHours = const Value.absent(),
+                Value<String> documentRetentionMode = const Value.absent(),
+                Value<int> purgeFailedImportsAfterHours = const Value.absent(),
+                Value<bool> dataProtectionExplainerSeen = const Value.absent(),
               }) => AppPreferencesTableCompanion(
                 key: key,
                 themeMode: themeMode,
@@ -7457,6 +8223,11 @@ class $$AppPreferencesTableTableTableManager
                 notificationsEnabled: notificationsEnabled,
                 onboardingCompleted: onboardingCompleted,
                 weeklySummaryEnabled: weeklySummaryEnabled,
+                rawOcrRetentionEnabled: rawOcrRetentionEnabled,
+                rawOcrRetentionHours: rawOcrRetentionHours,
+                documentRetentionMode: documentRetentionMode,
+                purgeFailedImportsAfterHours: purgeFailedImportsAfterHours,
+                dataProtectionExplainerSeen: dataProtectionExplainerSeen,
               ),
           createCompanionCallback:
               ({
@@ -7471,6 +8242,11 @@ class $$AppPreferencesTableTableTableManager
                 Value<bool> notificationsEnabled = const Value.absent(),
                 Value<bool> onboardingCompleted = const Value.absent(),
                 Value<bool> weeklySummaryEnabled = const Value.absent(),
+                Value<bool> rawOcrRetentionEnabled = const Value.absent(),
+                Value<int> rawOcrRetentionHours = const Value.absent(),
+                Value<String> documentRetentionMode = const Value.absent(),
+                Value<int> purgeFailedImportsAfterHours = const Value.absent(),
+                Value<bool> dataProtectionExplainerSeen = const Value.absent(),
               }) => AppPreferencesTableCompanion.insert(
                 key: key,
                 themeMode: themeMode,
@@ -7483,6 +8259,11 @@ class $$AppPreferencesTableTableTableManager
                 notificationsEnabled: notificationsEnabled,
                 onboardingCompleted: onboardingCompleted,
                 weeklySummaryEnabled: weeklySummaryEnabled,
+                rawOcrRetentionEnabled: rawOcrRetentionEnabled,
+                rawOcrRetentionHours: rawOcrRetentionHours,
+                documentRetentionMode: documentRetentionMode,
+                purgeFailedImportsAfterHours: purgeFailedImportsAfterHours,
+                dataProtectionExplainerSeen: dataProtectionExplainerSeen,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

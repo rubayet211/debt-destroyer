@@ -27,6 +27,18 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   }
 
   Future<void> _resolve() async {
+    final protection = await ref.read(dataProtectionBootstrapProvider.future);
+    if (!mounted) {
+      return;
+    }
+    if (!protection.ready) {
+      context.go('/data-protection-recovery');
+      return;
+    }
+    if (protection.showUpgradeExplainer) {
+      context.go('/privacy-upgrade');
+      return;
+    }
     final prefs = await ref
         .read(preferencesRepositoryProvider)
         .loadPreferences();
