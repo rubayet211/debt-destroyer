@@ -1,0 +1,478 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:flutter/services.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:http/http.dart' as http;
+import 'package:uuid/uuid.dart';
+
+import '../../core/constants/app_constants.dart';
+import '../../core/errors/app_exception.dart';
+import '../../core/logging/app_logger.dart';
+import '../../core/utils/parsers.dart';
+import '../../features/scan_import/domain/import_services.dart';
+import '../../shared/enums/app_enums.dart';
+import '../../shared/models/backend_models.dart';
+import '../../shared/models/import_models.dart';
+
+abstract class AttestationService {
+  Future<String> requestAttestationToken({
+    required String installId,
+    required String nonce,
+  });
+}
+
+class PlayIntegrityAttestationService implements AttestationService {
+  const PlayIntegrityAttestationService(this._config);
+
+  static const _channel = MethodChannel('debt_destroyer/play_integrity');
+  final BackendConfig _config;
+
+  @override
+  Future<String> requestAttestationToken({
+    required String installId,
+    required String nonce,
+  }) async {
+    try {
+      final token = await _channel
+          .invokeMethod<String>('requestIntegrityToken', {
+            'installId': installId,
+            'nonce': nonce,
+            'projectNumber': _config.playIntegrityProjectNumber,
+          });
+      if (token != null && token.isNotEmpty) {
+        return token;
+      }
+    } catch (_) {
+      AppLogger.instance.info('Falling back to debug attestation token.');
+    }
+    return 'debug-attestation:$installId:$nonce';
+  }
+}
+
+abstract class BackendSessionManager {
+  Future<InstallSession?> ensureSession();
+  Future<InstallSession> refreshSession();
+  Future<String> getOrCreateInstallId();
+  Future<void> clearSession();
+}
+
+class BackendAuthService implements BackendSessionManager {
+  const BackendAuthService({
+    required this.storage,
+    required this.httpClient,
+    required this.config,
+    required this.attestationService,
+  });
+
+  final FlutterSecureStorage storage;
+  final http.Client httpClient;
+  final BackendConfig config;
+  final AttestationService attestationService;
+
+  static const _installIdKey = 'backend_install_id';
+  static const _sessionKey = 'backend_install_session';
+
+  @override
+  Future<String> getOrCreateInstallId() async {
+    final existing = await storage.read(key: _installIdKey);
+    if (existing != null && existing.isNotEmpty) {
+      return existing;
+    }
+    final next = const Uuid().v4();
+    await storage.write(key: _installIdKey, value: next);
+    return next;
+  }
+
+  @override
+  Future<InstallSession?> ensureSession() async {
+    if (!config.isConfigured) {
+      return null;
+    }
+    final session = await _readSession();
+    if (session != null &&
+        session.expiresAt.isAfter(
+          DateTime.now().add(const Duration(seconds: 30)),
+        )) {
+      return session;
+    }
+    if (session != null) {
+      return refreshSession();
+    }
+    return _bootstrap();
+  }
+
+  @override
+  Future<InstallSession> refreshSession() async {
+    final session = await _readSession();
+    if (session == null) {
+      return _bootstrap();
+    }
+    final response = await _post('/v1/mobile/token/refresh', {
+      'refresh_token': session.refreshToken,
+    });
+    final refreshed = InstallSession(
+      installId: session.installId,
+      accessToken: response['access_token'] as String,
+      refreshToken: response['refresh_token'] as String,
+      expiresAt: DateTime.now().add(
+        Duration(seconds: response['expires_in_seconds'] as int),
+      ),
+      attestationStatus: session.attestationStatus,
+    );
+    await _writeSession(refreshed);
+    return refreshed;
+  }
+
+  @override
+  Future<void> clearSession() async {
+    await storage.delete(key: _sessionKey);
+  }
+
+  Future<InstallSession> _bootstrap() async {
+    final installId = await getOrCreateInstallId();
+    final challenge = await _post('/v1/mobile/bootstrap/challenge', {
+      'app_version': AppConstants.appVersion,
+      'platform': 'android',
+      'install_id': installId,
+    });
+    final attestationToken = await attestationService.requestAttestationToken(
+      installId: installId,
+      nonce: challenge['nonce'] as String,
+    );
+    final verify = await _post('/v1/mobile/bootstrap/verify', {
+      'challenge_id': challenge['challenge_id'],
+      'install_id': installId,
+      'attestation_token': attestationToken,
+      'device': {
+        'platform': 'android',
+        'app_version': AppConstants.appVersion,
+        'build_mode': config.environment,
+      },
+    });
+    final created = InstallSession(
+      installId: installId,
+      accessToken: verify['access_token'] as String,
+      refreshToken: verify['refresh_token'] as String,
+      expiresAt: DateTime.now().add(
+        Duration(seconds: verify['expires_in_seconds'] as int),
+      ),
+      attestationStatus:
+          (verify['session'] as Map<String, dynamic>)['attestation_status']
+              as String,
+    );
+    await _writeSession(created);
+    return created;
+  }
+
+  Future<Map<String, dynamic>> _post(
+    String path,
+    Map<String, dynamic> body,
+  ) async {
+    final response = await httpClient
+        .post(
+          Uri.parse('${config.baseUrl}$path'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode(body),
+        )
+        .timeout(config.requestTimeout);
+    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+    if (response.statusCode >= 400) {
+      throw AppException(
+        decoded['message']?.toString() ?? 'Backend auth failed',
+        code: decoded['error']?.toString(),
+      );
+    }
+    return decoded;
+  }
+
+  Future<InstallSession?> _readSession() async {
+    final raw = await storage.read(key: _sessionKey);
+    if (raw == null || raw.isEmpty) {
+      return null;
+    }
+    final json = jsonDecode(raw) as Map<String, dynamic>;
+    return InstallSession(
+      installId: json['installId'] as String,
+      accessToken: json['accessToken'] as String,
+      refreshToken: json['refreshToken'] as String,
+      expiresAt: DateTime.parse(json['expiresAt'] as String),
+      attestationStatus: json['attestationStatus'] as String,
+    );
+  }
+
+  Future<void> _writeSession(InstallSession session) {
+    return storage.write(
+      key: _sessionKey,
+      value: jsonEncode({
+        'installId': session.installId,
+        'accessToken': session.accessToken,
+        'refreshToken': session.refreshToken,
+        'expiresAt': session.expiresAt.toIso8601String(),
+        'attestationStatus': session.attestationStatus,
+      }),
+    );
+  }
+}
+
+class BackendHttpException implements Exception {
+  const BackendHttpException({
+    required this.statusCode,
+    required this.code,
+    required this.message,
+    this.payload,
+  });
+
+  final int statusCode;
+  final String code;
+  final String message;
+  final Map<String, dynamic>? payload;
+}
+
+class BackendApiClient {
+  const BackendApiClient({
+    required this.httpClient,
+    required this.config,
+    required this.sessionManager,
+  });
+
+  final http.Client httpClient;
+  final BackendConfig config;
+  final BackendSessionManager sessionManager;
+
+  Future<Map<String, dynamic>> getAuthorized(String path) async {
+    return _sendAuthorized(method: 'GET', path: path, body: null);
+  }
+
+  Future<Map<String, dynamic>> postAuthorized(
+    String path,
+    Map<String, dynamic> body,
+  ) {
+    return _sendAuthorized(method: 'POST', path: path, body: body);
+  }
+
+  Future<Map<String, dynamic>> _sendAuthorized({
+    required String method,
+    required String path,
+    required Map<String, dynamic>? body,
+    bool refreshed = false,
+    int transientRetry = 0,
+  }) async {
+    final session = await sessionManager.ensureSession();
+    if (session == null) {
+      throw const BackendHttpException(
+        statusCode: 503,
+        code: 'backend_unavailable',
+        message: 'Backend not configured',
+      );
+    }
+
+    try {
+      final requestUri = Uri.parse('${config.baseUrl}$path');
+      final response = await () {
+        if (method == 'GET') {
+          return httpClient.get(
+            requestUri,
+            headers: _headers(session.accessToken),
+          );
+        }
+        return httpClient.post(
+          requestUri,
+          headers: _headers(session.accessToken),
+          body: jsonEncode(body),
+        );
+      }().timeout(config.requestTimeout);
+
+      final decoded = response.body.isEmpty
+          ? <String, dynamic>{}
+          : jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 401 && !refreshed) {
+        await sessionManager.refreshSession();
+        return _sendAuthorized(
+          method: method,
+          path: path,
+          body: body,
+          refreshed: true,
+          transientRetry: transientRetry,
+        );
+      }
+      if ((response.statusCode >= 500 || response.statusCode == 429) &&
+          transientRetry < 1 &&
+          response.statusCode != 429) {
+        await Future<void>.delayed(
+          Duration(milliseconds: 300 * (transientRetry + 1)),
+        );
+        return _sendAuthorized(
+          method: method,
+          path: path,
+          body: body,
+          refreshed: refreshed,
+          transientRetry: transientRetry + 1,
+        );
+      }
+      if (response.statusCode >= 400) {
+        throw BackendHttpException(
+          statusCode: response.statusCode,
+          code: decoded['error']?.toString() ?? 'backend_error',
+          message: decoded['message']?.toString() ?? 'Backend request failed',
+          payload: decoded,
+        );
+      }
+      return decoded;
+    } on TimeoutException {
+      if (transientRetry < 1) {
+        await Future<void>.delayed(
+          Duration(milliseconds: 300 * (transientRetry + 1)),
+        );
+        return _sendAuthorized(
+          method: method,
+          path: path,
+          body: body,
+          refreshed: refreshed,
+          transientRetry: transientRetry + 1,
+        );
+      }
+      throw const BackendHttpException(
+        statusCode: 504,
+        code: 'backend_timeout',
+        message: 'Backend request timed out',
+      );
+    } on http.ClientException {
+      throw const BackendHttpException(
+        statusCode: 503,
+        code: 'network_error',
+        message: 'Network unavailable',
+      );
+    }
+  }
+
+  Map<String, String> _headers(String accessToken) {
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $accessToken',
+    };
+  }
+}
+
+class BackendCapabilitiesService {
+  const BackendCapabilitiesService(this.client);
+
+  final BackendApiClient client;
+
+  Future<BackendCapabilities> loadCapabilities() async {
+    final response = await client.getAuthorized('/v1/mobile/me/capabilities');
+    return BackendCapabilities(
+      premium: response['premium'] as bool? ?? false,
+      features: (response['features'] as List<dynamic>? ?? const [])
+          .map((item) => item.toString())
+          .toList(),
+      freeScanRemaining: response['free_scan_remaining'] as int? ?? 0,
+      rateLimitState: response['rate_limit_state']?.toString() ?? 'unknown',
+    );
+  }
+}
+
+class BackendAiExtractionService implements AiExtractionService {
+  const BackendAiExtractionService({
+    required this.client,
+    required this.sessionManager,
+    required this.config,
+    required this.parser,
+  });
+
+  final BackendApiClient client;
+  final BackendSessionManager sessionManager;
+  final BackendConfig config;
+  final HeuristicExtractionParser parser;
+
+  @override
+  Future<ExtractionCandidate> extract({
+    required DocumentClassification classification,
+    required String normalizedText,
+    required DocumentSourceType sourceType,
+    required bool allowCloud,
+  }) async {
+    if (!allowCloud || !config.isConfigured) {
+      return parser.parse(classification, normalizedText);
+    }
+
+    final installId = await sessionManager.getOrCreateInstallId();
+    try {
+      final response = await client.postAuthorized('/v1/ai/extractions', {
+        'request_id': const Uuid().v4(),
+        'install_id': installId,
+        'document_classification': classification.name,
+        'normalized_ocr_text': normalizedText,
+        'source_type': sourceType.name,
+        'app_version': AppConstants.appVersion,
+        'consented_at': DateTime.now().toIso8601String(),
+      });
+      final extraction = response['extraction'] as Map<String, dynamic>;
+      final quota = _parseQuota(
+        response['quota'] as Map<String, dynamic>? ?? const {},
+      );
+      return ExtractionCandidate(
+        title: extraction['title']?.toString(),
+        creditorName: extraction['issuer_name']?.toString(),
+        debtType: parser.mapDebtType(extraction['debt_type']?.toString()),
+        currentBalance: _asDouble(extraction['current_balance']),
+        originalBalance: _asDouble(extraction['original_balance']),
+        aprPercentage: _asDouble(extraction['apr_percentage']),
+        minimumPayment: _asDouble(extraction['minimum_payment']),
+        dueDate: Parsers.parseDate(extraction['due_date']?.toString()),
+        paymentDate: Parsers.parseDate(extraction['payment_date']?.toString()),
+        paymentAmount: _asDouble(extraction['payment_amount']),
+        currency: extraction['currency']?.toString(),
+        notes: extraction['notes']?.toString(),
+        confidence: _asDouble(extraction['confidence']) ?? 0,
+        last4: extraction['last4']?.toString(),
+        labels:
+            (extraction['raw_detected_labels'] as List<dynamic>? ?? const [])
+                .map((item) => item.toString())
+                .toList(),
+        warnings: (response['warnings'] as List<dynamic>? ?? const [])
+            .map((item) => item.toString())
+            .toList(),
+        quotaSnapshot: quota,
+      );
+    } on BackendHttpException catch (error) {
+      final fallback = parser.parse(classification, normalizedText);
+      final quota = error.payload?['details']?['quota'];
+      return fallback.copyWith(
+        warnings: [
+          error.code,
+          if (error.statusCode == 401) 'reauth_required',
+          if (error.statusCode >= 500) 'backend_unavailable',
+        ],
+        quotaSnapshot: quota is Map<String, dynamic>
+            ? _parseQuota(quota)
+            : null,
+      );
+    } on AppException catch (error) {
+      return parser
+          .parse(classification, normalizedText)
+          .copyWith(warnings: [error.code ?? 'backend_error']);
+    }
+  }
+
+  BackendQuotaSnapshot _parseQuota(Map<String, dynamic> json) {
+    return BackendQuotaSnapshot(
+      allowed: json['allowed'] as bool? ?? true,
+      remainingFreeScans: json['remaining_free_scans'] as int? ?? 0,
+      premiumRequired: json['premium_required'] as bool? ?? false,
+      resetAt: json['reset_at'] == null
+          ? null
+          : DateTime.tryParse(json['reset_at'].toString()),
+    );
+  }
+
+  double? _asDouble(dynamic value) {
+    if (value == null) {
+      return null;
+    }
+    if (value is num) {
+      return value.toDouble();
+    }
+    return double.tryParse(value.toString());
+  }
+}

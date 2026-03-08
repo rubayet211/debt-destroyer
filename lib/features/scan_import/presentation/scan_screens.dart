@@ -8,7 +8,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:uuid/uuid.dart';
 
-import '../../../core/constants/app_constants.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/utils/parsers.dart';
 import '../../../core/widgets/app_widgets.dart';
@@ -188,20 +187,24 @@ class ScanImportHubScreen extends ConsumerWidget {
   }
 
   Future<bool> _askConsent(BuildContext context, WidgetRef ref) async {
-    final count = await ref
-        .read(documentsRepositoryProvider)
-        .countSuccessfulScansInMonth(DateTime.now());
-    if (!context.mounted) {
-      return false;
-    }
-    final premium =
-        ref.read(subscriptionStateProvider).valueOrNull ??
-        SubscriptionState.free();
-    if (!premium.isPremium && count >= AppConstants.freeAiScanLimit) {
-      if (context.mounted) {
-        context.push('/premium');
+    try {
+      final config = ref.read(backendConfigProvider);
+      if (config.isConfigured) {
+        final capabilities = await ref
+            .read(backendCapabilitiesServiceProvider)
+            .loadCapabilities();
+        if (!context.mounted) {
+          return false;
+        }
+        if (!capabilities.premium && capabilities.freeScanRemaining <= 0) {
+          context.push('/premium');
+          return false;
+        }
       }
-      return false;
+    } catch (_) {
+      if (!context.mounted) {
+        return false;
+      }
     }
 
     final choice = await showModalBottomSheet<bool>(
@@ -219,12 +222,12 @@ class ScanImportHubScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
               const Text(
-                'Local OCR runs on-device. Cloud AI parsing only runs if you allow it for this import.',
+                'Local OCR runs on-device. Cloud extraction is processed by DEBT DESTROYER secure servers only if you allow it for this import.',
               ),
               const SizedBox(height: 16),
               FilledButton(
                 onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Use local OCR + cloud AI'),
+                child: const Text('Use local OCR + secure cloud extraction'),
               ),
               const SizedBox(height: 8),
               OutlinedButton(
@@ -354,9 +357,9 @@ class _CameraCaptureScreenState extends ConsumerState<CameraCaptureScreen> {
     final choice = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Use cloud AI?'),
+        title: const Text('Use secure cloud extraction?'),
         content: const Text(
-          'Local OCR always runs first. Allow cloud AI for this capture?',
+          'Local OCR always runs first. Allow DEBT DESTROYER secure servers to structure this capture?',
         ),
         actions: [
           TextButton(
@@ -499,6 +502,26 @@ class _ParsedReviewConfirmScreenState
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: AppCard(child: Text(widget.bundle.errorMessage!)),
+            ),
+          if (widget.bundle.candidate.warnings.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: AppCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Cloud extraction notes'),
+                    const SizedBox(height: 8),
+                    ...widget.bundle.candidate.warnings.map(Text.new),
+                    if (widget.bundle.candidate.quotaSnapshot != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'Free scans remaining: ${widget.bundle.candidate.quotaSnapshot!.remainingFreeScans}',
+                      ),
+                    ],
+                  ],
+                ),
+              ),
             ),
           AppCard(
             child: Column(

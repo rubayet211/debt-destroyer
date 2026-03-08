@@ -1,17 +1,12 @@
-import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/constants/app_constants.dart';
-import '../../../core/errors/app_exception.dart';
-import '../../../core/logging/app_logger.dart';
 import '../../../core/utils/parsers.dart';
 import '../../../shared/enums/app_enums.dart';
 import '../../../shared/models/import_models.dart';
@@ -134,106 +129,9 @@ abstract class AiExtractionService {
   Future<ExtractionCandidate> extract({
     required DocumentClassification classification,
     required String normalizedText,
+    required DocumentSourceType sourceType,
     required bool allowCloud,
   });
-}
-
-class GeminiAiExtractionService implements AiExtractionService {
-  GeminiAiExtractionService(this._parser);
-
-  final HeuristicExtractionParser _parser;
-
-  @override
-  Future<ExtractionCandidate> extract({
-    required DocumentClassification classification,
-    required String normalizedText,
-    required bool allowCloud,
-  }) async {
-    final apiKey = dotenv.env['GEMINI_API_KEY'];
-    if (!allowCloud || apiKey == null || apiKey.isEmpty) {
-      return _parser.parse(classification, normalizedText);
-    }
-
-    try {
-      final response = await http.post(
-        Uri.parse(
-          'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$apiKey',
-        ),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'contents': [
-            {
-              'parts': [
-                {
-                  'text':
-                      '''
-You extract debt and payment data from OCR text.
-Return strict JSON only. Keys:
-issuer_name, title, debt_type, current_balance, original_balance, apr_percentage, minimum_payment, due_date, payment_date, payment_amount, currency, notes, confidence, last4, raw_detected_labels.
-Use null for unknowns. No prose. Classification: ${classification.name}
-$normalizedText
-''',
-                },
-              ],
-            },
-          ],
-          'generationConfig': {'responseMimeType': 'application/json'},
-        }),
-      );
-
-      if (response.statusCode >= 400) {
-        throw AppException('Gemini request failed: ${response.statusCode}');
-      }
-
-      final body = jsonDecode(response.body) as Map<String, dynamic>;
-      final candidates = body['candidates'] as List<dynamic>? ?? const [];
-      final content = candidates.isEmpty
-          ? null
-          : (candidates.first as Map<String, dynamic>)['content']
-                as Map<String, dynamic>?;
-      final parts = content?['parts'] as List<dynamic>? ?? const [];
-      final text = parts.isEmpty
-          ? null
-          : (parts.first as Map<String, dynamic>)['text'] as String?;
-      if (text == null) {
-        throw const AppException('Gemini returned an empty payload.');
-      }
-
-      final payload = jsonDecode(text) as Map<String, dynamic>;
-      return ExtractionCandidate(
-        title: payload['title']?.toString(),
-        creditorName: payload['issuer_name']?.toString(),
-        debtType: _parser.mapDebtType(payload['debt_type']?.toString()),
-        currentBalance: _asDouble(payload['current_balance']),
-        originalBalance: _asDouble(payload['original_balance']),
-        aprPercentage: _asDouble(payload['apr_percentage']),
-        minimumPayment: _asDouble(payload['minimum_payment']),
-        dueDate: Parsers.parseDate(payload['due_date']?.toString()),
-        paymentDate: Parsers.parseDate(payload['payment_date']?.toString()),
-        paymentAmount: _asDouble(payload['payment_amount']),
-        currency: payload['currency']?.toString(),
-        notes: payload['notes']?.toString(),
-        confidence: _asDouble(payload['confidence']) ?? 0,
-        last4: payload['last4']?.toString(),
-        labels: (payload['raw_detected_labels'] as List<dynamic>? ?? const [])
-            .map((item) => item.toString())
-            .toList(),
-      );
-    } catch (error, stackTrace) {
-      AppLogger.instance.error('AI extraction failed', error, stackTrace);
-      return _parser.parse(classification, normalizedText);
-    }
-  }
-
-  double? _asDouble(dynamic value) {
-    if (value == null) {
-      return null;
-    }
-    if (value is num) {
-      return value.toDouble();
-    }
-    return double.tryParse(value.toString());
-  }
 }
 
 class HeuristicExtractionParser {
@@ -404,6 +302,7 @@ class ImportCoordinator {
       await aiExtractionService.extract(
         classification: classification,
         normalizedText: multiline,
+        sourceType: stored.sourceType,
         allowCloud: allowCloud,
       ),
     );

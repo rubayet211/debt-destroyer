@@ -371,9 +371,9 @@ class SecurityPrivacyScreen extends ConsumerWidget {
           ),
           SwitchListTile.adaptive(
             value: preferences.aiConsentEnabled,
-            title: const Text('Allow cloud AI parsing'),
+            title: const Text('Allow secure cloud extraction'),
             subtitle: const Text(
-              'This is still confirmed on each import; local OCR remains available.',
+              'This is still confirmed on each import; local OCR remains available without backend access.',
             ),
             onChanged: (value) async {
               await ref
@@ -386,7 +386,7 @@ class SecurityPrivacyScreen extends ConsumerWidget {
           const SizedBox(height: 12),
           const AppCard(
             child: Text(
-              'Imported screenshots are stored locally. Nothing is uploaded silently. You can delete imported documents from debt detail flows.',
+              'Imported screenshots stay local unless you explicitly allow secure server-side extraction for a single import. Nothing is uploaded silently.',
             ),
           ),
         ],
@@ -410,7 +410,7 @@ class HelpAboutScreen extends StatelessWidget {
               Text('DEBT DESTROYER'),
               SizedBox(height: 12),
               Text(
-                'Privacy-first debt tracking with local storage, on-device OCR, and optional cloud AI parsing.',
+                'Privacy-first debt tracking with local storage, on-device OCR, and optional secure server-side extraction.',
               ),
               SizedBox(height: 12),
               Text(

@@ -1,3 +1,4 @@
+import 'backend_models.dart';
 import '../enums/app_enums.dart';
 
 class ImportedDocument {
@@ -83,6 +84,8 @@ class ExtractionCandidate {
     this.confidence = 0,
     this.last4,
     this.labels = const [],
+    this.warnings = const [],
+    this.quotaSnapshot,
   });
 
   final String? title;
@@ -100,6 +103,8 @@ class ExtractionCandidate {
   final double confidence;
   final String? last4;
   final List<String> labels;
+  final List<String> warnings;
+  final BackendQuotaSnapshot? quotaSnapshot;
 
   ExtractionCandidate copyWith({
     String? title,
@@ -117,6 +122,8 @@ class ExtractionCandidate {
     double? confidence,
     String? last4,
     List<String>? labels,
+    List<String>? warnings,
+    BackendQuotaSnapshot? quotaSnapshot,
   }) {
     return ExtractionCandidate(
       title: title ?? this.title,
@@ -134,6 +141,8 @@ class ExtractionCandidate {
       confidence: confidence ?? this.confidence,
       last4: last4 ?? this.last4,
       labels: labels ?? this.labels,
+      warnings: warnings ?? this.warnings,
+      quotaSnapshot: quotaSnapshot ?? this.quotaSnapshot,
     );
   }
 }

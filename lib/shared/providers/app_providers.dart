@@ -5,6 +5,8 @@ import 'package:csv/csv.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:http/http.dart' as http;
 import 'package:local_auth/local_auth.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -12,12 +14,14 @@ import 'package:uuid/uuid.dart';
 
 import '../../app/router/app_router.dart';
 import '../../core/services/app_services.dart';
+import '../../core/services/backend_services.dart';
 import '../../features/dashboard/domain/debt_metrics_service.dart';
 import '../../features/scan_import/domain/import_services.dart';
 import '../../features/strategy/domain/strategy_engine.dart';
 import '../data/local/app_database.dart';
 import '../data/repositories.dart';
 import '../enums/app_enums.dart';
+import '../models/backend_models.dart';
 import '../models/dashboard_snapshot.dart';
 import '../models/debt.dart';
 import '../models/import_models.dart';
@@ -30,6 +34,19 @@ final availableCamerasProvider = Provider<List<CameraDescription>>(
   (ref) => const [],
 );
 final secureStorageProvider = Provider((ref) => const FlutterSecureStorage());
+final httpClientProvider = Provider<http.Client>((ref) {
+  final client = http.Client();
+  ref.onDispose(client.close);
+  return client;
+});
+final backendConfigProvider = Provider<BackendConfig>((ref) {
+  return BackendConfig(
+    baseUrl: dotenv.env['BACKEND_BASE_URL'] ?? '',
+    environment: dotenv.env['BACKEND_ENV'] ?? 'development',
+    playIntegrityProjectNumber: dotenv.env['PLAY_INTEGRITY_PROJECT_NUMBER'],
+    requestTimeout: const Duration(seconds: 15),
+  );
+});
 final appDatabaseProvider = Provider<AppDatabase>((ref) {
   final db = AppDatabase();
   ref.onDispose(db.close);
@@ -55,6 +72,27 @@ final reminderSchedulerProvider = Provider((ref) {
 });
 final premiumServiceProvider = Provider((ref) => const PremiumService());
 final csvExportServiceProvider = Provider((ref) => CsvExportService());
+final attestationServiceProvider = Provider<AttestationService>(
+  (ref) => PlayIntegrityAttestationService(ref.watch(backendConfigProvider)),
+);
+final backendAuthServiceProvider = Provider<BackendAuthService>(
+  (ref) => BackendAuthService(
+    storage: ref.watch(secureStorageProvider),
+    httpClient: ref.watch(httpClientProvider),
+    config: ref.watch(backendConfigProvider),
+    attestationService: ref.watch(attestationServiceProvider),
+  ),
+);
+final backendApiClientProvider = Provider<BackendApiClient>(
+  (ref) => BackendApiClient(
+    httpClient: ref.watch(httpClientProvider),
+    config: ref.watch(backendConfigProvider),
+    sessionManager: ref.watch(backendAuthServiceProvider),
+  ),
+);
+final backendCapabilitiesServiceProvider = Provider<BackendCapabilitiesService>(
+  (ref) => BackendCapabilitiesService(ref.watch(backendApiClientProvider)),
+);
 final strategyEngineProvider = Provider((ref) => const StrategyEngine());
 final debtMetricsServiceProvider = Provider(
   (ref) => DebtMetricsService(ref.watch(strategyEngineProvider)),
@@ -86,7 +124,12 @@ final ocrServiceProvider = Provider<OcrService>((ref) => MlKitOcrService());
 final documentClassifierProvider = Provider((ref) => DocumentClassifier());
 final heuristicParserProvider = Provider((ref) => HeuristicExtractionParser());
 final aiExtractionServiceProvider = Provider<AiExtractionService>(
-  (ref) => GeminiAiExtractionService(ref.watch(heuristicParserProvider)),
+  (ref) => BackendAiExtractionService(
+    client: ref.watch(backendApiClientProvider),
+    sessionManager: ref.watch(backendAuthServiceProvider),
+    config: ref.watch(backendConfigProvider),
+    parser: ref.watch(heuristicParserProvider),
+  ),
 );
 final parseValidationServiceProvider = Provider(
   (ref) => ParseValidationService(),
