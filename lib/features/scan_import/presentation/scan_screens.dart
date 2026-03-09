@@ -680,8 +680,12 @@ class _ParsedReviewConfirmScreenState
                     'Select payment-like rows to import. Other rows stay review-only for context.',
                   ),
                   const SizedBox(height: 12),
-                  ..._lineItems.map(
-                    (item) => CheckboxListTile(
+                  ..._lineItems.map((item) {
+                    final duplicateWarning = _duplicateWarningFor(
+                      item,
+                      selectedDebtPayments,
+                    );
+                    return CheckboxListTile(
                       value: item.isSelected,
                       contentPadding: EdgeInsets.zero,
                       onChanged: (value) {
@@ -701,12 +705,7 @@ class _ParsedReviewConfirmScreenState
                           item.type.name,
                           if (item.date != null) Formatters.date(item.date),
                           ...item.warnings,
-                          if (_duplicateWarningFor(
-                                item,
-                                selectedDebtPayments,
-                              ) !=
-                              null)
-                            _duplicateWarningFor(item, selectedDebtPayments)!,
+                          if (duplicateWarning != null) duplicateWarning,
                         ].join(' • '),
                       ),
                       secondary: Text(
@@ -715,8 +714,8 @@ class _ParsedReviewConfirmScreenState
                           currencyCode: widget.bundle.summary.currency ?? 'USD',
                         ),
                       ),
-                    ),
-                  ),
+                    );
+                  }),
                 ],
               ),
             ),
@@ -854,6 +853,19 @@ class _ParsedReviewConfirmScreenState
       final amount = Parsers.parseMoney(_paymentAmount.text) > 0
           ? Parsers.parseMoney(_paymentAmount.text)
           : selectedPaymentItem.amount.abs();
+      if (amount <= 0) {
+        if (!context.mounted) {
+          return;
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Enter a payment amount or select a payment-like line item.',
+            ),
+          ),
+        );
+        return;
+      }
       await ref
           .read(paymentsRepositoryProvider)
           .savePayment(

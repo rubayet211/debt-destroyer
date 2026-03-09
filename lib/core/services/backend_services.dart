@@ -585,7 +585,7 @@ class BackendAiExtractionService implements AiExtractionService {
     StatementSummaryCandidate local,
     StatementSummaryCandidate remote,
   ) {
-    return local.copyWith(
+    return StatementSummaryCandidate(
       title: remote.title ?? local.title,
       creditorName: remote.creditorName ?? local.creditorName,
       debtType: remote.debtType ?? local.debtType,
@@ -598,7 +598,7 @@ class BackendAiExtractionService implements AiExtractionService {
       paymentAmount: remote.paymentAmount ?? local.paymentAmount,
       statementStartDate: remote.statementStartDate ?? local.statementStartDate,
       statementEndDate: remote.statementEndDate ?? local.statementEndDate,
-      currency: remote.currency ?? local.currency,
+      currency: remote.currency,
       notes: remote.notes ?? local.notes,
       confidence: remote.confidence > 0 ? remote.confidence : local.confidence,
       last4: remote.last4 ?? local.last4,
@@ -615,14 +615,27 @@ class BackendAiExtractionService implements AiExtractionService {
     }
     final merged = <String, StatementLineItemCandidate>{};
     for (final item in [...local, ...remote]) {
+      final normalizedAmount = _normalizedLineItemAmount(item);
+      final normalizedType = item.type.name;
       final key =
-          '${item.description.toLowerCase()}|${item.amount}|${item.date?.toIso8601String() ?? 'none'}';
+          '${item.description.toLowerCase()}|$normalizedType|$normalizedAmount|${item.date?.toIso8601String() ?? 'none'}';
       final existing = merged[key];
       if (existing == null || item.confidence >= existing.confidence) {
-        merged[key] = item;
+        merged[key] = item.copyWith(amount: normalizedAmount);
       }
     }
     return merged.values.toList();
+  }
+
+  double _normalizedLineItemAmount(StatementLineItemCandidate item) {
+    final absolute = item.amount.abs();
+    return switch (item.type) {
+      StatementLineItemType.payment => absolute,
+      StatementLineItemType.charge ||
+      StatementLineItemType.fee ||
+      StatementLineItemType.interest => -absolute,
+      StatementLineItemType.other => item.amount,
+    };
   }
 
   StatementLineItemType _parseItemType(String? raw) {

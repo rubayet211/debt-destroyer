@@ -28,7 +28,7 @@ class FakeProvider implements AiProvider {
       last4: '1234',
       raw_detected_labels: ['statement'],
       statement_start_date: '2026-02-01',
-      statement_end_date: '2026-02-29',
+      statement_end_date: '2026-02-28',
       line_items: [
         {
           date: '2026-02-05',

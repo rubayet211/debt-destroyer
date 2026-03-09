@@ -290,11 +290,7 @@ class StatementSummaryParser {
       'due date',
       'due',
     ]);
-    final statementLine = _findLine(lowerLines, lines, const [
-      'statement period',
-      'billing period',
-      'from',
-    ]);
+    final statementLine = _findStatementPeriodLine(lowerLines, lines);
     final title = lines.isEmpty ? 'Imported debt' : lines.first;
     final creditorName = lines.length > 1
         ? lines[1]
@@ -388,6 +384,34 @@ class StatementSummaryParser {
   ) {
     for (var i = 0; i < lowerLines.length; i++) {
       if (keywords.any(lowerLines[i].contains)) {
+        return originalLines[i];
+      }
+    }
+    return '';
+  }
+
+  String _findStatementPeriodLine(
+    List<String> lowerLines,
+    List<String> originalLines,
+  ) {
+    final explicit = _findLine(lowerLines, originalLines, const [
+      'statement period',
+      'billing period',
+    ]);
+    if (explicit.isNotEmpty) {
+      return explicit;
+    }
+    for (var i = 0; i < lowerLines.length; i++) {
+      final lower = lowerLines[i];
+      if (!lower.contains('statement from') &&
+          !lower.contains('billing from') &&
+          !lower.contains('period from')) {
+        continue;
+      }
+      final matches = RegExp(
+        r'(\d{4}-\d{2}-\d{2}|\d{1,2}/\d{1,2}/\d{2,4})',
+      ).allMatches(originalLines[i]);
+      if (matches.length >= 2) {
         return originalLines[i];
       }
     }

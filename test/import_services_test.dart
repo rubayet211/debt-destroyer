@@ -77,5 +77,20 @@ Minimum payment: \$75
         true,
       );
     });
+
+    test('does not treat generic "from" lines as statement periods', () {
+      final result = validator.validate(
+        parser.parse(DocumentClassification.creditCardStatement, '''
+ACME CREDIT CARD STATEMENT
+Payment from checking account 250.00
+Current balance: \$1,240.55
+Minimum payment: \$75
+'''),
+      );
+
+      expect(result.summary.statementStartDate, isNull);
+      expect(result.summary.statementEndDate, isNull);
+      expect(result.summary.labels, isNot(contains('statement period')));
+    });
   });
 }
