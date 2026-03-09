@@ -2,10 +2,10 @@ import Fastify, {
   type FastifyInstance,
   type FastifyReply,
   type FastifyRequest,
-} from 'fastify';
-import jwt from 'jsonwebtoken';
+} from "fastify";
+import jwt from "jsonwebtoken";
 
-import { loadConfig, type AppConfig } from './config.js';
+import { loadConfig, type AppConfig } from "./config.js";
 import {
   bootstrapChallengeRequestSchema,
   bootstrapVerifyRequestSchema,
@@ -16,16 +16,25 @@ import {
   extractionResponseSchema,
   tokenRefreshRequestSchema,
   type ExtractionPayload,
-} from './types.js';
-import { AppError } from './utils.js';
+} from "./types.js";
+import { AppError } from "./utils.js";
 import {
   ConfigurableAttestationVerifier,
   type AttestationVerifier,
-} from './services/attestation.js';
-import { makeId, makeNonce, makeOpaqueToken, redactTextPreview, sha256 } from './services/crypto.js';
-import { createBillingVerifier, type BillingVerifier } from './services/billing.js';
-import { GeminiProvider, type AiProvider } from './services/provider.js';
-import { createRateLimiter, type RateLimiter } from './services/rate-limit.js';
+} from "./services/attestation.js";
+import {
+  makeId,
+  makeNonce,
+  makeOpaqueToken,
+  redactTextPreview,
+  sha256,
+} from "./services/crypto.js";
+import {
+  createBillingVerifier,
+  type BillingVerifier,
+} from "./services/billing.js";
+import { GeminiProvider, type AiProvider } from "./services/provider.js";
+import { createRateLimiter, type RateLimiter } from "./services/rate-limit.js";
 import {
   createStore,
   type EntitlementRecord,
@@ -33,8 +42,8 @@ import {
   monthKeyFor,
   type AppStore,
   type UsageSnapshot,
-} from './services/storage.js';
-import { normalizeExtraction } from './services/schema.js';
+} from "./services/storage.js";
+import { normalizeExtraction } from "./services/schema.js";
 
 type CreateAppOptions = {
   config?: AppConfig;
@@ -47,7 +56,7 @@ type CreateAppOptions = {
 
 type AccessTokenPayload = {
   installId: string;
-  type: 'access';
+  type: "access";
 };
 
 export async function createApp(options: CreateAppOptions = {}) {
@@ -55,7 +64,8 @@ export async function createApp(options: CreateAppOptions = {}) {
   const store: AppStore =
     options.store ?? (await createStore(config.postgresUrl));
   const provider = options.provider ?? new GeminiProvider(config);
-  const billingVerifier = options.billingVerifier ?? createBillingVerifier(config);
+  const billingVerifier =
+    options.billingVerifier ?? createBillingVerifier(config);
   const rateLimiter: RateLimiter =
     options.rateLimiter ?? (await createRateLimiter(config.redisUrl));
   const attestationVerifier =
@@ -63,7 +73,7 @@ export async function createApp(options: CreateAppOptions = {}) {
 
   const app = Fastify({
     logger: {
-      level: config.environment === 'production' ? 'info' : 'debug',
+      level: config.environment === "production" ? "info" : "debug",
     },
   });
   const extractionAliasDeprecatedAt = new Date().toUTCString();
@@ -81,20 +91,20 @@ export async function createApp(options: CreateAppOptions = {}) {
     }
     request.log.error(error);
     return reply.status(500).send({
-      error: 'internal_error',
-      message: 'Unexpected server failure',
+      error: "internal_error",
+      message: "Unexpected server failure",
     });
   });
 
-  app.addHook('onClose', async () => {
+  app.addHook("onClose", async () => {
     await store.close?.();
     await rateLimiter.close?.();
   });
 
-  app.get('/health/live', async () => ({ ok: true, status: 'live' }));
-  app.get('/health/ready', async () => ({ ok: true, status: 'ready' }));
+  app.get("/health/live", async () => ({ ok: true, status: "live" }));
+  app.get("/health/ready", async () => ({ ok: true, status: "ready" }));
 
-  app.post('/v1/mobile/bootstrap/challenge', async (request, reply) => {
+  app.post("/v1/mobile/bootstrap/challenge", async (request, reply) => {
     const body = bootstrapChallengeRequestSchema.parse(request.body);
     const challengeId = makeId();
     const nonce = makeNonce();
@@ -110,7 +120,7 @@ export async function createApp(options: CreateAppOptions = {}) {
 
     await store.saveAuditEvent({
       installId: body.install_id,
-      eventType: 'bootstrap.challenge.created',
+      eventType: "bootstrap.challenge.created",
       payload: {
         appVersion: body.app_version,
         platform: body.platform,
@@ -120,23 +130,23 @@ export async function createApp(options: CreateAppOptions = {}) {
     return reply.send({
       challenge_id: challengeId,
       nonce,
-      attestation_provider: 'play_integrity',
+      attestation_provider: "play_integrity",
       instructions:
-        'Submit the nonce to Play Integrity and send the resulting token to /verify.',
+        "Submit the nonce to Play Integrity and send the resulting token to /verify.",
     });
   });
 
-  app.post('/v1/mobile/bootstrap/verify', async (request, reply) => {
+  app.post("/v1/mobile/bootstrap/verify", async (request, reply) => {
     const body = bootstrapVerifyRequestSchema.parse(request.body);
     const challenge = await store.getChallenge(body.challenge_id);
     if (!challenge || challenge.installId !== body.install_id) {
-      throw new AppError(400, 'invalid_challenge', 'Challenge not found');
+      throw new AppError(400, "invalid_challenge", "Challenge not found");
     }
     if (challenge.consumedAt) {
-      throw new AppError(400, 'challenge_consumed', 'Challenge already used');
+      throw new AppError(400, "challenge_consumed", "Challenge already used");
     }
     if (challenge.expiresAt.getTime() < Date.now()) {
-      throw new AppError(400, 'challenge_expired', 'Challenge expired');
+      throw new AppError(400, "challenge_expired", "Challenge expired");
     }
 
     const verdict = await attestationVerifier.verify({
@@ -145,18 +155,18 @@ export async function createApp(options: CreateAppOptions = {}) {
       nonce: challenge.nonce,
     });
     if (!verdict.valid) {
-      throw new AppError(401, 'attestation_failed', verdict.reason ?? 'Invalid attestation');
+      throw new AppError(
+        401,
+        "attestation_failed",
+        verdict.reason ?? "Invalid attestation",
+      );
     }
 
     const challengeConsumed = await store.consumeChallengeIfUnused(
       body.challenge_id,
     );
     if (!challengeConsumed) {
-      throw new AppError(
-        400,
-        'challenge_consumed',
-        'Challenge already used',
-      );
+      throw new AppError(400, "challenge_consumed", "Challenge already used");
     }
     await store.upsertInstall({
       installId: body.install_id,
@@ -180,7 +190,7 @@ export async function createApp(options: CreateAppOptions = {}) {
 
     await store.saveAuditEvent({
       installId: body.install_id,
-      eventType: 'bootstrap.verify.succeeded',
+      eventType: "bootstrap.verify.succeeded",
       payload: {
         appVersion: body.device.app_version,
         platform: body.device.platform,
@@ -199,11 +209,17 @@ export async function createApp(options: CreateAppOptions = {}) {
     });
   });
 
-  app.post('/v1/mobile/token/refresh', async (request, reply) => {
+  app.post("/v1/mobile/token/refresh", async (request, reply) => {
     const body = tokenRefreshRequestSchema.parse(request.body);
-    const stored = await store.getRefreshTokenByHash(hashToken(body.refresh_token));
-    if (!stored || stored.revokedAt || stored.expiresAt.getTime() < Date.now()) {
-      throw new AppError(401, 'invalid_refresh_token', 'Refresh token invalid');
+    const stored = await store.getRefreshTokenByHash(
+      hashToken(body.refresh_token),
+    );
+    if (
+      !stored ||
+      stored.revokedAt ||
+      stored.expiresAt.getTime() < Date.now()
+    ) {
+      throw new AppError(401, "invalid_refresh_token", "Refresh token invalid");
     }
 
     await store.revokeRefreshToken(stored.tokenHash);
@@ -226,7 +242,7 @@ export async function createApp(options: CreateAppOptions = {}) {
     });
   });
 
-  app.get('/v1/mobile/me/capabilities', async (request, reply) => {
+  app.get("/v1/mobile/me/capabilities", async (request, reply) => {
     const installId = await requireInstallId(request, config);
     const quota = await getQuotaSnapshot(store, config, installId);
     const entitlement = await store.getEntitlement(installId);
@@ -234,19 +250,19 @@ export async function createApp(options: CreateAppOptions = {}) {
       premium: entitlement.isPremium,
       features: entitlement.features,
       free_scan_remaining: quota.remaining_free_scans,
-      rate_limit_state: 'ok',
+      rate_limit_state: "ok",
       entitlement: serializeEntitlement(entitlement),
     });
   });
 
-  app.post('/v1/billing/google-play/verify', async (request, reply) => {
+  app.post("/v1/billing/google-play/verify", async (request, reply) => {
     const installId = await requireInstallId(request, config);
     const body = billingVerifyRequestSchema.parse(request.body);
     if (body.install_id !== installId) {
-      throw new AppError(403, 'install_mismatch', 'Install id mismatch');
+      throw new AppError(403, "install_mismatch", "Install id mismatch");
     }
     if (body.package_name !== config.googlePlayPackageName) {
-      throw new AppError(400, 'package_mismatch', 'Unexpected package name');
+      throw new AppError(400, "package_mismatch", "Unexpected package name");
     }
     validateBillingIds(config, body.product_id, body.base_plan_id ?? null);
 
@@ -290,7 +306,7 @@ export async function createApp(options: CreateAppOptions = {}) {
     });
     await store.saveAuditEvent({
       installId,
-      eventType: 'billing.verify.completed',
+      eventType: "billing.verify.completed",
       payload: {
         productId: normalized.productId,
         planId: normalized.planId,
@@ -318,14 +334,14 @@ export async function createApp(options: CreateAppOptions = {}) {
     );
   });
 
-  app.post('/v1/billing/google-play/restore', async (request, reply) => {
+  app.post("/v1/billing/google-play/restore", async (request, reply) => {
     const installId = await requireInstallId(request, config);
     const body = billingRestoreRequestSchema.parse(request.body);
     if (body.install_id !== installId) {
-      throw new AppError(403, 'install_mismatch', 'Install id mismatch');
+      throw new AppError(403, "install_mismatch", "Install id mismatch");
     }
     if (body.package_name !== config.googlePlayPackageName) {
-      throw new AppError(400, 'package_mismatch', 'Unexpected package name');
+      throw new AppError(400, "package_mismatch", "Unexpected package name");
     }
     for (const purchase of body.purchases) {
       validateBillingIds(
@@ -379,9 +395,9 @@ export async function createApp(options: CreateAppOptions = {}) {
         (bestEntitlement.validUntil == null ||
           (nextEntitlement.validUntil?.getTime() ?? 0) >
             (bestEntitlement.validUntil?.getTime() ?? 0))
-        ) {
-          bestEntitlement = nextEntitlement;
-        }
+      ) {
+        bestEntitlement = nextEntitlement;
+      }
     }
 
     await store.upsertEntitlement(bestEntitlement);
@@ -400,26 +416,29 @@ export async function createApp(options: CreateAppOptions = {}) {
     const installId = await requireInstallId(request, config);
     const body = extractionRequestSchema.parse(request.body);
     if (body.install_id !== installId) {
-      throw new AppError(403, 'install_mismatch', 'Install id mismatch');
+      throw new AppError(403, "install_mismatch", "Install id mismatch");
     }
 
-    const installRate = await rateLimiter.consume(`install:${installId}`, 20, 60);
-    const ipRate = await rateLimiter.consume(
-      `ip:${request.ip}`,
-      60,
+    const installRate = await rateLimiter.consume(
+      `install:${installId}`,
+      20,
       60,
     );
+    const ipRate = await rateLimiter.consume(`ip:${request.ip}`, 60, 60);
     await store.saveRateLimitEvent({
       installId,
       ipAddress: request.ip,
-      key: 'install',
+      key: "install",
       limitValue: 20,
       remaining: installRate.remaining,
       resetAt: installRate.resetAt,
     });
     if (!installRate.allowed || !ipRate.allowed) {
-      throw new AppError(429, 'rate_limited', 'Too many extraction requests', {
-        retry_at: (installRate.allowed ? ipRate.resetAt : installRate.resetAt).toISOString(),
+      throw new AppError(429, "rate_limited", "Too many extraction requests", {
+        retry_at: (installRate.allowed
+          ? ipRate.resetAt
+          : installRate.resetAt
+        ).toISOString(),
       });
     }
 
@@ -436,8 +455,8 @@ export async function createApp(options: CreateAppOptions = {}) {
     if (reservedQuota !== null && !reservedQuota.allowed) {
       throw new AppError(
         429,
-        'quota_exhausted',
-        'No cloud extraction quota remaining',
+        "quota_exhausted",
+        "No cloud extraction quota remaining",
         {
           quota: makeQuotaSnapshot(config, reservedQuota.usage, true),
         },
@@ -456,9 +475,9 @@ export async function createApp(options: CreateAppOptions = {}) {
       await store.saveAuditEvent({
         installId,
         requestId: body.request_id,
-        eventType: 'extraction.provider.failed',
+        eventType: "extraction.provider.failed",
         payload: {
-          message: error instanceof Error ? error.message : 'unknown',
+          message: error instanceof Error ? error.message : "unknown",
         },
       });
       if (reservationId !== null) {
@@ -477,7 +496,7 @@ export async function createApp(options: CreateAppOptions = {}) {
         classification: body.document_classification,
         provider: provider.providerName,
         model: provider.modelName,
-        status: 'success',
+        status: "success",
         latencyMs: durationMs,
         ocrHash: sha256(body.normalized_ocr_text),
         ocrPreview: redactTextPreview(body.normalized_ocr_text),
@@ -487,7 +506,7 @@ export async function createApp(options: CreateAppOptions = {}) {
       await store.saveAuditEvent({
         installId,
         requestId: body.request_id,
-        eventType: 'extraction.completed',
+        eventType: "extraction.completed",
         payload: {
           classification: body.document_classification,
           durationMs,
@@ -512,6 +531,9 @@ export async function createApp(options: CreateAppOptions = {}) {
 
       const response = extractionResponseSchema.parse({
         extraction: normalized.payload,
+        summary: normalized.summary,
+        line_items: normalized.lineItems,
+        document_signals: normalized.documentSignals,
         warnings: normalized.warnings,
         quota: nextQuota,
         meta: {
@@ -532,10 +554,10 @@ export async function createApp(options: CreateAppOptions = {}) {
     }
   };
 
-  app.post('/v1/import/extract', handleExtraction);
-  app.post('/v1/ai/extractions', async (request, reply) => {
-    reply.header('Deprecation', extractionAliasDeprecatedAt);
-    reply.header('Sunset', extractionAliasSunsetAt);
+  app.post("/v1/import/extract", handleExtraction);
+  app.post("/v1/ai/extractions", async (request, reply) => {
+    reply.header("Deprecation", extractionAliasDeprecatedAt);
+    reply.header("Sunset", extractionAliasSunsetAt);
     return handleExtraction(request, reply);
   });
 
@@ -550,8 +572,8 @@ function validateBillingIds(
   if (productId !== config.premiumProductId) {
     throw new AppError(
       400,
-      'billing_product_mismatch',
-      'Unexpected Google Play product id.',
+      "billing_product_mismatch",
+      "Unexpected Google Play product id.",
     );
   }
   if (
@@ -561,14 +583,14 @@ function validateBillingIds(
   ) {
     throw new AppError(
       400,
-      'billing_plan_mismatch',
-      'Unexpected Google Play base plan id.',
+      "billing_plan_mismatch",
+      "Unexpected Google Play base plan id.",
     );
   }
 }
 
 async function requireInstallId(
-  request: Parameters<FastifyInstance['route']>[0]['handler'] extends (
+  request: Parameters<FastifyInstance["route"]>[0]["handler"] extends (
     ...args: infer T
   ) => unknown
     ? T[0]
@@ -576,18 +598,21 @@ async function requireInstallId(
   config: AppConfig,
 ) {
   const authHeader = request.headers.authorization;
-  if (!authHeader?.startsWith('Bearer ')) {
-    throw new AppError(401, 'missing_auth', 'Bearer token required');
+  if (!authHeader?.startsWith("Bearer ")) {
+    throw new AppError(401, "missing_auth", "Bearer token required");
   }
-  const token = authHeader.slice('Bearer '.length);
+  const token = authHeader.slice("Bearer ".length);
   try {
-    const payload = jwt.verify(token, config.jwtAccessSecret) as AccessTokenPayload;
-    if (payload.type !== 'access') {
-      throw new AppError(401, 'invalid_auth', 'Invalid token type');
+    const payload = jwt.verify(
+      token,
+      config.jwtAccessSecret,
+    ) as AccessTokenPayload;
+    if (payload.type !== "access") {
+      throw new AppError(401, "invalid_auth", "Invalid token type");
     }
     return payload.installId;
   } catch (_) {
-    throw new AppError(401, 'invalid_auth', 'Access token invalid or expired');
+    throw new AppError(401, "invalid_auth", "Access token invalid or expired");
   }
 }
 
@@ -595,7 +620,7 @@ function signAccessToken(config: AppConfig, installId: string) {
   return jwt.sign(
     {
       installId,
-      type: 'access',
+      type: "access",
     } satisfies AccessTokenPayload,
     config.jwtAccessSecret,
     {
@@ -618,7 +643,10 @@ async function getQuotaSnapshot(
       reset_at: nextMonthReset().toISOString(),
     };
   }
-  const usage = await store.getUsageSnapshot(installId, monthKeyFor(new Date()));
+  const usage = await store.getUsageSnapshot(
+    installId,
+    monthKeyFor(new Date()),
+  );
   return makeQuotaSnapshot(config, usage, true);
 }
 

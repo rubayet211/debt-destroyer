@@ -100,6 +100,10 @@ Set<PremiumFeature> decodePremiumFeatures(Iterable<Object?> values) {
 
 enum ImportActionType { createDebt, addPayment, importStatementItems }
 
+enum StatementLineItemType { payment, charge, fee, interest, other }
+
+enum ImportReviewMode { summaryOnly, statementItems, manualFallback }
+
 enum DocumentClassification {
   creditCardStatement,
   loanStatement,

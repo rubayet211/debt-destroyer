@@ -25,11 +25,11 @@ void main() {
         ),
       );
 
-      expect(candidate.currentBalance, 1240.55);
-      expect(candidate.minimumPayment, 75);
-      expect(candidate.aprPercentage, 19.9);
-      expect(candidate.currency, 'USD');
-      expect(candidate.debtType, DebtType.creditCard);
+      expect(candidate.summary.currentBalance, 1240.55);
+      expect(candidate.summary.minimumPayment, 75);
+      expect(candidate.summary.aprPercentage, 19.9);
+      expect(candidate.summary.currency, 'USD');
+      expect(candidate.summary.debtType, DebtType.creditCard);
     });
 
     test('keeps manual fallback viable when classification is unknown', () {
@@ -38,8 +38,44 @@ void main() {
         'random OCR text without reliable fields',
       );
 
-      expect(candidate.confidence, lessThan(0.5));
-      expect(candidate.title, isNotEmpty);
+      expect(candidate.summary.confidence, lessThan(0.5));
+      expect(candidate.summary.title, isNotEmpty);
+    });
+
+    test('extracts multiple statement line items from tabular text', () {
+      final result = validator.validate(
+        parser.parse(DocumentClassification.creditCardStatement, '''
+ACME BANK CREDIT CARD STATEMENT
+Statement Period 02/01/2026 - 02/29/2026
+02/05/2026 ONLINE PAYMENT THANK YOU 250.00
+02/12/2026 AMAZON MARKETPLACE 85.42
+02/15/2026 INTEREST CHARGE 12.33
+Current balance: \$1,240.55
+Minimum payment: \$75
+'''),
+      );
+
+      expect(result.statementLineItems, hasLength(3));
+      expect(
+        result.statementLineItems.where((item) => item.isPaymentLike),
+        hasLength(1),
+      );
+    });
+
+    test('flags ambiguous statement dates without guessing silently', () {
+      final result = validator.validate(
+        parser.parse(DocumentClassification.creditCardStatement, '''
+03/05 ONLINE PAYMENT THANK YOU 200.00
+03/12 GROCERY STORE 44.50
+'''),
+      );
+
+      expect(
+        result.statementLineItems.any(
+          (item) => item.warnings.contains('ambiguous_date'),
+        ),
+        true,
+      );
     });
   });
 }

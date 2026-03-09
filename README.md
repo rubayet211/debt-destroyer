@@ -81,9 +81,10 @@ Import pipeline:
 4. Classify the document type.
 5. If the user explicitly allows cloud extraction for that import, the app bootstraps an install session with the backend.
 6. The backend verifies Play Integrity attestation, enforces quota and rate limits, then calls the AI provider using server-held secrets.
-7. The backend validates and normalizes the provider response against a strict schema.
-8. The app falls back to heuristic local parsing if the backend is unavailable or denies extraction.
-9. The app shows a review screen before saving anything.
+7. The backend validates and normalizes the provider response against a strict schema, including optional statement summary fields and line items.
+8. The app also runs local statement-summary and line-item heuristics so partial or offline OCR can still reach review safely.
+9. The app falls back to heuristic local parsing if the backend is unavailable or denies extraction.
+10. The app shows a review screen before saving anything.
 
 Important behavior:
 - OCR is local-first.
@@ -91,6 +92,17 @@ Important behavior:
 - The Flutter app no longer holds an AI provider key.
 - Imports are never auto-saved.
 - Manual correction remains available even when OCR or AI parsing is weak.
+- Supported document types:
+  - credit card statements
+  - loan statements
+  - BNPL screenshots
+  - bill screenshots
+  - receipts
+  - generic finance screenshots
+- Statement imports can now surface:
+  - statement summary metadata
+  - payment-like line items for selective multi-payment import
+  - review-only charge, fee, or interest rows for human verification
 
 ## Privacy Model
 - Local-first storage for debts, payments, preferences, scenarios, and imported documents
@@ -204,6 +216,8 @@ flutter build apk --debug
 - Production still requires live Google credentials and Play Console setup for Play Integrity and Google Play Billing verification
 - Aggregate dashboard totals assume a single display currency when multiple debt currencies exist
 - Import parsing is conservative and still depends on manual review for accuracy
+- Multi-line statement import focuses on payment-like rows; purchase and fee rows are shown for review context but are not bulk-posted as debts or charges
+- OCR-wrapped rows, missing years, and heavily degraded screenshots can still require manual correction on the review screen
 - Debt balances are still user-recorded values; the app does not fully reconstruct live balances from historical statements or lender-specific ledgers
 - Camera and biometric flows are implemented for Android but are not covered by full device E2E tests in this repo
 - Postgres and Redis adapters are implemented for backend deployment, but local tests use in-memory stores

@@ -65,7 +65,7 @@ void main() {
           allowCloud: false,
         );
 
-        expect(candidate.currentBalance, 1200);
+        expect(candidate.summary.currentBalance, 1200);
         expect(candidate.warnings, isEmpty);
       },
     );

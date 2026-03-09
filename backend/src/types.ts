@@ -1,29 +1,29 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 export const appEnvironmentSchema = z.enum([
-  'development',
-  'staging',
-  'production',
-  'test',
+  "development",
+  "staging",
+  "production",
+  "test",
 ]);
 
 export const documentClassificationSchema = z.enum([
-  'creditCardStatement',
-  'loanStatement',
-  'bnplDashboard',
-  'receipt',
-  'genericBill',
-  'genericFinanceScreenshot',
-  'unknown',
+  "creditCardStatement",
+  "loanStatement",
+  "bnplDashboard",
+  "receipt",
+  "genericBill",
+  "genericFinanceScreenshot",
+  "unknown",
 ]);
 
 export const sourceTypeSchema = z.enum([
-  'camera',
-  'gallery',
-  'screenshot',
-  'pdf',
-  'receipt',
-  'bill',
+  "camera",
+  "gallery",
+  "screenshot",
+  "pdf",
+  "receipt",
+  "bill",
 ]);
 
 export const extractionSchema = z.object({
@@ -42,6 +42,19 @@ export const extractionSchema = z.object({
   confidence: z.number().min(0).max(1).default(0),
   last4: z.string().nullable(),
   raw_detected_labels: z.array(z.string()).default([]),
+  statement_start_date: z.string().nullable().optional(),
+  statement_end_date: z.string().nullable().optional(),
+});
+
+export const statementLineItemSchema = z.object({
+  id: z.string().nullable().optional(),
+  date: z.string().nullable(),
+  description: z.string().nullable(),
+  amount: z.number().nullable(),
+  type: z.string().nullable(),
+  confidence: z.number().min(0).max(1).default(0),
+  currency: z.string().nullable().optional(),
+  warnings: z.array(z.string()).default([]),
 });
 
 export const quotaSnapshotSchema = z.object({
@@ -66,6 +79,9 @@ export const entitlementSnapshotSchema = z.object({
 
 export const extractionResponseSchema = z.object({
   extraction: extractionSchema,
+  summary: extractionSchema,
+  line_items: z.array(statementLineItemSchema).default([]),
+  document_signals: z.array(z.string()).default([]),
   warnings: z.array(z.string()),
   quota: quotaSnapshotSchema,
   meta: z.object({
@@ -142,6 +158,7 @@ export type DocumentClassification = z.infer<
   typeof documentClassificationSchema
 >;
 export type ExtractionPayload = z.infer<typeof extractionSchema>;
+export type StatementLineItemPayload = z.infer<typeof statementLineItemSchema>;
 export type ExtractionResponse = z.infer<typeof extractionResponseSchema>;
 export type BootstrapChallengeRequest = z.infer<
   typeof bootstrapChallengeRequestSchema

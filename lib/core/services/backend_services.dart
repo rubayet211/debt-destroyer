@@ -452,14 +452,15 @@ class BackendAiExtractionService implements AiExtractionService {
   final HeuristicExtractionParser parser;
 
   @override
-  Future<ExtractionCandidate> extract({
+  Future<ImportExtractionResult> extract({
     required DocumentClassification classification,
     required String normalizedText,
     required DocumentSourceType sourceType,
     required bool allowCloud,
   }) async {
+    final local = parser.parse(classification, normalizedText);
     if (!allowCloud || !config.isConfigured) {
-      return parser.parse(classification, normalizedText);
+      return local;
     }
 
     final installId = await sessionManager.getOrCreateInstallId();
@@ -473,52 +474,175 @@ class BackendAiExtractionService implements AiExtractionService {
         'app_version': AppConstants.appVersion,
         'consented_at': DateTime.now().toIso8601String(),
       });
-      final extraction = response['extraction'] as Map<String, dynamic>;
       final quota = _parseQuota(
         response['quota'] as Map<String, dynamic>? ?? const {},
       );
-      return ExtractionCandidate(
-        title: extraction['title']?.toString(),
-        creditorName: extraction['issuer_name']?.toString(),
-        debtType: parser.mapDebtType(extraction['debt_type']?.toString()),
-        currentBalance: _asDouble(extraction['current_balance']),
-        originalBalance: _asDouble(extraction['original_balance']),
-        aprPercentage: _asDouble(extraction['apr_percentage']),
-        minimumPayment: _asDouble(extraction['minimum_payment']),
-        dueDate: Parsers.parseDate(extraction['due_date']?.toString()),
-        paymentDate: Parsers.parseDate(extraction['payment_date']?.toString()),
-        paymentAmount: _asDouble(extraction['payment_amount']),
-        currency: extraction['currency']?.toString(),
-        notes: extraction['notes']?.toString(),
-        confidence: _asDouble(extraction['confidence']) ?? 0,
-        last4: extraction['last4']?.toString(),
-        labels:
-            (extraction['raw_detected_labels'] as List<dynamic>? ?? const [])
-                .map((item) => item.toString())
-                .toList(),
-        warnings: (response['warnings'] as List<dynamic>? ?? const [])
-            .map((item) => item.toString())
-            .toList(),
+      final summaryJson =
+          (response['summary'] as Map<String, dynamic>?) ??
+          (response['extraction'] as Map<String, dynamic>? ?? {});
+      final lineItems = (response['line_items'] as List<dynamic>? ?? [])
+          .whereType<Map<String, dynamic>>()
+          .map(_parseLineItem)
+          .whereType<StatementLineItemCandidate>()
+          .toList();
+      final warnings = (response['warnings'] as List<dynamic>? ?? [])
+          .map((item) => item.toString())
+          .toList();
+      return ImportExtractionResult(
+        summary: _mergeSummary(local.summary, _parseSummary(summaryJson)),
+        statementLineItems: _mergeLineItems(
+          local.statementLineItems,
+          lineItems,
+        ),
+        warnings: {...local.warnings, ...warnings}.toList(),
+        documentSignals: {
+          ...local.documentSignals,
+          ...(response['document_signals'] as List<dynamic>? ?? []).map(
+            (item) => item.toString(),
+          ),
+        }.toList(),
+        errorMessage: null,
         quotaSnapshot: quota,
       );
     } on BackendHttpException catch (error) {
-      final fallback = parser.parse(classification, normalizedText);
       final quota = error.payload?['details']?['quota'];
-      return fallback.copyWith(
-        warnings: [
+      return ImportExtractionResult(
+        summary: local.summary,
+        statementLineItems: local.statementLineItems,
+        warnings: {
+          ...local.warnings,
           error.code,
           if (error.statusCode == 401) 'reauth_required',
           if (error.statusCode >= 500) 'backend_unavailable',
-        ],
+        }.toList(),
+        documentSignals: [...local.documentSignals, 'local_fallback'],
+        errorMessage: _backendErrorMessage(error),
         quotaSnapshot: quota is Map<String, dynamic>
             ? _parseQuota(quota)
             : null,
       );
     } on AppException catch (error) {
-      return parser
-          .parse(classification, normalizedText)
-          .copyWith(warnings: [error.code ?? 'backend_error']);
+      return ImportExtractionResult(
+        summary: local.summary,
+        statementLineItems: local.statementLineItems,
+        warnings: [...local.warnings, error.code ?? 'backend_error'],
+        documentSignals: [...local.documentSignals, 'local_fallback'],
+        errorMessage: error.message,
+        quotaSnapshot: null,
+      );
     }
+  }
+
+  StatementSummaryCandidate _parseSummary(Map<String, dynamic> extraction) {
+    return StatementSummaryCandidate(
+      title: extraction['title']?.toString(),
+      creditorName: extraction['issuer_name']?.toString(),
+      debtType: parser.mapDebtType(extraction['debt_type']?.toString()),
+      currentBalance: _asDouble(extraction['current_balance']),
+      originalBalance: _asDouble(extraction['original_balance']),
+      aprPercentage: _asDouble(extraction['apr_percentage']),
+      minimumPayment: _asDouble(extraction['minimum_payment']),
+      dueDate: Parsers.parseDate(extraction['due_date']?.toString()),
+      paymentDate: Parsers.parseDate(extraction['payment_date']?.toString()),
+      paymentAmount: _asDouble(extraction['payment_amount']),
+      statementStartDate: Parsers.parseDate(
+        extraction['statement_start_date']?.toString(),
+      ),
+      statementEndDate: Parsers.parseDate(
+        extraction['statement_end_date']?.toString(),
+      ),
+      currency: extraction['currency']?.toString(),
+      notes: extraction['notes']?.toString(),
+      confidence: _asDouble(extraction['confidence']) ?? 0,
+      last4: extraction['last4']?.toString(),
+      labels: (extraction['raw_detected_labels'] as List<dynamic>? ?? [])
+          .map((item) => item.toString())
+          .toList(),
+    );
+  }
+
+  StatementLineItemCandidate? _parseLineItem(Map<String, dynamic> item) {
+    final description = item['description']?.toString().trim() ?? '';
+    final amount = _asDouble(item['amount']);
+    if (description.isEmpty || amount == null) {
+      return null;
+    }
+    return StatementLineItemCandidate(
+      id: item['id']?.toString() ?? const Uuid().v4(),
+      description: description,
+      amount: amount,
+      type: _parseItemType(item['type']?.toString()),
+      confidence: _asDouble(item['confidence']) ?? 0,
+      date: Parsers.parseDate(item['date']?.toString()),
+      currency: item['currency']?.toString(),
+      warnings: (item['warnings'] as List<dynamic>? ?? [])
+          .map((item) => item.toString())
+          .toList(),
+    );
+  }
+
+  StatementSummaryCandidate _mergeSummary(
+    StatementSummaryCandidate local,
+    StatementSummaryCandidate remote,
+  ) {
+    return local.copyWith(
+      title: remote.title ?? local.title,
+      creditorName: remote.creditorName ?? local.creditorName,
+      debtType: remote.debtType ?? local.debtType,
+      currentBalance: remote.currentBalance ?? local.currentBalance,
+      originalBalance: remote.originalBalance ?? local.originalBalance,
+      aprPercentage: remote.aprPercentage ?? local.aprPercentage,
+      minimumPayment: remote.minimumPayment ?? local.minimumPayment,
+      dueDate: remote.dueDate ?? local.dueDate,
+      paymentDate: remote.paymentDate ?? local.paymentDate,
+      paymentAmount: remote.paymentAmount ?? local.paymentAmount,
+      statementStartDate: remote.statementStartDate ?? local.statementStartDate,
+      statementEndDate: remote.statementEndDate ?? local.statementEndDate,
+      currency: remote.currency ?? local.currency,
+      notes: remote.notes ?? local.notes,
+      confidence: remote.confidence > 0 ? remote.confidence : local.confidence,
+      last4: remote.last4 ?? local.last4,
+      labels: {...local.labels, ...remote.labels}.toList(),
+    );
+  }
+
+  List<StatementLineItemCandidate> _mergeLineItems(
+    List<StatementLineItemCandidate> local,
+    List<StatementLineItemCandidate> remote,
+  ) {
+    if (remote.isEmpty) {
+      return local;
+    }
+    final merged = <String, StatementLineItemCandidate>{};
+    for (final item in [...local, ...remote]) {
+      final key =
+          '${item.description.toLowerCase()}|${item.amount}|${item.date?.toIso8601String() ?? 'none'}';
+      final existing = merged[key];
+      if (existing == null || item.confidence >= existing.confidence) {
+        merged[key] = item;
+      }
+    }
+    return merged.values.toList();
+  }
+
+  StatementLineItemType _parseItemType(String? raw) {
+    return switch (raw?.toLowerCase()) {
+      'payment' => StatementLineItemType.payment,
+      'charge' => StatementLineItemType.charge,
+      'fee' => StatementLineItemType.fee,
+      'interest' => StatementLineItemType.interest,
+      _ => StatementLineItemType.other,
+    };
+  }
+
+  String _backendErrorMessage(BackendHttpException error) {
+    if (error.code == 'quota_exhausted') {
+      return 'Cloud extraction quota is exhausted. Continue with local OCR review.';
+    }
+    if (error.code == 'network_error' || error.code == 'backend_timeout') {
+      return 'Network or backend timeout. Local OCR results are shown instead.';
+    }
+    return error.message;
   }
 
   BackendQuotaSnapshot _parseQuota(Map<String, dynamic> json) {
