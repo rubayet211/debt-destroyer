@@ -4,10 +4,37 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:debt_destroyer/features/settings/presentation/settings_screens.dart';
 import 'package:debt_destroyer/shared/data/repositories.dart';
+import 'package:debt_destroyer/shared/models/billing_models.dart';
+import 'package:debt_destroyer/shared/models/subscription_state.dart';
 import 'package:debt_destroyer/shared/models/user_preferences.dart';
 import 'package:debt_destroyer/shared/providers/app_providers.dart';
 
 void main() {
+  testWidgets('settings screen renders data and backups entry', (tester) async {
+    final repository = _FakePreferencesRepository();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          preferencesRepositoryProvider.overrideWithValue(repository),
+          userPreferencesProvider.overrideWith(
+            (ref) => Stream.value(repository.current),
+          ),
+          subscriptionStateProvider.overrideWith(
+            (ref) => Stream.value(const _FreeSubscriptionState()),
+          ),
+          entitlementRefreshProvider.overrideWith(
+            (ref) async => EntitlementSnapshot.free(),
+          ),
+        ],
+        child: const MaterialApp(home: SettingsScreen()),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Data & backups'), findsOneWidget);
+  });
+
   testWidgets('notification settings renders new reminder controls', (
     tester,
   ) async {
@@ -73,4 +100,14 @@ class _FakePreferencesRepository implements PreferencesRepository {
 
   @override
   Stream<UserPreferences> watchPreferences() => Stream.value(current);
+}
+
+class _FreeSubscriptionState extends SubscriptionState {
+  const _FreeSubscriptionState()
+    : super(
+        isPremium: false,
+        expiresAt: null,
+        unlockedFeatures: const {},
+        status: 'free',
+      );
 }

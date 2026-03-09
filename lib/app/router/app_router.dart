@@ -128,6 +128,7 @@ GoRouter buildRouter(Ref ref) {
         path: '/notifications',
         builder: (_, __) => const NotificationSettingsScreen(),
       ),
+      GoRoute(path: '/backups', builder: (_, __) => const DataBackupsScreen()),
       GoRoute(path: '/premium', builder: (_, __) => const PremiumScreen()),
       GoRoute(
         path: '/security',
