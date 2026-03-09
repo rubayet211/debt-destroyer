@@ -16,6 +16,7 @@ class ReportsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(entitlementRefreshProvider);
     final debts = ref.watch(allDebtsProvider);
     final payments = ref.watch(recentPaymentsProvider);
     final subscription = ref.watch(subscriptionStateProvider).valueOrNull;

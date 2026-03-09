@@ -48,6 +48,28 @@ class BackendQuotaSnapshot {
   final DateTime? resetAt;
 }
 
+class BackendEntitlement {
+  const BackendEntitlement({
+    required this.isPremium,
+    required this.planId,
+    required this.status,
+    required this.validUntil,
+    required this.features,
+    required this.lastVerifiedAt,
+    required this.productId,
+    required this.billingProvider,
+  });
+
+  final bool isPremium;
+  final String? planId;
+  final String status;
+  final DateTime? validUntil;
+  final List<String> features;
+  final DateTime? lastVerifiedAt;
+  final String? productId;
+  final String? billingProvider;
+}
+
 class BackendExtractionResponse {
   const BackendExtractionResponse({
     required this.extraction,
@@ -74,10 +96,12 @@ class BackendCapabilities {
     required this.features,
     required this.freeScanRemaining,
     required this.rateLimitState,
+    required this.entitlement,
   });
 
   final bool premium;
   final List<String> features;
   final int freeScanRemaining;
   final String rateLimitState;
+  final BackendEntitlement? entitlement;
 }

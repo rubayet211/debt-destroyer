@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
+import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -20,6 +20,7 @@ void main() {
   late DriftDebtsRepository debtsRepository;
   late DriftPaymentsRepository paymentsRepository;
   late DriftDocumentsRepository documentsRepository;
+  late DriftSubscriptionRepository subscriptionRepository;
   late Directory tempDir;
   late SecureDocumentVaultService vaultService;
 
@@ -33,6 +34,7 @@ void main() {
     debtsRepository = DriftDebtsRepository(database, vaultService);
     paymentsRepository = DriftPaymentsRepository(database);
     documentsRepository = DriftDocumentsRepository(database, vaultService);
+    subscriptionRepository = DriftSubscriptionRepository(database);
   });
 
   tearDown(() async {
@@ -268,6 +270,24 @@ void main() {
       await failingDatabase.select(failingDatabase.debtsTable).get(),
       hasLength(1),
     );
+  });
+
+  test('loading subscription ignores unknown cached feature flags', () async {
+    await database
+        .into(database.subscriptionStateTable)
+        .insert(
+          SubscriptionStateTableCompanion.insert(
+            key: Value(1),
+            isPremium: Value(true),
+            status: Value('active'),
+            unlockedFeaturesJson: Value('["pdfImport","futureFlag"]'),
+          ),
+        );
+
+    final subscription = await subscriptionRepository.loadSubscription();
+
+    expect(subscription.isPremium, isTrue);
+    expect(subscription.unlockedFeatures, {PremiumFeature.pdfImport});
   });
 }
 

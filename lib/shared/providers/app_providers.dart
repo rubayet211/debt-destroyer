@@ -7,14 +7,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
+import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../app/router/app_router.dart';
+import '../../core/constants/app_constants.dart';
 import '../../core/services/app_services.dart';
 import '../../core/services/backend_services.dart';
+import '../../core/services/billing_services.dart';
 import '../../core/services/data_protection_service.dart';
 import '../../core/services/vault_services.dart';
 import '../../features/dashboard/domain/debt_metrics_service.dart';
@@ -24,6 +27,7 @@ import '../data/local/app_database.dart';
 import '../data/repositories.dart';
 import '../enums/app_enums.dart';
 import '../models/backend_models.dart';
+import '../models/billing_models.dart';
 import '../models/data_protection_models.dart';
 import '../models/dashboard_snapshot.dart';
 import '../models/debt.dart';
@@ -88,6 +92,12 @@ final reminderSchedulerProvider = Provider((ref) {
   return scheduler;
 });
 final premiumServiceProvider = Provider((ref) => const PremiumService());
+final inAppPurchaseProvider = Provider<InAppPurchase>((ref) {
+  return InAppPurchase.instance;
+});
+final billingServiceProvider = Provider<BillingService>(
+  (ref) => GooglePlayBillingService(ref.watch(inAppPurchaseProvider)),
+);
 final csvExportServiceProvider = Provider((ref) => CsvExportService());
 final attestationServiceProvider = Provider<AttestationService>(
   (ref) => PlayIntegrityAttestationService(ref.watch(backendConfigProvider)),
@@ -109,6 +119,13 @@ final backendApiClientProvider = Provider<BackendApiClient>(
 );
 final backendCapabilitiesServiceProvider = Provider<BackendCapabilitiesService>(
   (ref) => BackendCapabilitiesService(ref.watch(backendApiClientProvider)),
+);
+final entitlementSyncServiceProvider = Provider<EntitlementSyncService>(
+  (ref) => EntitlementSyncService(
+    client: ref.watch(backendApiClientProvider),
+    sessionManager: ref.watch(backendAuthServiceProvider),
+    subscriptionRepository: ref.watch(subscriptionRepositoryProvider),
+  ),
 );
 final dataProtectionBootstrapServiceProvider =
     Provider<DataProtectionBootstrapService>(
@@ -196,6 +213,30 @@ final allDebtsProvider = StreamProvider<List<Debt>>(
 final subscriptionStateProvider = StreamProvider<SubscriptionState>(
   (ref) => ref.watch(subscriptionRepositoryProvider).watchSubscription(),
 );
+final entitlementRefreshProvider = FutureProvider<EntitlementSnapshot>((
+  ref,
+) async {
+  try {
+    return await ref
+        .read(entitlementSyncServiceProvider)
+        .refreshFromCapabilities();
+  } catch (_) {
+    final cached = await ref
+        .read(subscriptionRepositoryProvider)
+        .loadSubscription();
+    return EntitlementSnapshot.fromSubscriptionState(cached);
+  }
+});
+final billingControllerProvider =
+    StateNotifierProvider<BillingController, BillingState>(
+      (ref) => BillingController(
+        billingService: ref.watch(billingServiceProvider),
+        entitlementSyncService: ref.watch(entitlementSyncServiceProvider),
+        sessionManager: ref.watch(backendAuthServiceProvider),
+        packageName: AppConstants.androidPackageName,
+        appVersion: AppConstants.appVersion,
+      ),
+    );
 final scenariosProvider = StreamProvider<List<Scenario>>(
   (ref) => ref.watch(scenariosRepositoryProvider).watchScenarios(),
 );

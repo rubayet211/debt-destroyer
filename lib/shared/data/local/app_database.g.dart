@@ -4969,6 +4969,59 @@ class $SubscriptionStateTableTable extends SubscriptionStateTable
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _productIdMeta = const VerificationMeta(
+    'productId',
+  );
+  @override
+  late final GeneratedColumn<String> productId = GeneratedColumn<String>(
+    'product_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _planIdMeta = const VerificationMeta('planId');
+  @override
+  late final GeneratedColumn<String> planId = GeneratedColumn<String>(
+    'plan_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _billingProviderMeta = const VerificationMeta(
+    'billingProvider',
+  );
+  @override
+  late final GeneratedColumn<String> billingProvider = GeneratedColumn<String>(
+    'billing_provider',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('free'),
+  );
+  static const VerificationMeta _lastVerifiedAtMeta = const VerificationMeta(
+    'lastVerifiedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastVerifiedAt =
+      GeneratedColumn<DateTime>(
+        'last_verified_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _unlockedFeaturesJsonMeta =
       const VerificationMeta('unlockedFeaturesJson');
   @override
@@ -4986,6 +5039,11 @@ class $SubscriptionStateTableTable extends SubscriptionStateTable
     key,
     isPremium,
     expiresAt,
+    productId,
+    planId,
+    billingProvider,
+    status,
+    lastVerifiedAt,
     unlockedFeaturesJson,
   ];
   @override
@@ -5016,6 +5074,42 @@ class $SubscriptionStateTableTable extends SubscriptionStateTable
       context.handle(
         _expiresAtMeta,
         expiresAt.isAcceptableOrUnknown(data['expires_at']!, _expiresAtMeta),
+      );
+    }
+    if (data.containsKey('product_id')) {
+      context.handle(
+        _productIdMeta,
+        productId.isAcceptableOrUnknown(data['product_id']!, _productIdMeta),
+      );
+    }
+    if (data.containsKey('plan_id')) {
+      context.handle(
+        _planIdMeta,
+        planId.isAcceptableOrUnknown(data['plan_id']!, _planIdMeta),
+      );
+    }
+    if (data.containsKey('billing_provider')) {
+      context.handle(
+        _billingProviderMeta,
+        billingProvider.isAcceptableOrUnknown(
+          data['billing_provider']!,
+          _billingProviderMeta,
+        ),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('last_verified_at')) {
+      context.handle(
+        _lastVerifiedAtMeta,
+        lastVerifiedAt.isAcceptableOrUnknown(
+          data['last_verified_at']!,
+          _lastVerifiedAtMeta,
+        ),
       );
     }
     if (data.containsKey('unlocked_features_json')) {
@@ -5051,6 +5145,26 @@ class $SubscriptionStateTableTable extends SubscriptionStateTable
         DriftSqlType.dateTime,
         data['${effectivePrefix}expires_at'],
       ),
+      productId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}product_id'],
+      ),
+      planId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}plan_id'],
+      ),
+      billingProvider: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}billing_provider'],
+      ),
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      lastVerifiedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_verified_at'],
+      ),
       unlockedFeaturesJson: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}unlocked_features_json'],
@@ -5069,11 +5183,21 @@ class SubscriptionStateTableData extends DataClass
   final int key;
   final bool isPremium;
   final DateTime? expiresAt;
+  final String? productId;
+  final String? planId;
+  final String? billingProvider;
+  final String status;
+  final DateTime? lastVerifiedAt;
   final String unlockedFeaturesJson;
   const SubscriptionStateTableData({
     required this.key,
     required this.isPremium,
     this.expiresAt,
+    this.productId,
+    this.planId,
+    this.billingProvider,
+    required this.status,
+    this.lastVerifiedAt,
     required this.unlockedFeaturesJson,
   });
   @override
@@ -5083,6 +5207,19 @@ class SubscriptionStateTableData extends DataClass
     map['is_premium'] = Variable<bool>(isPremium);
     if (!nullToAbsent || expiresAt != null) {
       map['expires_at'] = Variable<DateTime>(expiresAt);
+    }
+    if (!nullToAbsent || productId != null) {
+      map['product_id'] = Variable<String>(productId);
+    }
+    if (!nullToAbsent || planId != null) {
+      map['plan_id'] = Variable<String>(planId);
+    }
+    if (!nullToAbsent || billingProvider != null) {
+      map['billing_provider'] = Variable<String>(billingProvider);
+    }
+    map['status'] = Variable<String>(status);
+    if (!nullToAbsent || lastVerifiedAt != null) {
+      map['last_verified_at'] = Variable<DateTime>(lastVerifiedAt);
     }
     map['unlocked_features_json'] = Variable<String>(unlockedFeaturesJson);
     return map;
@@ -5095,6 +5232,19 @@ class SubscriptionStateTableData extends DataClass
       expiresAt: expiresAt == null && nullToAbsent
           ? const Value.absent()
           : Value(expiresAt),
+      productId: productId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(productId),
+      planId: planId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(planId),
+      billingProvider: billingProvider == null && nullToAbsent
+          ? const Value.absent()
+          : Value(billingProvider),
+      status: Value(status),
+      lastVerifiedAt: lastVerifiedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastVerifiedAt),
       unlockedFeaturesJson: Value(unlockedFeaturesJson),
     );
   }
@@ -5108,6 +5258,11 @@ class SubscriptionStateTableData extends DataClass
       key: serializer.fromJson<int>(json['key']),
       isPremium: serializer.fromJson<bool>(json['isPremium']),
       expiresAt: serializer.fromJson<DateTime?>(json['expiresAt']),
+      productId: serializer.fromJson<String?>(json['productId']),
+      planId: serializer.fromJson<String?>(json['planId']),
+      billingProvider: serializer.fromJson<String?>(json['billingProvider']),
+      status: serializer.fromJson<String>(json['status']),
+      lastVerifiedAt: serializer.fromJson<DateTime?>(json['lastVerifiedAt']),
       unlockedFeaturesJson: serializer.fromJson<String>(
         json['unlockedFeaturesJson'],
       ),
@@ -5120,6 +5275,11 @@ class SubscriptionStateTableData extends DataClass
       'key': serializer.toJson<int>(key),
       'isPremium': serializer.toJson<bool>(isPremium),
       'expiresAt': serializer.toJson<DateTime?>(expiresAt),
+      'productId': serializer.toJson<String?>(productId),
+      'planId': serializer.toJson<String?>(planId),
+      'billingProvider': serializer.toJson<String?>(billingProvider),
+      'status': serializer.toJson<String>(status),
+      'lastVerifiedAt': serializer.toJson<DateTime?>(lastVerifiedAt),
       'unlockedFeaturesJson': serializer.toJson<String>(unlockedFeaturesJson),
     };
   }
@@ -5128,11 +5288,25 @@ class SubscriptionStateTableData extends DataClass
     int? key,
     bool? isPremium,
     Value<DateTime?> expiresAt = const Value.absent(),
+    Value<String?> productId = const Value.absent(),
+    Value<String?> planId = const Value.absent(),
+    Value<String?> billingProvider = const Value.absent(),
+    String? status,
+    Value<DateTime?> lastVerifiedAt = const Value.absent(),
     String? unlockedFeaturesJson,
   }) => SubscriptionStateTableData(
     key: key ?? this.key,
     isPremium: isPremium ?? this.isPremium,
     expiresAt: expiresAt.present ? expiresAt.value : this.expiresAt,
+    productId: productId.present ? productId.value : this.productId,
+    planId: planId.present ? planId.value : this.planId,
+    billingProvider: billingProvider.present
+        ? billingProvider.value
+        : this.billingProvider,
+    status: status ?? this.status,
+    lastVerifiedAt: lastVerifiedAt.present
+        ? lastVerifiedAt.value
+        : this.lastVerifiedAt,
     unlockedFeaturesJson: unlockedFeaturesJson ?? this.unlockedFeaturesJson,
   );
   SubscriptionStateTableData copyWithCompanion(
@@ -5142,6 +5316,15 @@ class SubscriptionStateTableData extends DataClass
       key: data.key.present ? data.key.value : this.key,
       isPremium: data.isPremium.present ? data.isPremium.value : this.isPremium,
       expiresAt: data.expiresAt.present ? data.expiresAt.value : this.expiresAt,
+      productId: data.productId.present ? data.productId.value : this.productId,
+      planId: data.planId.present ? data.planId.value : this.planId,
+      billingProvider: data.billingProvider.present
+          ? data.billingProvider.value
+          : this.billingProvider,
+      status: data.status.present ? data.status.value : this.status,
+      lastVerifiedAt: data.lastVerifiedAt.present
+          ? data.lastVerifiedAt.value
+          : this.lastVerifiedAt,
       unlockedFeaturesJson: data.unlockedFeaturesJson.present
           ? data.unlockedFeaturesJson.value
           : this.unlockedFeaturesJson,
@@ -5154,14 +5337,28 @@ class SubscriptionStateTableData extends DataClass
           ..write('key: $key, ')
           ..write('isPremium: $isPremium, ')
           ..write('expiresAt: $expiresAt, ')
+          ..write('productId: $productId, ')
+          ..write('planId: $planId, ')
+          ..write('billingProvider: $billingProvider, ')
+          ..write('status: $status, ')
+          ..write('lastVerifiedAt: $lastVerifiedAt, ')
           ..write('unlockedFeaturesJson: $unlockedFeaturesJson')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(key, isPremium, expiresAt, unlockedFeaturesJson);
+  int get hashCode => Object.hash(
+    key,
+    isPremium,
+    expiresAt,
+    productId,
+    planId,
+    billingProvider,
+    status,
+    lastVerifiedAt,
+    unlockedFeaturesJson,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -5169,6 +5366,11 @@ class SubscriptionStateTableData extends DataClass
           other.key == this.key &&
           other.isPremium == this.isPremium &&
           other.expiresAt == this.expiresAt &&
+          other.productId == this.productId &&
+          other.planId == this.planId &&
+          other.billingProvider == this.billingProvider &&
+          other.status == this.status &&
+          other.lastVerifiedAt == this.lastVerifiedAt &&
           other.unlockedFeaturesJson == this.unlockedFeaturesJson);
 }
 
@@ -5177,29 +5379,54 @@ class SubscriptionStateTableCompanion
   final Value<int> key;
   final Value<bool> isPremium;
   final Value<DateTime?> expiresAt;
+  final Value<String?> productId;
+  final Value<String?> planId;
+  final Value<String?> billingProvider;
+  final Value<String> status;
+  final Value<DateTime?> lastVerifiedAt;
   final Value<String> unlockedFeaturesJson;
   const SubscriptionStateTableCompanion({
     this.key = const Value.absent(),
     this.isPremium = const Value.absent(),
     this.expiresAt = const Value.absent(),
+    this.productId = const Value.absent(),
+    this.planId = const Value.absent(),
+    this.billingProvider = const Value.absent(),
+    this.status = const Value.absent(),
+    this.lastVerifiedAt = const Value.absent(),
     this.unlockedFeaturesJson = const Value.absent(),
   });
   SubscriptionStateTableCompanion.insert({
     this.key = const Value.absent(),
     this.isPremium = const Value.absent(),
     this.expiresAt = const Value.absent(),
+    this.productId = const Value.absent(),
+    this.planId = const Value.absent(),
+    this.billingProvider = const Value.absent(),
+    this.status = const Value.absent(),
+    this.lastVerifiedAt = const Value.absent(),
     this.unlockedFeaturesJson = const Value.absent(),
   });
   static Insertable<SubscriptionStateTableData> custom({
     Expression<int>? key,
     Expression<bool>? isPremium,
     Expression<DateTime>? expiresAt,
+    Expression<String>? productId,
+    Expression<String>? planId,
+    Expression<String>? billingProvider,
+    Expression<String>? status,
+    Expression<DateTime>? lastVerifiedAt,
     Expression<String>? unlockedFeaturesJson,
   }) {
     return RawValuesInsertable({
       if (key != null) 'key': key,
       if (isPremium != null) 'is_premium': isPremium,
       if (expiresAt != null) 'expires_at': expiresAt,
+      if (productId != null) 'product_id': productId,
+      if (planId != null) 'plan_id': planId,
+      if (billingProvider != null) 'billing_provider': billingProvider,
+      if (status != null) 'status': status,
+      if (lastVerifiedAt != null) 'last_verified_at': lastVerifiedAt,
       if (unlockedFeaturesJson != null)
         'unlocked_features_json': unlockedFeaturesJson,
     });
@@ -5209,12 +5436,22 @@ class SubscriptionStateTableCompanion
     Value<int>? key,
     Value<bool>? isPremium,
     Value<DateTime?>? expiresAt,
+    Value<String?>? productId,
+    Value<String?>? planId,
+    Value<String?>? billingProvider,
+    Value<String>? status,
+    Value<DateTime?>? lastVerifiedAt,
     Value<String>? unlockedFeaturesJson,
   }) {
     return SubscriptionStateTableCompanion(
       key: key ?? this.key,
       isPremium: isPremium ?? this.isPremium,
       expiresAt: expiresAt ?? this.expiresAt,
+      productId: productId ?? this.productId,
+      planId: planId ?? this.planId,
+      billingProvider: billingProvider ?? this.billingProvider,
+      status: status ?? this.status,
+      lastVerifiedAt: lastVerifiedAt ?? this.lastVerifiedAt,
       unlockedFeaturesJson: unlockedFeaturesJson ?? this.unlockedFeaturesJson,
     );
   }
@@ -5231,6 +5468,21 @@ class SubscriptionStateTableCompanion
     if (expiresAt.present) {
       map['expires_at'] = Variable<DateTime>(expiresAt.value);
     }
+    if (productId.present) {
+      map['product_id'] = Variable<String>(productId.value);
+    }
+    if (planId.present) {
+      map['plan_id'] = Variable<String>(planId.value);
+    }
+    if (billingProvider.present) {
+      map['billing_provider'] = Variable<String>(billingProvider.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (lastVerifiedAt.present) {
+      map['last_verified_at'] = Variable<DateTime>(lastVerifiedAt.value);
+    }
     if (unlockedFeaturesJson.present) {
       map['unlocked_features_json'] = Variable<String>(
         unlockedFeaturesJson.value,
@@ -5245,6 +5497,11 @@ class SubscriptionStateTableCompanion
           ..write('key: $key, ')
           ..write('isPremium: $isPremium, ')
           ..write('expiresAt: $expiresAt, ')
+          ..write('productId: $productId, ')
+          ..write('planId: $planId, ')
+          ..write('billingProvider: $billingProvider, ')
+          ..write('status: $status, ')
+          ..write('lastVerifiedAt: $lastVerifiedAt, ')
           ..write('unlockedFeaturesJson: $unlockedFeaturesJson')
           ..write(')'))
         .toString();
@@ -8377,6 +8634,11 @@ typedef $$SubscriptionStateTableTableCreateCompanionBuilder =
       Value<int> key,
       Value<bool> isPremium,
       Value<DateTime?> expiresAt,
+      Value<String?> productId,
+      Value<String?> planId,
+      Value<String?> billingProvider,
+      Value<String> status,
+      Value<DateTime?> lastVerifiedAt,
       Value<String> unlockedFeaturesJson,
     });
 typedef $$SubscriptionStateTableTableUpdateCompanionBuilder =
@@ -8384,6 +8646,11 @@ typedef $$SubscriptionStateTableTableUpdateCompanionBuilder =
       Value<int> key,
       Value<bool> isPremium,
       Value<DateTime?> expiresAt,
+      Value<String?> productId,
+      Value<String?> planId,
+      Value<String?> billingProvider,
+      Value<String> status,
+      Value<DateTime?> lastVerifiedAt,
       Value<String> unlockedFeaturesJson,
     });
 
@@ -8408,6 +8675,31 @@ class $$SubscriptionStateTableTableFilterComposer
 
   ColumnFilters<DateTime> get expiresAt => $composableBuilder(
     column: $table.expiresAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get productId => $composableBuilder(
+    column: $table.productId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get planId => $composableBuilder(
+    column: $table.planId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get billingProvider => $composableBuilder(
+    column: $table.billingProvider,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastVerifiedAt => $composableBuilder(
+    column: $table.lastVerifiedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -8441,6 +8733,31 @@ class $$SubscriptionStateTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get productId => $composableBuilder(
+    column: $table.productId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get planId => $composableBuilder(
+    column: $table.planId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get billingProvider => $composableBuilder(
+    column: $table.billingProvider,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastVerifiedAt => $composableBuilder(
+    column: $table.lastVerifiedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get unlockedFeaturesJson => $composableBuilder(
     column: $table.unlockedFeaturesJson,
     builder: (column) => ColumnOrderings(column),
@@ -8464,6 +8781,25 @@ class $$SubscriptionStateTableTableAnnotationComposer
 
   GeneratedColumn<DateTime> get expiresAt =>
       $composableBuilder(column: $table.expiresAt, builder: (column) => column);
+
+  GeneratedColumn<String> get productId =>
+      $composableBuilder(column: $table.productId, builder: (column) => column);
+
+  GeneratedColumn<String> get planId =>
+      $composableBuilder(column: $table.planId, builder: (column) => column);
+
+  GeneratedColumn<String> get billingProvider => $composableBuilder(
+    column: $table.billingProvider,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastVerifiedAt => $composableBuilder(
+    column: $table.lastVerifiedAt,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get unlockedFeaturesJson => $composableBuilder(
     column: $table.unlockedFeaturesJson,
@@ -8520,11 +8856,21 @@ class $$SubscriptionStateTableTableTableManager
                 Value<int> key = const Value.absent(),
                 Value<bool> isPremium = const Value.absent(),
                 Value<DateTime?> expiresAt = const Value.absent(),
+                Value<String?> productId = const Value.absent(),
+                Value<String?> planId = const Value.absent(),
+                Value<String?> billingProvider = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<DateTime?> lastVerifiedAt = const Value.absent(),
                 Value<String> unlockedFeaturesJson = const Value.absent(),
               }) => SubscriptionStateTableCompanion(
                 key: key,
                 isPremium: isPremium,
                 expiresAt: expiresAt,
+                productId: productId,
+                planId: planId,
+                billingProvider: billingProvider,
+                status: status,
+                lastVerifiedAt: lastVerifiedAt,
                 unlockedFeaturesJson: unlockedFeaturesJson,
               ),
           createCompanionCallback:
@@ -8532,11 +8878,21 @@ class $$SubscriptionStateTableTableTableManager
                 Value<int> key = const Value.absent(),
                 Value<bool> isPremium = const Value.absent(),
                 Value<DateTime?> expiresAt = const Value.absent(),
+                Value<String?> productId = const Value.absent(),
+                Value<String?> planId = const Value.absent(),
+                Value<String?> billingProvider = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<DateTime?> lastVerifiedAt = const Value.absent(),
                 Value<String> unlockedFeaturesJson = const Value.absent(),
               }) => SubscriptionStateTableCompanion.insert(
                 key: key,
                 isPremium: isPremium,
                 expiresAt: expiresAt,
+                productId: productId,
+                planId: planId,
+                billingProvider: billingProvider,
+                status: status,
+                lastVerifiedAt: lastVerifiedAt,
                 unlockedFeaturesJson: unlockedFeaturesJson,
               ),
           withReferenceMapper: (p0) => p0

@@ -151,6 +151,11 @@ class SubscriptionStateTable extends Table {
   IntColumn get key => integer().withDefault(const Constant(1))();
   BoolColumn get isPremium => boolean().withDefault(const Constant(false))();
   DateTimeColumn get expiresAt => dateTime().nullable()();
+  TextColumn get productId => text().nullable()();
+  TextColumn get planId => text().nullable()();
+  TextColumn get billingProvider => text().nullable()();
+  TextColumn get status => text().withDefault(const Constant('free'))();
+  DateTimeColumn get lastVerifiedAt => dateTime().nullable()();
   TextColumn get unlockedFeaturesJson =>
       text().withDefault(const Constant('[]'))();
 
@@ -174,7 +179,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -226,6 +231,23 @@ class AppDatabase extends _$AppDatabase {
         await migrator.addColumn(
           importedDocumentsTable,
           importedDocumentsTable.rawOcrExpiresAt,
+        );
+      }
+      if (from < 4) {
+        await customStatement(
+          'alter table subscription_state_table add column product_id text null',
+        );
+        await customStatement(
+          'alter table subscription_state_table add column plan_id text null',
+        );
+        await customStatement(
+          'alter table subscription_state_table add column billing_provider text null',
+        );
+        await customStatement(
+          "alter table subscription_state_table add column status text not null default 'free'",
+        );
+        await customStatement(
+          'alter table subscription_state_table add column last_verified_at integer null',
         );
       }
     },

@@ -24,6 +24,7 @@ class ScanImportHubScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(entitlementRefreshProvider);
     final docs = ref.watch(documentsByDebtProvider(null));
     return AppPage(
       title: 'Scan & import',

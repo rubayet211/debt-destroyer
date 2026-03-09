@@ -11,7 +11,7 @@ Privacy-first debt tracking, payoff planning, and document-assisted import built
 - On-device OCR with Google ML Kit
 - Secure backend-mediated structured extraction behind explicit per-import consent
 - Review-and-confirm import flow before any data is saved
-- Premium entitlement abstraction with a local demo unlock
+- Google Play subscription billing with backend-verified premium entitlement
 - Local reminder scheduling, app-lock flow, privacy settings, and CSV export
 - Seeded demo data action for local development
 - Node/Fastify backend for attestation bootstrap, token rotation, quotas, audit logs, and provider isolation
@@ -117,6 +117,7 @@ Copy `.env.example` to `.env` and set:
 BACKEND_BASE_URL=http://10.0.2.2:8787
 BACKEND_ENV=development
 PLAY_INTEGRITY_PROJECT_NUMBER=
+DEBUG_ATTESTATION_SECRET=
 ```
 
 If the backend URL is missing, the app still runs with local OCR and manual review fallback.
@@ -131,6 +132,8 @@ JWT_ACCESS_SECRET=replace_me_access
 JWT_REFRESH_SECRET=replace_me_refresh
 GEMINI_API_KEY=replace_me_gemini
 ALLOW_DEBUG_ATTESTATION=true
+GOOGLE_PLAY_PACKAGE_NAME=com.debtdestroyer.app
+GOOGLE_PLAY_SERVICE_ACCOUNT_JSON={"type":"service_account","project_id":"replace_me"}
 ```
 
 For local development, debug attestation is enabled so the app can bootstrap without a real Play Integrity verdict.
@@ -167,13 +170,12 @@ flutter build apk --debug
 
 ## Development Notes
 - Use the `Seed demo data` action in Settings to populate local sample debts and payments.
-- Premium behavior is intentionally mocked through a local entitlement store.
-- CSV export, PDF import, and scenario saving are premium-gated in the UI, but cloud extraction quota authority now lives on the backend.
+- Premium entitlement is verified through the backend after Google Play purchase or restore.
+- CSV export, PDF import, and scenario saving are premium-gated in both the UI and the verified entitlement snapshot.
 - Android Gradle desugaring is enabled for local notifications support.
 - Android debug builds currently use a method-channel debug attestation token for backend bootstrap.
 
 ## Known Limitations
-- No real Google Play Billing integration yet
 - Real Play Integrity verification is still debug-bypassed in local builds; production attestation backend verification needs live Google configuration
 - Aggregate dashboard totals assume a single display currency when multiple debt currencies exist
 - Import parsing is conservative and still depends on manual review for accuracy
@@ -181,9 +183,7 @@ flutter build apk --debug
 - Postgres and Redis adapters are implemented for backend deployment, but local tests use in-memory stores
 
 ## Roadmap
-- Real Play Billing integration
 - Full production Play Integrity verification
-- Hosted entitlement sync between billing and backend capability checks
 - Multiple saved strategy comparisons with deeper scenario analysis
 - Richer statement line-item extraction
 - Encrypted local backups and restore
