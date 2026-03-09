@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:camera/camera.dart';
 import 'package:csv/csv.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -11,6 +12,7 @@ import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../app/router/app_router.dart';
@@ -30,6 +32,7 @@ import '../data/local/app_database.dart';
 import '../data/repositories.dart';
 import '../enums/app_enums.dart';
 import '../models/backend_models.dart';
+import '../models/backup_models.dart';
 import '../models/billing_models.dart';
 import '../models/data_protection_models.dart';
 import '../models/dashboard_snapshot.dart';
@@ -161,6 +164,38 @@ final dataPortabilityServiceProvider = Provider<DataPortabilityService>(
     protectedPreferencesStore: ref.watch(protectedPreferencesStoreProvider),
   ),
 );
+final backupFilePickerProvider = Provider<Future<String?> Function()>((ref) {
+  return () async {
+    final picked = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['ddbackup'],
+    );
+    return picked?.files.single.path;
+  };
+});
+final shareFilesProvider = Provider<Future<void> Function(List<String>)>((ref) {
+  return (paths) {
+    return SharePlus.instance.share(
+      ShareParams(files: [for (final path in paths) XFile(path)]),
+    );
+  };
+});
+final createFullBackupProvider = Provider<Future<File> Function(String)>((ref) {
+  return (passphrase) =>
+      ref.read(dataPortabilityServiceProvider).createFullBackup(passphrase);
+});
+final inspectBackupProvider =
+    Provider<Future<BackupValidationResult> Function(File, String)>((ref) {
+      return (file, passphrase) => ref
+          .read(dataPortabilityServiceProvider)
+          .inspectBackup(file, passphrase);
+    });
+final restoreBackupProvider =
+    Provider<Future<BackupPreview> Function(File, String)>((ref) {
+      return (file, passphrase) => ref
+          .read(dataPortabilityServiceProvider)
+          .restoreBackup(file, passphrase);
+    });
 final attestationServiceProvider = Provider<AttestationService>(
   (ref) => PlayIntegrityAttestationService(ref.watch(backendConfigProvider)),
 );

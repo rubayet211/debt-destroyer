@@ -122,6 +122,75 @@ void main() {
     expect(find.text('Restore purchases'), findsOneWidget);
   });
 
+  testWidgets('premium screen shows retryable error message', (tester) async {
+    final controller = _StaticBillingController(
+      BillingState(
+        status: BillingStatus.error,
+        catalog: null,
+        entitlement: EntitlementSnapshot.free(),
+        message: 'Billing is temporarily unavailable.',
+        selectedPlanId: null,
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          subscriptionStateProvider.overrideWith(
+            (ref) => Stream.value(SubscriptionState.free()),
+          ),
+          entitlementRefreshProvider.overrideWith(
+            (ref) async => EntitlementSnapshot.free(),
+          ),
+          billingControllerProvider.overrideWith((ref) => controller),
+        ],
+        child: const MaterialApp(home: PremiumScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Billing is temporarily unavailable.'), findsOneWidget);
+  });
+
+  testWidgets('premium screen disables restore while purchase is pending', (
+    tester,
+  ) async {
+    final controller = _StaticBillingController(
+      BillingState(
+        status: BillingStatus.pending,
+        catalog: BillingCatalog(
+          plans: const [],
+          loadedAt: DateTime(2026, 3, 9),
+        ),
+        entitlement: EntitlementSnapshot.free(),
+        message: 'Waiting for Google Play confirmation.',
+        selectedPlanId: null,
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          subscriptionStateProvider.overrideWith(
+            (ref) => Stream.value(SubscriptionState.free()),
+          ),
+          entitlementRefreshProvider.overrideWith(
+            (ref) async => EntitlementSnapshot.free(),
+          ),
+          billingControllerProvider.overrideWith((ref) => controller),
+        ],
+        child: const MaterialApp(home: PremiumScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final restoreButton = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, 'Restore purchases'),
+    );
+    expect(restoreButton.onPressed, isNull);
+    expect(find.text('Waiting for Google Play confirmation.'), findsOneWidget);
+  });
+
   test('capabilities refresh ignores unknown backend feature names', () async {
     final subscriptionRepository = _MemorySubscriptionRepository();
     final sessionManager = _FixedSessionManager();

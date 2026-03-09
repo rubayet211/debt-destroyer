@@ -1,10 +1,8 @@
 import 'dart:io';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../../../core/widgets/app_widgets.dart';
 import '../../../shared/enums/app_enums.dart';
@@ -318,10 +316,8 @@ class _DataBackupsScreenState extends ConsumerState<DataBackupsScreen> {
       return;
     }
     await _runBusy(() async {
-      final file = await ref
-          .read(dataPortabilityServiceProvider)
-          .createFullBackup(passphrase);
-      await SharePlus.instance.share(ShareParams(files: [XFile(file.path)]));
+      final file = await ref.read(createFullBackupProvider)(passphrase);
+      await ref.read(shareFilesProvider)([file.path]);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Encrypted backup created')),
@@ -331,11 +327,7 @@ class _DataBackupsScreenState extends ConsumerState<DataBackupsScreen> {
   }
 
   Future<void> _restoreBackup() async {
-    final picked = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: const ['ddbackup'],
-    );
-    final path = picked?.files.single.path;
+    final path = await ref.read(backupFilePickerProvider)();
     if (path == null || path.isEmpty) {
       return;
     }
@@ -344,9 +336,11 @@ class _DataBackupsScreenState extends ConsumerState<DataBackupsScreen> {
       return;
     }
     await _runBusy(() async {
-      final service = ref.read(dataPortabilityServiceProvider);
       final file = File(path);
-      final validation = await service.inspectBackup(file, passphrase);
+      final validation = await ref.read(inspectBackupProvider)(
+        file,
+        passphrase,
+      );
       if (!validation.isValid || validation.preview == null) {
         throw StateError(validation.errors.join('\n'));
       }
@@ -354,7 +348,7 @@ class _DataBackupsScreenState extends ConsumerState<DataBackupsScreen> {
       if (confirmed != true) {
         return;
       }
-      final preview = await service.restoreBackup(file, passphrase);
+      final preview = await ref.read(restoreBackupProvider)(file, passphrase);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

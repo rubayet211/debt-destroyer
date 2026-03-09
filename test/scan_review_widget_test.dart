@@ -218,6 +218,82 @@ void main() {
     );
     expect(paymentsRepository.savedPayments, isEmpty);
   });
+
+  testWidgets('review screen surfaces parse failure and manual fallback copy', (
+    tester,
+  ) async {
+    final bundle = ImportReviewBundle(
+      document: ImportedDocument(
+        id: 'doc-failure',
+        storageRef: 'vault-failure',
+        sourceType: DocumentSourceType.gallery,
+        mimeType: 'image/png',
+        createdAt: DateTime(2026, 3, 1),
+        lifecycleState: DocumentLifecycleState.processed,
+        linkedDebtId: null,
+        rawOcrText: null,
+        parseStatus: ParseStatus.failed,
+        parseVersion: 'v1',
+        deleted: false,
+        retentionExpiresAt: null,
+        rawOcrExpiresAt: null,
+        processedAt: DateTime(2026, 3, 1),
+        linkedAt: null,
+        pendingDeletionAt: null,
+        purgedAt: null,
+        encryptedAt: DateTime(2026, 3, 1),
+        hasRawOcrText: false,
+      ),
+      classification: DocumentClassification.unknown,
+      normalizedText: 'blurry screenshot with weak OCR',
+      candidate: const ExtractionCandidate(
+        title: 'Imported debt',
+        debtType: DebtType.other,
+        confidence: 0.22,
+      ),
+      summary: const StatementSummaryCandidate(
+        title: 'Imported debt',
+        debtType: DebtType.other,
+        confidence: 0.22,
+      ),
+      statementLineItems: const [],
+      issues: const [
+        ImportIssue(
+          code: 'manual_fallback_required',
+          message:
+              'The parser was uncertain. Review fields manually before saving.',
+        ),
+      ],
+      reviewMode: ImportReviewMode.manualFallback,
+      errorMessage:
+          'Parsing was only partially successful. Manual correction is required.',
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          debtsProvider.overrideWith((_) => Stream.value(const <Debt>[])),
+        ],
+        child: MaterialApp(home: ParsedReviewConfirmScreen(bundle: bundle)),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        'Parsing was only partially successful. Manual correction is required.',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.text(
+        'The parser was uncertain. Review fields manually before saving.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Review mode: manualFallback'), findsOneWidget);
+  });
 }
 
 class _TestDocumentsRepository implements DocumentsRepository {
