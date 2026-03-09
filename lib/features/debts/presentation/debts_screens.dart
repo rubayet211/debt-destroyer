@@ -1006,9 +1006,6 @@ class _AddEditDebtScreenState extends ConsumerState<AddEditDebtScreen> {
     );
 
     await ref.read(debtsRepositoryProvider).saveDebt(debt);
-    await ref
-        .read(reminderSchedulerProvider)
-        .syncDebtReminders(debt, preferences.notificationsEnabled);
     if (context.mounted) {
       context.pop();
     }

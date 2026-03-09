@@ -224,19 +224,38 @@ class NotificationSettingsScreen extends ConsumerWidget {
     final preferences =
         ref.watch(userPreferencesProvider).valueOrNull ??
         UserPreferences.defaults();
+    final permission = ref.watch(notificationPermissionProvider).valueOrNull;
     return AppPage(
       title: 'Notifications',
       child: ListView(
         children: [
+          if (permission == false)
+            AppCard(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.notifications_off_outlined),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Notification permission is currently denied. Enable it in system settings to receive reminders.',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          if (permission == false) const SizedBox(height: 12),
           SwitchListTile.adaptive(
             value: preferences.notificationsEnabled,
-            title: const Text('Due date notifications'),
+            title: const Text('Notifications'),
             subtitle: const Text(
-              'Send reminders before due dates and on due day.',
+              'Master switch for reminders, summaries, and milestones.',
             ),
             onChanged: (value) async {
               if (value) {
                 await ref.read(reminderSchedulerProvider).requestPermission();
+                ref.invalidate(notificationPermissionProvider);
               }
               await ref
                   .read(preferencesRepositoryProvider)
@@ -246,19 +265,132 @@ class NotificationSettingsScreen extends ConsumerWidget {
             },
           ),
           SwitchListTile.adaptive(
+            value: preferences.dueRemindersEnabled,
+            title: const Text('Due reminders'),
+            subtitle: Text(
+              'Notify ${preferences.dueReminderLeadDays} day${preferences.dueReminderLeadDays == 1 ? '' : 's'} before due dates and again on due day.',
+            ),
+            onChanged: preferences.notificationsEnabled
+                ? (value) async {
+                    if (value) {
+                      await ref
+                          .read(reminderSchedulerProvider)
+                          .requestPermission();
+                      ref.invalidate(notificationPermissionProvider);
+                    }
+                    await ref
+                        .read(preferencesRepositoryProvider)
+                        .savePreferences(
+                          preferences.copyWith(dueRemindersEnabled: value),
+                        );
+                  }
+                : null,
+          ),
+          ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+            title: const Text('Lead time'),
+            subtitle: Text(
+              '${preferences.dueReminderLeadDays} day${preferences.dueReminderLeadDays == 1 ? '' : 's'} before due date',
+            ),
+            trailing: DropdownButton<int>(
+              value: preferences.dueReminderLeadDays.clamp(1, 3),
+              onChanged:
+                  preferences.notificationsEnabled &&
+                      preferences.dueRemindersEnabled
+                  ? (value) async {
+                      if (value == null) {
+                        return;
+                      }
+                      await ref
+                          .read(preferencesRepositoryProvider)
+                          .savePreferences(
+                            preferences.copyWith(dueReminderLeadDays: value),
+                          );
+                    }
+                  : null,
+              items: const [
+                DropdownMenuItem(value: 1, child: Text('1 day')),
+                DropdownMenuItem(value: 2, child: Text('2 days')),
+                DropdownMenuItem(value: 3, child: Text('3 days')),
+              ],
+            ),
+          ),
+          SwitchListTile.adaptive(
+            value: preferences.overdueRemindersEnabled,
+            title: const Text('Overdue reminders'),
+            subtitle: const Text(
+              'Send follow-up reminders on days 1, 3, and 7 after a missed due date.',
+            ),
+            onChanged: preferences.notificationsEnabled
+                ? (value) async {
+                    if (value) {
+                      await ref
+                          .read(reminderSchedulerProvider)
+                          .requestPermission();
+                      ref.invalidate(notificationPermissionProvider);
+                    }
+                    await ref
+                        .read(preferencesRepositoryProvider)
+                        .savePreferences(
+                          preferences.copyWith(overdueRemindersEnabled: value),
+                        );
+                  }
+                : null,
+          ),
+          SwitchListTile.adaptive(
+            value: preferences.milestoneNotificationsEnabled,
+            title: const Text('Milestone notifications'),
+            subtitle: const Text(
+              'Celebrate 25%, 50%, 75%, and fully paid-off progress once.',
+            ),
+            onChanged: preferences.notificationsEnabled
+                ? (value) async {
+                    if (value) {
+                      await ref
+                          .read(reminderSchedulerProvider)
+                          .requestPermission();
+                      ref.invalidate(notificationPermissionProvider);
+                    }
+                    await ref
+                        .read(preferencesRepositoryProvider)
+                        .savePreferences(
+                          preferences.copyWith(
+                            milestoneNotificationsEnabled: value,
+                          ),
+                        );
+                  }
+                : null,
+          ),
+          SwitchListTile.adaptive(
             value: preferences.weeklySummaryEnabled,
             title: const Text('Weekly progress summary'),
             subtitle: const Text(
-              'Reserved for milestone and weekly summary reminders.',
+              'Monday morning overview of upcoming dues and recent payment momentum.',
             ),
-            onChanged: (value) async {
-              await ref
-                  .read(preferencesRepositoryProvider)
-                  .savePreferences(
-                    preferences.copyWith(weeklySummaryEnabled: value),
-                  );
-            },
+            onChanged: preferences.notificationsEnabled
+                ? (value) async {
+                    if (value) {
+                      await ref
+                          .read(reminderSchedulerProvider)
+                          .requestPermission();
+                      ref.invalidate(notificationPermissionProvider);
+                    }
+                    await ref
+                        .read(preferencesRepositoryProvider)
+                        .savePreferences(
+                          preferences.copyWith(weeklySummaryEnabled: value),
+                        );
+                  }
+                : null,
           ),
+          if (preferences.notificationsEnabled)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(
+                'Reminder content stays concise for lock-screen privacy. Reboot behavior may vary by device until the app is opened again.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
         ],
       ),
     );

@@ -106,6 +106,16 @@ class ReminderRulesTable extends Table {
   Set<Column<Object>> get primaryKey => {id};
 }
 
+class ReminderEventsTable extends Table {
+  TextColumn get id => text()();
+  TextColumn get debtId => text().nullable()();
+  TextColumn get kind => text()();
+  DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
 class ScenariosTable extends Table {
   TextColumn get id => text()();
   TextColumn get strategyType => text()();
@@ -135,10 +145,18 @@ class AppPreferencesTable extends Table {
       boolean().withDefault(const Constant(false))();
   BoolColumn get notificationsEnabled =>
       boolean().withDefault(const Constant(true))();
+  BoolColumn get dueRemindersEnabled =>
+      boolean().withDefault(const Constant(true))();
+  BoolColumn get overdueRemindersEnabled =>
+      boolean().withDefault(const Constant(true))();
+  BoolColumn get milestoneNotificationsEnabled =>
+      boolean().withDefault(const Constant(true))();
   BoolColumn get onboardingCompleted =>
       boolean().withDefault(const Constant(false))();
   BoolColumn get weeklySummaryEnabled =>
       boolean().withDefault(const Constant(false))();
+  IntColumn get dueReminderLeadDays =>
+      integer().withDefault(const Constant(2))();
   BoolColumn get rawOcrRetentionEnabled =>
       boolean().withDefault(const Constant(false))();
   IntColumn get rawOcrRetentionHours =>
@@ -177,6 +195,7 @@ class SubscriptionStateTable extends Table {
     ImportedDocumentsTable,
     ParsedExtractionsTable,
     ReminderRulesTable,
+    ReminderEventsTable,
     ScenariosTable,
     AppPreferencesTable,
     SubscriptionStateTable,
@@ -186,7 +205,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -306,6 +325,25 @@ class AppDatabase extends _$AppDatabase {
           set financial_terms_json = '{}'
           where financial_terms_json is null or financial_terms_json = ''
         ''');
+      }
+      if (from < 7) {
+        await migrator.createTable(reminderEventsTable);
+        await migrator.addColumn(
+          appPreferencesTable,
+          appPreferencesTable.dueRemindersEnabled,
+        );
+        await migrator.addColumn(
+          appPreferencesTable,
+          appPreferencesTable.overdueRemindersEnabled,
+        );
+        await migrator.addColumn(
+          appPreferencesTable,
+          appPreferencesTable.milestoneNotificationsEnabled,
+        );
+        await migrator.addColumn(
+          appPreferencesTable,
+          appPreferencesTable.dueReminderLeadDays,
+        );
       }
     },
   );

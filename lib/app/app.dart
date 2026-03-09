@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 
 import '../features/auth_lock/presentation/biometric_unlock_screen.dart';
 import '../shared/enums/app_enums.dart';
+import '../shared/models/debt.dart';
+import '../shared/models/payment.dart';
 import '../shared/models/user_preferences.dart';
 import '../shared/providers/app_providers.dart';
 import 'theme/app_theme.dart';
@@ -22,6 +24,10 @@ class _DebtDestroyerAppState extends ConsumerState<DebtDestroyerApp>
   late final GoRouter _router;
   late final ProviderSubscription<AsyncValue<UserPreferences>>
   _preferencesSubscription;
+  late final ProviderSubscription<AsyncValue<List<Debt>>> _debtsSubscription;
+  late final ProviderSubscription<AsyncValue<List<Payment>>>
+  _paymentsSubscription;
+  Timer? _reminderReconcileDebounce;
 
   @override
   void initState() {
@@ -33,22 +39,34 @@ class _DebtDestroyerAppState extends ConsumerState<DebtDestroyerApp>
       _,
       next,
     ) {
-      next.whenData(
-        (preferences) => unawaited(
+      next.whenData((preferences) {
+        unawaited(
           ref
               .read(appSecurityCoordinatorProvider.notifier)
               .syncPreferences(preferences),
-        ),
-      );
+        );
+        _scheduleReminderReconcile();
+      });
+    });
+    _debtsSubscription = ref.listenManual(allDebtsProvider, (_, next) {
+      if (next.hasValue) {
+        _scheduleReminderReconcile();
+      }
+    });
+    _paymentsSubscription = ref.listenManual(allPaymentsProvider, (_, next) {
+      if (next.hasValue) {
+        _scheduleReminderReconcile();
+      }
     });
     final initialPreferences = ref.read(userPreferencesProvider);
-    initialPreferences.whenData(
-      (preferences) => unawaited(
+    initialPreferences.whenData((preferences) {
+      unawaited(
         ref
             .read(appSecurityCoordinatorProvider.notifier)
             .syncPreferences(preferences),
-      ),
-    );
+      );
+      _scheduleReminderReconcile();
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) => _handleRouteChanged());
   }
 
@@ -57,6 +75,9 @@ class _DebtDestroyerAppState extends ConsumerState<DebtDestroyerApp>
     WidgetsBinding.instance.removeObserver(this);
     _router.routerDelegate.removeListener(_handleRouteChanged);
     _preferencesSubscription.close();
+    _debtsSubscription.close();
+    _paymentsSubscription.close();
+    _reminderReconcileDebounce?.cancel();
     super.dispose();
   }
 
@@ -74,6 +95,27 @@ class _DebtDestroyerAppState extends ConsumerState<DebtDestroyerApp>
     unawaited(
       ref.read(appSecurityCoordinatorProvider.notifier).updateRoute(location),
     );
+  }
+
+  void _scheduleReminderReconcile() {
+    _reminderReconcileDebounce?.cancel();
+    _reminderReconcileDebounce = Timer(const Duration(milliseconds: 200), () {
+      final preferences = ref.read(userPreferencesProvider).valueOrNull;
+      final debts = ref.read(allDebtsProvider).valueOrNull;
+      final payments = ref.read(allPaymentsProvider).valueOrNull ?? const [];
+      if (preferences == null || debts == null) {
+        return;
+      }
+      unawaited(
+        ref
+            .read(reminderOrchestratorProvider)
+            .reconcile(
+              preferences: preferences,
+              debts: debts,
+              recentPayments: payments,
+            ),
+      );
+    });
   }
 
   @override

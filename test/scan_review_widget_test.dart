@@ -285,6 +285,9 @@ class _TestPaymentsRepository implements PaymentsRepository {
   }
 
   @override
+  Stream<List<Payment>> watchAllPayments() => Stream.value(const <Payment>[]);
+
+  @override
   Stream<List<Payment>> watchPaymentsForDebt(String debtId) =>
       Stream.value(const <Payment>[]);
 

@@ -8,6 +8,7 @@ import '../models/debt.dart';
 import '../models/debt_financial_terms.dart';
 import '../models/import_models.dart';
 import '../models/payment.dart';
+import '../models/reminder_models.dart';
 import '../models/strategy_models.dart';
 import '../models/subscription_state.dart';
 import '../models/user_preferences.dart';
@@ -27,6 +28,7 @@ abstract class DebtsRepository {
 abstract class PaymentsRepository {
   Stream<List<Payment>> watchPaymentsForDebt(String debtId);
   Stream<List<Payment>> watchRecentPayments({int limit = 10});
+  Stream<List<Payment>> watchAllPayments();
   Future<List<Payment>> loadPaymentsForDebt(String debtId);
   Future<List<Payment>> loadAllPayments();
   Future<void> savePayment(Payment payment);
@@ -65,6 +67,11 @@ abstract class SubscriptionRepository {
   Stream<SubscriptionState> watchSubscription();
   Future<SubscriptionState> loadSubscription();
   Future<void> saveSubscription(SubscriptionState state);
+}
+
+abstract class ReminderEventsRepository {
+  Future<Set<String>> loadEventKeys();
+  Future<void> saveEvent(ReminderEventRecord event);
 }
 
 class DriftDebtsRepository implements DebtsRepository {
@@ -242,6 +249,16 @@ class DriftPaymentsRepository implements PaymentsRepository {
   }
 
   @override
+  Stream<List<Payment>> watchAllPayments() {
+    final query = database.select(database.paymentsTable)
+      ..orderBy([
+        (table) =>
+            OrderingTerm(expression: table.date, mode: OrderingMode.desc),
+      ]);
+    return query.watch().map((rows) => rows.map(_mapPayment).toList());
+  }
+
+  @override
   Future<List<Payment>> loadPaymentsForDebt(String debtId) async {
     final query = database.select(database.paymentsTable)
       ..where((table) => table.debtId.equals(debtId));
@@ -391,8 +408,16 @@ class DriftPreferencesRepository implements PreferencesRepository {
             appLockEnabled: const Value(false),
             aiConsentEnabled: const Value(false),
             notificationsEnabled: Value(preferences.notificationsEnabled),
+            dueRemindersEnabled: Value(preferences.dueRemindersEnabled),
+            overdueRemindersEnabled: Value(preferences.overdueRemindersEnabled),
+            milestoneNotificationsEnabled: Value(
+              preferences.milestoneNotificationsEnabled,
+            ),
             onboardingCompleted: Value(preferences.onboardingCompleted),
             weeklySummaryEnabled: Value(preferences.weeklySummaryEnabled),
+            dueReminderLeadDays: Value(
+              preferences.dueReminderLeadDays.clamp(1, 3),
+            ),
             rawOcrRetentionEnabled: Value(preferences.rawOcrRetentionEnabled),
             rawOcrRetentionHours: Value(preferences.rawOcrRetentionHours),
             documentRetentionMode: Value(
@@ -421,8 +446,12 @@ class DriftPreferencesRepository implements PreferencesRepository {
       screenshotProtectionEnabled: true,
       privacyShieldOnAppSwitcherEnabled: true,
       notificationsEnabled: row.notificationsEnabled,
+      dueRemindersEnabled: row.dueRemindersEnabled,
+      overdueRemindersEnabled: row.overdueRemindersEnabled,
+      milestoneNotificationsEnabled: row.milestoneNotificationsEnabled,
       onboardingCompleted: row.onboardingCompleted,
       weeklySummaryEnabled: row.weeklySummaryEnabled,
+      dueReminderLeadDays: row.dueReminderLeadDays.clamp(1, 3),
       rawOcrRetentionEnabled: row.rawOcrRetentionEnabled,
       rawOcrRetentionHours: row.rawOcrRetentionHours,
       documentRetentionMode: DocumentRetentionMode.values.byName(
@@ -810,6 +839,32 @@ class DriftSubscriptionRepository implements SubscriptionRepository {
       status: row.status,
       lastVerifiedAt: row.lastVerifiedAt,
     );
+  }
+}
+
+class DriftReminderEventsRepository implements ReminderEventsRepository {
+  const DriftReminderEventsRepository(this.database);
+
+  final AppDatabase database;
+
+  @override
+  Future<Set<String>> loadEventKeys() async {
+    final rows = await database.select(database.reminderEventsTable).get();
+    return rows.map((row) => row.id).toSet();
+  }
+
+  @override
+  Future<void> saveEvent(ReminderEventRecord event) {
+    return database
+        .into(database.reminderEventsTable)
+        .insertOnConflictUpdate(
+          ReminderEventsTableCompanion.insert(
+            id: event.id,
+            debtId: Value(event.debtId),
+            kind: event.kind.name,
+            createdAt: event.createdAt,
+          ),
+        );
   }
 }
 
