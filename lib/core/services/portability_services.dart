@@ -36,6 +36,8 @@ class DataPortabilityService {
   static const _containerFormat = 'debt_destroyer_backup';
   static const _fileExtension = '.ddbackup';
   static const _kdfIterations = 150000;
+  static const _minKdfIterations = 100000;
+  static const _maxKdfIterations = 500000;
 
   final AppDatabase database;
   final PreferencesRepository preferencesRepository;
@@ -50,8 +52,8 @@ class DataPortabilityService {
     final payload = await _buildPayload();
     final documentBytes = <String, Uint8List>{};
     for (final document in payload.documents) {
-      final bytes = await documentsRepository.readDocumentBytes(document.id);
       if (document.storageRef != null && document.storageRef!.isNotEmpty) {
+        final bytes = await vaultService.readDocumentBytes(document.storageRef);
         if (bytes == null) {
           throw StateError(
             'Document bytes are missing for ${document.id}. Delete the broken document and try again.',
@@ -117,8 +119,8 @@ class DataPortabilityService {
         .select(database.importedDocumentsTable)
         .get();
     final stagedStorageRefs = <String>[];
+    final restoredDocuments = <ImportedDocument>[];
     try {
-      final restoredDocuments = <ImportedDocument>[];
       for (final document in decoded.payload.documents) {
         final bytes = decoded.documentBytes[document.id];
         if (bytes != null) {
@@ -136,210 +138,212 @@ class DataPortabilityService {
           );
         }
       }
-
-      await database.transaction(() async {
-        await database.delete(database.parsedExtractionsTable).go();
-        await database.delete(database.importedDocumentsTable).go();
-        await database.delete(database.paymentsTable).go();
-        await database.delete(database.debtsTable).go();
-        await database.delete(database.scenariosTable).go();
-        await database.delete(database.reminderEventsTable).go();
-        await database.delete(database.reminderRulesTable).go();
-        await database.delete(database.appPreferencesTable).go();
-
-        for (final debt in decoded.payload.debts) {
-          await database
-              .into(database.debtsTable)
-              .insert(
-                DebtsTableCompanion.insert(
-                  id: debt.id,
-                  title: debt.title,
-                  creditorName: debt.creditorName,
-                  type: debt.type.name,
-                  currency: debt.currency,
-                  originalBalance: debt.originalBalance,
-                  currentBalance: debt.currentBalance,
-                  apr: debt.apr,
-                  minimumPayment: debt.minimumPayment,
-                  dueDate: Value(debt.dueDate),
-                  paymentFrequency: debt.paymentFrequency.name,
-                  createdAt: debt.createdAt,
-                  updatedAt: debt.updatedAt,
-                  notes: Value(debt.notes),
-                  tagsJson: Value(database.encodeStringList(debt.tags)),
-                  financialTermsJson: Value(
-                    jsonEncode(debt.financialTerms.toJson()),
-                  ),
-                  status: debt.status.name,
-                  remindersEnabled: Value(debt.remindersEnabled),
-                  customPriority: Value(debt.customPriority),
-                ),
-              );
-        }
-
-        for (final payment in decoded.payload.payments) {
-          await database
-              .into(database.paymentsTable)
-              .insert(
-                PaymentsTableCompanion.insert(
-                  id: payment.id,
-                  debtId: payment.debtId,
-                  amount: payment.amount,
-                  date: payment.date,
-                  method: Value(payment.method),
-                  sourceType: payment.sourceType.name,
-                  notes: Value(payment.notes),
-                  tagsJson: Value(database.encodeStringList(payment.tags)),
-                  createdAt: payment.createdAt,
-                ),
-              );
-        }
-
-        for (final document in restoredDocuments) {
-          await database
-              .into(database.importedDocumentsTable)
-              .insert(
-                ImportedDocumentsTableCompanion.insert(
-                  id: document.id,
-                  localPath: const Value(''),
-                  storageRef: Value(document.storageRef),
-                  sourceType: document.sourceType.name,
-                  mimeType: document.mimeType,
-                  createdAt: document.createdAt,
-                  lifecycleState: Value(document.lifecycleState.name),
-                  linkedDebtId: Value(document.linkedDebtId),
-                  rawOcrText: Value(document.rawOcrText),
-                  parseStatus: document.parseStatus.name,
-                  parseVersion: document.parseVersion,
-                  deleted: Value(document.deleted),
-                  retentionExpiresAt: Value(document.retentionExpiresAt),
-                  rawOcrExpiresAt: Value(document.rawOcrExpiresAt),
-                  processedAt: Value(document.processedAt),
-                  linkedAt: Value(document.linkedAt),
-                  pendingDeletionAt: Value(document.pendingDeletionAt),
-                  purgedAt: Value(document.purgedAt),
-                  encryptedAt: Value(document.encryptedAt),
-                  hasRawOcrText: Value(document.hasRawOcrText),
-                ),
-              );
-        }
-
-        for (final extraction in decoded.payload.parsedExtractions) {
-          await database
-              .into(database.parsedExtractionsTable)
-              .insert(
-                ParsedExtractionsTableCompanion.insert(
-                  id: extraction.id,
-                  documentId: extraction.documentId,
-                  classification: extraction.classification.name,
-                  confidence: extraction.confidence,
-                  payloadJson: extraction.payloadJson,
-                  ambiguityNotes: Value(extraction.ambiguityNotes),
-                  createdAt: extraction.createdAt,
-                ),
-              );
-        }
-
-        for (final scenario in decoded.payload.scenarios) {
-          await database
-              .into(database.scenariosTable)
-              .insert(
-                ScenariosTableCompanion.insert(
-                  id: scenario.id,
-                  strategyType: scenario.strategyType.name,
-                  extraPayment: scenario.extraPayment,
-                  budget: scenario.budget,
-                  createdAt: scenario.createdAt,
-                  label: scenario.label,
-                  baselineInterest: scenario.baselineInterest,
-                  optimizedInterest: scenario.optimizedInterest,
-                  monthsToPayoff: scenario.monthsToPayoff,
-                ),
-              );
-        }
-
-        for (final event in decoded.payload.reminderEvents) {
-          await database
-              .into(database.reminderEventsTable)
-              .insert(
-                ReminderEventsTableCompanion.insert(
-                  id: event.id,
-                  debtId: Value(event.debtId),
-                  kind: event.kind.name,
-                  createdAt: event.createdAt,
-                ),
-              );
-        }
-
-        final preferences = decoded.payload.preferences;
-        await database
-            .into(database.appPreferencesTable)
-            .insert(
-              AppPreferencesTableCompanion.insert(
-                themeMode: Value(preferences.themeMode.name),
-                currencyCode: Value(preferences.currencyCode),
-                localeCode: Value(preferences.localeCode),
-                defaultStrategy: Value(preferences.defaultStrategy.name),
-                hideBalances: const Value(false),
-                appLockEnabled: const Value(false),
-                aiConsentEnabled: const Value(false),
-                notificationsEnabled: Value(preferences.notificationsEnabled),
-                dueRemindersEnabled: Value(preferences.dueRemindersEnabled),
-                overdueRemindersEnabled: Value(
-                  preferences.overdueRemindersEnabled,
-                ),
-                milestoneNotificationsEnabled: Value(
-                  preferences.milestoneNotificationsEnabled,
-                ),
-                onboardingCompleted: Value(preferences.onboardingCompleted),
-                weeklySummaryEnabled: Value(preferences.weeklySummaryEnabled),
-                dueReminderLeadDays: Value(
-                  preferences.dueReminderLeadDays.clamp(1, 3),
-                ),
-                rawOcrRetentionEnabled: Value(
-                  preferences.rawOcrRetentionEnabled,
-                ),
-                rawOcrRetentionHours: Value(preferences.rawOcrRetentionHours),
-                documentRetentionMode: Value(
-                  preferences.documentRetentionMode.name,
-                ),
-                purgeFailedImportsAfterHours: Value(
-                  preferences.purgeFailedImportsAfterHours,
-                ),
-                dataProtectionExplainerSeen: Value(
-                  preferences.dataProtectionExplainerSeen,
-                ),
-              ),
-            );
-      });
-
-      await protectedPreferencesStore.write(
-        ProtectedPreferenceValues(
-          hideBalances: decoded.payload.preferences.hideBalances,
-          appLockEnabled: decoded.payload.preferences.appLockEnabled,
-          aiConsentEnabled: decoded.payload.preferences.aiConsentEnabled,
-          relockTimeout: decoded.payload.preferences.relockTimeout,
-          screenshotProtectionEnabled:
-              decoded.payload.preferences.screenshotProtectionEnabled,
-          privacyShieldOnAppSwitcherEnabled:
-              decoded.payload.preferences.privacyShieldOnAppSwitcherEnabled,
-        ),
-      );
-
-      for (final row in oldDocuments) {
-        await vaultService.purgeStoredDocument(row.storageRef);
-        await vaultService.purgeLegacyPlaintext(
-          row.localPath.isEmpty ? null : row.localPath,
-        );
-      }
-
-      return decoded.payload.toPreview();
     } catch (_) {
       for (final storageRef in stagedStorageRefs) {
         await vaultService.purgeStoredDocument(storageRef);
       }
       rethrow;
     }
+
+    await database.transaction(() async {
+      await database.delete(database.parsedExtractionsTable).go();
+      await database.delete(database.importedDocumentsTable).go();
+      await database.delete(database.paymentsTable).go();
+      await database.delete(database.debtsTable).go();
+      await database.delete(database.scenariosTable).go();
+      await database.delete(database.reminderEventsTable).go();
+      await database.delete(database.reminderRulesTable).go();
+      await database.delete(database.appPreferencesTable).go();
+
+      for (final debt in decoded.payload.debts) {
+        await database
+            .into(database.debtsTable)
+            .insert(
+              DebtsTableCompanion.insert(
+                id: debt.id,
+                title: debt.title,
+                creditorName: debt.creditorName,
+                type: debt.type.name,
+                currency: debt.currency,
+                originalBalance: debt.originalBalance,
+                currentBalance: debt.currentBalance,
+                apr: debt.apr,
+                minimumPayment: debt.minimumPayment,
+                dueDate: Value(debt.dueDate),
+                paymentFrequency: debt.paymentFrequency.name,
+                createdAt: debt.createdAt,
+                updatedAt: debt.updatedAt,
+                notes: Value(debt.notes),
+                tagsJson: Value(database.encodeStringList(debt.tags)),
+                financialTermsJson: Value(
+                  jsonEncode(debt.financialTerms.toJson()),
+                ),
+                status: debt.status.name,
+                remindersEnabled: Value(debt.remindersEnabled),
+                customPriority: Value(debt.customPriority),
+              ),
+            );
+      }
+
+      for (final payment in decoded.payload.payments) {
+        await database
+            .into(database.paymentsTable)
+            .insert(
+              PaymentsTableCompanion.insert(
+                id: payment.id,
+                debtId: payment.debtId,
+                amount: payment.amount,
+                date: payment.date,
+                method: Value(payment.method),
+                sourceType: payment.sourceType.name,
+                notes: Value(payment.notes),
+                tagsJson: Value(database.encodeStringList(payment.tags)),
+                createdAt: payment.createdAt,
+              ),
+            );
+      }
+
+      for (final document in restoredDocuments) {
+        await database
+            .into(database.importedDocumentsTable)
+            .insert(
+              ImportedDocumentsTableCompanion.insert(
+                id: document.id,
+                localPath: const Value(''),
+                storageRef: Value(document.storageRef),
+                sourceType: document.sourceType.name,
+                mimeType: document.mimeType,
+                createdAt: document.createdAt,
+                lifecycleState: Value(document.lifecycleState.name),
+                linkedDebtId: Value(document.linkedDebtId),
+                rawOcrText: Value(document.rawOcrText),
+                parseStatus: document.parseStatus.name,
+                parseVersion: document.parseVersion,
+                deleted: Value(document.deleted),
+                retentionExpiresAt: Value(document.retentionExpiresAt),
+                rawOcrExpiresAt: Value(document.rawOcrExpiresAt),
+                processedAt: Value(document.processedAt),
+                linkedAt: Value(document.linkedAt),
+                pendingDeletionAt: Value(document.pendingDeletionAt),
+                purgedAt: Value(document.purgedAt),
+                encryptedAt: Value(document.encryptedAt),
+                hasRawOcrText: Value(document.hasRawOcrText),
+              ),
+            );
+      }
+
+      for (final extraction in decoded.payload.parsedExtractions) {
+        await database
+            .into(database.parsedExtractionsTable)
+            .insert(
+              ParsedExtractionsTableCompanion.insert(
+                id: extraction.id,
+                documentId: extraction.documentId,
+                classification: extraction.classification.name,
+                confidence: extraction.confidence,
+                payloadJson: extraction.payloadJson,
+                ambiguityNotes: Value(extraction.ambiguityNotes),
+                createdAt: extraction.createdAt,
+              ),
+            );
+      }
+
+      for (final scenario in decoded.payload.scenarios) {
+        await database
+            .into(database.scenariosTable)
+            .insert(
+              ScenariosTableCompanion.insert(
+                id: scenario.id,
+                strategyType: scenario.strategyType.name,
+                extraPayment: scenario.extraPayment,
+                budget: scenario.budget,
+                createdAt: scenario.createdAt,
+                label: scenario.label,
+                baselineInterest: scenario.baselineInterest,
+                optimizedInterest: scenario.optimizedInterest,
+                monthsToPayoff: scenario.monthsToPayoff,
+              ),
+            );
+      }
+
+      for (final event in decoded.payload.reminderEvents) {
+        await database
+            .into(database.reminderEventsTable)
+            .insert(
+              ReminderEventsTableCompanion.insert(
+                id: event.id,
+                debtId: Value(event.debtId),
+                kind: event.kind.name,
+                createdAt: event.createdAt,
+              ),
+            );
+      }
+
+      final preferences = decoded.payload.preferences;
+      await database
+          .into(database.appPreferencesTable)
+          .insert(
+            AppPreferencesTableCompanion.insert(
+              themeMode: Value(preferences.themeMode.name),
+              currencyCode: Value(preferences.currencyCode),
+              localeCode: Value(preferences.localeCode),
+              defaultStrategy: Value(preferences.defaultStrategy.name),
+              hideBalances: const Value(false),
+              appLockEnabled: const Value(false),
+              aiConsentEnabled: const Value(false),
+              notificationsEnabled: Value(preferences.notificationsEnabled),
+              dueRemindersEnabled: Value(preferences.dueRemindersEnabled),
+              overdueRemindersEnabled: Value(
+                preferences.overdueRemindersEnabled,
+              ),
+              milestoneNotificationsEnabled: Value(
+                preferences.milestoneNotificationsEnabled,
+              ),
+              onboardingCompleted: Value(preferences.onboardingCompleted),
+              weeklySummaryEnabled: Value(preferences.weeklySummaryEnabled),
+              dueReminderLeadDays: Value(
+                _clampLeadDays(preferences.dueReminderLeadDays),
+              ),
+              rawOcrRetentionEnabled: Value(preferences.rawOcrRetentionEnabled),
+              rawOcrRetentionHours: Value(preferences.rawOcrRetentionHours),
+              documentRetentionMode: Value(
+                preferences.documentRetentionMode.name,
+              ),
+              purgeFailedImportsAfterHours: Value(
+                preferences.purgeFailedImportsAfterHours,
+              ),
+              dataProtectionExplainerSeen: Value(
+                preferences.dataProtectionExplainerSeen,
+              ),
+            ),
+          );
+    });
+
+    await protectedPreferencesStore.write(
+      ProtectedPreferenceValues(
+        hideBalances: decoded.payload.preferences.hideBalances,
+        appLockEnabled: decoded.payload.preferences.appLockEnabled,
+        aiConsentEnabled: decoded.payload.preferences.aiConsentEnabled,
+        relockTimeout: decoded.payload.preferences.relockTimeout,
+        screenshotProtectionEnabled:
+            decoded.payload.preferences.screenshotProtectionEnabled,
+        privacyShieldOnAppSwitcherEnabled:
+            decoded.payload.preferences.privacyShieldOnAppSwitcherEnabled,
+      ),
+    );
+
+    try {
+      for (final row in oldDocuments) {
+        await vaultService.purgeStoredDocument(row.storageRef);
+        await vaultService.purgeLegacyPlaintext(
+          row.localPath.isEmpty ? null : row.localPath,
+        );
+      }
+    } catch (_) {
+      return decoded.payload.toPreview();
+    }
+
+    return decoded.payload.toPreview();
   }
 
   Future<BackupPayloadV1> _buildPayload() async {
@@ -516,8 +520,11 @@ class DataPortabilityService {
         'Backup format v$version is newer than this app supports.',
       );
     }
-    final iterations =
-        (wrapper['iterations'] as num?)?.toInt() ?? _kdfIterations;
+    final kdf = wrapper['kdf']?.toString();
+    if (kdf != 'pbkdf2-sha256') {
+      throw const FormatException('Backup KDF is not supported.');
+    }
+    final iterations = _validatedIterationCount(wrapper['iterations']);
     final salt = base64Decode(wrapper['salt']?.toString() ?? '');
     final nonce = base64Decode(wrapper['nonce']?.toString() ?? '');
     final mac = base64Decode(wrapper['mac']?.toString() ?? '');
@@ -716,10 +723,38 @@ class DataPortabilityService {
     return pbkdf2.deriveKeyFromPassword(password: passphrase, nonce: salt);
   }
 
+  int _validatedIterationCount(Object? raw) {
+    final iterations = switch (raw) {
+      int value => value,
+      num value => value.toInt(),
+      String value => int.tryParse(value),
+      _ => null,
+    };
+    if (iterations == null) {
+      throw const FormatException('Backup KDF metadata is missing or invalid.');
+    }
+    if (iterations < _minKdfIterations || iterations > _maxKdfIterations) {
+      throw const FormatException(
+        'Backup KDF iteration count is not supported.',
+      );
+    }
+    return iterations;
+  }
+
   void _validatePassphrase(String passphrase) {
     if (passphrase.trim().isEmpty) {
       throw const FormatException('A backup passphrase is required.');
     }
+  }
+
+  int _clampLeadDays(int value) {
+    if (value < 1) {
+      return 1;
+    }
+    if (value > 3) {
+      return 3;
+    }
+    return value;
   }
 
   List<int> _randomBytes(int length) {

@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:cryptography/cryptography.dart';
-import 'package:drift/drift.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -152,6 +152,55 @@ void main() {
     expect(validation.errors.single, contains('newer than this app supports'));
   });
 
+  test('unsupported backup kdf metadata is rejected', () async {
+    await seedPortableData(
+      database: database,
+      preferencesRepository: preferencesRepository,
+      documentsRepository: documentsRepository,
+      vaultService: vaultService,
+      tempDir: tempDir,
+    );
+    final backupFile = await portabilityService.createFullBackup('passphrase');
+    final wrapper =
+        jsonDecode(await backupFile.readAsString()) as Map<String, dynamic>;
+    wrapper['kdf'] = 'pbkdf2-sha1';
+    await backupFile.writeAsString(jsonEncode(wrapper));
+
+    final validation = await portabilityService.inspectBackup(
+      backupFile,
+      'passphrase',
+    );
+
+    expect(validation.isValid, isFalse);
+    expect(validation.errors.single, contains('KDF is not supported'));
+  });
+
+  test('extreme backup iteration count is rejected', () async {
+    await seedPortableData(
+      database: database,
+      preferencesRepository: preferencesRepository,
+      documentsRepository: documentsRepository,
+      vaultService: vaultService,
+      tempDir: tempDir,
+    );
+    final backupFile = await portabilityService.createFullBackup('passphrase');
+    final wrapper =
+        jsonDecode(await backupFile.readAsString()) as Map<String, dynamic>;
+    wrapper['iterations'] = 999999999;
+    await backupFile.writeAsString(jsonEncode(wrapper));
+
+    final validation = await portabilityService.inspectBackup(
+      backupFile,
+      'passphrase',
+    );
+
+    expect(validation.isValid, isFalse);
+    expect(
+      validation.errors.single,
+      contains('iteration count is not supported'),
+    );
+  });
+
   test(
     'restore does not wipe current data when backup validation fails',
     () async {
@@ -186,6 +235,31 @@ void main() {
       expect(debts.single.id, 'existing-debt');
     },
   );
+
+  test('restore persists clamped due reminder lead days as int', () async {
+    await seedPortableData(
+      database: database,
+      preferencesRepository: preferencesRepository,
+      documentsRepository: documentsRepository,
+      vaultService: vaultService,
+      tempDir: tempDir,
+    );
+    final backupFile = await portabilityService.createFullBackup('passphrase');
+    final validation = await portabilityService.inspectBackup(
+      backupFile,
+      'passphrase',
+    );
+    expect(validation.isValid, isTrue);
+
+    await portabilityService.restoreBackup(backupFile, 'passphrase');
+
+    final row = await database
+        .select(database.appPreferencesTable)
+        .getSingleOrNull();
+    expect(row, isNotNull);
+    expect(row!.dueReminderLeadDays, isA<int>());
+    expect(row.dueReminderLeadDays, inInclusiveRange(1, 3));
+  });
 }
 
 Future<String> seedPortableData({

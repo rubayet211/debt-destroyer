@@ -474,10 +474,12 @@ UserPreferences preferencesFromJson(Map<String, Object?> json) {
       json['weeklySummaryEnabled'],
       defaults.weeklySummaryEnabled,
     ),
-    dueReminderLeadDays: _readIntWithDefault(
-      json['dueReminderLeadDays'],
-      defaults.dueReminderLeadDays,
-    ).clamp(1, 3),
+    dueReminderLeadDays: _clampLeadDays(
+      _readIntWithDefault(
+        json['dueReminderLeadDays'],
+        defaults.dueReminderLeadDays,
+      ),
+    ),
     rawOcrRetentionEnabled: _readBoolWithDefault(
       json['rawOcrRetentionEnabled'],
       defaults.rawOcrRetentionEnabled,
@@ -501,6 +503,16 @@ UserPreferences preferencesFromJson(Map<String, Object?> json) {
       defaults.dataProtectionExplainerSeen,
     ),
   );
+}
+
+int _clampLeadDays(int value) {
+  if (value < 1) {
+    return 1;
+  }
+  if (value > 3) {
+    return 3;
+  }
+  return value;
 }
 
 T _readEnum<T extends Enum>(
