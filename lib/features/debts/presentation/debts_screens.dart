@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -345,8 +347,9 @@ class DebtDetailsScreen extends ConsumerWidget {
                       if (item.financialTerms.promoApr != null)
                         _SummaryRow(
                           label: 'Promo APR',
-                          value:
-                              '${Formatters.percent(item.financialTerms.promoApr!)} until ${Formatters.date(item.financialTerms.promoEndsOn)}',
+                          value: item.financialTerms.promoEndsOn == null
+                              ? '${Formatters.percent(item.financialTerms.promoApr!)} ongoing'
+                              : '${Formatters.percent(item.financialTerms.promoApr!)} until ${Formatters.date(item.financialTerms.promoEndsOn)}',
                         ),
                       if (item.financialTerms.monthlyFee > 0)
                         _SummaryRow(
@@ -968,15 +971,15 @@ class _AddEditDebtScreenState extends ConsumerState<AddEditDebtScreen> {
     final id = widget.initialDebt?.id ?? const Uuid().v4();
     final financialTerms = DebtFinancialTerms(
       interestCompounding: _interestCompounding,
-      statementDayOfMonth: int.tryParse(_statementDay.text),
+      statementDayOfMonth: _validatedStatementDay(_statementDay.text),
       minimumPaymentRule: _minimumPaymentRule,
-      minimumPaymentPercent: _nullableMoney(_minimumPercent.text),
-      promoApr: _nullableMoney(_promoApr.text),
+      minimumPaymentPercent: _boundedPercent(_minimumPercent.text),
+      promoApr: _nonNegativeNullableMoney(_promoApr.text),
       promoEndsOn: _promoEndsOn,
-      monthlyFee: Parsers.parseMoney(_monthlyFee.text),
-      lateFee: Parsers.parseMoney(_lateFee.text),
-      lateFeeGraceDays: int.tryParse(_lateFeeGraceDays.text) ?? 0,
-      penaltyApr: _nullableMoney(_penaltyApr.text),
+      monthlyFee: _nonNegativeMoney(_monthlyFee.text),
+      lateFee: _nonNegativeMoney(_lateFee.text),
+      lateFeeGraceDays: _nonNegativeInt(_lateFeeGraceDays.text),
+      penaltyApr: _boundedPercent(_penaltyApr.text),
     );
     final debt = Debt(
       id: id,
@@ -1017,6 +1020,43 @@ class _AddEditDebtScreenState extends ConsumerState<AddEditDebtScreen> {
       return null;
     }
     return Parsers.parseMoney(trimmed);
+  }
+
+  double _nonNegativeMoney(String raw) {
+    return Parsers.parseMoney(raw).clamp(0, double.infinity).toDouble();
+  }
+
+  double? _nonNegativeNullableMoney(String raw) {
+    final value = _nullableMoney(raw);
+    if (value == null) {
+      return null;
+    }
+    return value.clamp(0, double.infinity).toDouble();
+  }
+
+  double? _boundedPercent(String raw) {
+    final value = _nullableMoney(raw);
+    if (value == null) {
+      return null;
+    }
+    return value.clamp(0, 100).toDouble();
+  }
+
+  int _nonNegativeInt(String raw) {
+    final parsed = int.tryParse(raw.trim()) ?? 0;
+    return max(0, parsed);
+  }
+
+  int? _validatedStatementDay(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) {
+      return null;
+    }
+    final parsed = int.tryParse(trimmed);
+    if (parsed == null || parsed < 1 || parsed > 31) {
+      return null;
+    }
+    return parsed;
   }
 
   String _interestCompoundingLabel(InterestCompounding value) {

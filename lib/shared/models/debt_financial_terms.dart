@@ -54,15 +54,11 @@ class DebtFinancialTerms {
 
   factory DebtFinancialTerms.fromJson(Map<String, Object?> json) {
     return DebtFinancialTerms(
-      interestCompounding: InterestCompounding.values.byName(
-        json['interestCompounding']?.toString() ??
-            InterestCompounding.monthlyCompound.name,
+      interestCompounding: _parseInterestCompounding(
+        json['interestCompounding'],
       ),
       statementDayOfMonth: _asInt(json['statementDayOfMonth']),
-      minimumPaymentRule: MinimumPaymentRule.values.byName(
-        json['minimumPaymentRule']?.toString() ??
-            MinimumPaymentRule.fixedAmount.name,
-      ),
+      minimumPaymentRule: _parseMinimumPaymentRule(json['minimumPaymentRule']),
       minimumPaymentPercent: _asDouble(json['minimumPaymentPercent']),
       promoApr: _asDouble(json['promoApr']),
       promoEndsOn: _asDate(json['promoEndsOn']),
@@ -125,5 +121,25 @@ class DebtFinancialTerms {
       return null;
     }
     return DateTime.tryParse(raw.toString());
+  }
+
+  static InterestCompounding _parseInterestCompounding(Object? raw) {
+    final name = raw?.toString();
+    for (final value in InterestCompounding.values) {
+      if (value.name == name) {
+        return value;
+      }
+    }
+    return InterestCompounding.monthlyCompound;
+  }
+
+  static MinimumPaymentRule _parseMinimumPaymentRule(Object? raw) {
+    final name = raw?.toString();
+    for (final value in MinimumPaymentRule.values) {
+      if (value.name == name) {
+        return value;
+      }
+    }
+    return MinimumPaymentRule.fixedAmount;
   }
 }

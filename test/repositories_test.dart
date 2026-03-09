@@ -128,6 +128,48 @@ void main() {
     expect(loaded.single.financialTerms.penaltyApr, 29.99);
   });
 
+  test('unknown financial term enum values fall back safely', () async {
+    await database
+        .into(database.debtsTable)
+        .insert(
+          DebtsTableCompanion.insert(
+            id: 'd-unknown-terms',
+            title: 'Fallback terms',
+            creditorName: 'Bank',
+            type: DebtType.creditCard.name,
+            currency: 'USD',
+            originalBalance: 500,
+            currentBalance: 450,
+            apr: 18,
+            minimumPayment: 35,
+            paymentFrequency: PaymentFrequency.monthly.name,
+            createdAt: DateTime(2026, 1, 1),
+            updatedAt: DateTime(2026, 1, 1),
+            status: DebtStatus.active.name,
+            financialTermsJson: Value(
+              jsonEncode({
+                'interestCompounding': 'futureCompounding',
+                'minimumPaymentRule': 'futureRule',
+                'monthlyFee': 3,
+              }),
+            ),
+          ),
+        );
+
+    final loaded = await debtsRepository.loadDebts();
+    final debt = loaded.singleWhere((item) => item.id == 'd-unknown-terms');
+
+    expect(
+      debt.financialTerms.interestCompounding,
+      InterestCompounding.monthlyCompound,
+    );
+    expect(
+      debt.financialTerms.minimumPaymentRule,
+      MinimumPaymentRule.fixedAmount,
+    );
+    expect(debt.financialTerms.monthlyFee, 3);
+  });
+
   test('paying full balance marks debt as paid off', () async {
     final debt = Debt(
       id: 'd2',

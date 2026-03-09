@@ -131,10 +131,10 @@ class _ReportsBody extends StatelessWidget {
       );
     }
 
-    final minimumBudget = activeDebts.fold<double>(
-      0,
-      (sum, debt) => sum + debt.minimumPayment,
-    );
+    final projectionStart = DateTime.now();
+    final minimumBudget = ref
+        .read(portfolioProjectionServiceProvider)
+        .minimumRequiredBudget(debts: activeDebts, asOf: projectionStart);
     final projection = ref
         .read(portfolioProjectionServiceProvider)
         .projectPortfolio(
@@ -143,12 +143,13 @@ class _ReportsBody extends StatelessWidget {
             strategyType: defaultStrategy,
             monthlyBudget: minimumBudget,
             extraMonthlyPayment: 0,
-            startDate: DateTime.now(),
+            startDate: projectionStart,
             lumpSum: 0,
             includeArchived: false,
             customPriorities: {
               for (final debt in activeDebts) debt.id: debt.customPriority,
             },
+            allowUnderMinimumBudget: false,
           ),
         );
 

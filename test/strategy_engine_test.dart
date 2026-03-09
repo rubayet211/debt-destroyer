@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:debt_destroyer/features/strategy/domain/portfolio_projection_service.dart';
 import 'package:debt_destroyer/features/strategy/domain/strategy_engine.dart';
 import 'package:debt_destroyer/shared/enums/app_enums.dart';
 import 'package:debt_destroyer/shared/models/debt.dart';
@@ -9,6 +10,7 @@ import 'package:debt_destroyer/shared/models/strategy_models.dart';
 void main() {
   group('StrategyEngine', () {
     const engine = StrategyEngine();
+    const projectionService = PortfolioProjectionService();
 
     StrategyRequest request(
       StrategyType type, {
@@ -268,6 +270,110 @@ void main() {
           contains(ProjectionWarning.mixedPaymentFrequencies),
         );
         expect(result.schedule.first.minimumRequired, greaterThan(75));
+      },
+    );
+
+    test(
+      'quarterly cadence follows debt due month instead of simulation start month',
+      () {
+        final debt = _debt(
+          id: 'quarterly-feb',
+          currentBalance: 900,
+          apr: 9,
+          minimumPayment: 150,
+          paymentFrequency: PaymentFrequency.quarterly,
+          dueDate: DateTime(2026, 2, 15),
+        );
+
+        final result = engine.simulate(
+          debts: [debt],
+          request: request(
+            StrategyType.avalanche,
+            budget: 0,
+            startDate: DateTime(2026, 1, 1),
+            allowUnderMinimumBudget: true,
+          ),
+        );
+
+        expect(result.schedule[0].minimumRequired, 0);
+        expect(result.schedule[1].minimumRequired, greaterThan(0));
+        expect(result.schedule[2].minimumRequired, 0);
+        expect(result.schedule[4].minimumRequired, greaterThan(0));
+      },
+    );
+
+    test(
+      'quarterly cadence falls back to simulation start when no due date exists',
+      () {
+        final debt = _debt(
+          id: 'quarterly-anchor',
+          currentBalance: 900,
+          apr: 9,
+          minimumPayment: 150,
+          paymentFrequency: PaymentFrequency.quarterly,
+        );
+
+        final result = engine.simulate(
+          debts: [debt],
+          request: request(
+            StrategyType.avalanche,
+            budget: 0,
+            startDate: DateTime(2026, 1, 1),
+            allowUnderMinimumBudget: true,
+          ),
+        );
+
+        expect(result.schedule[0].minimumRequired, greaterThan(0));
+        expect(result.schedule[1].minimumRequired, 0);
+        expect(result.schedule[3].minimumRequired, greaterThan(0));
+      },
+    );
+
+    test(
+      'minimum required budget accounts for payment frequency and rules',
+      () {
+        final debts = [
+          _debt(
+            id: 'weekly',
+            currentBalance: 1000,
+            apr: 0,
+            minimumPayment: 40,
+            paymentFrequency: PaymentFrequency.weekly,
+          ),
+          _debt(
+            id: 'percent-rule',
+            currentBalance: 4000,
+            apr: 19.9,
+            minimumPayment: 35,
+            financialTerms: const DebtFinancialTerms(
+              minimumPaymentRule: MinimumPaymentRule.interestPlusPercent,
+              minimumPaymentPercent: 2,
+            ),
+          ),
+        ];
+
+        final minimumBudget = projectionService.minimumRequiredBudget(
+          debts: debts,
+          asOf: DateTime(2026, 1, 1),
+        );
+        final result = engine.simulate(
+          debts: debts,
+          request: request(
+            StrategyType.avalanche,
+            budget: minimumBudget,
+            allowUnderMinimumBudget: false,
+          ),
+        );
+
+        expect(minimumBudget, greaterThan(200));
+        expect(
+          result.warnings,
+          isNot(contains(ProjectionWarning.underMinimumBudget)),
+        );
+        expect(
+          result.schedule.first.minimumRequired,
+          closeTo(minimumBudget, 0.01),
+        );
       },
     );
 

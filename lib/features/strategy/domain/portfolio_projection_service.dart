@@ -89,6 +89,37 @@ class PortfolioProjectionService {
       ),
     );
   }
+
+  double minimumRequiredBudget({
+    required List<Debt> debts,
+    required DateTime asOf,
+    bool includeArchived = false,
+  }) {
+    final filtered = debts
+        .where((debt) => includeArchived || debt.status != DebtStatus.archived)
+        .where((debt) => debt.status != DebtStatus.paidOff)
+        .where((debt) => debt.currentBalance > 0)
+        .toList();
+    if (filtered.isEmpty) {
+      return 0;
+    }
+    return _projectionEngine
+        ._simulatePortfolio(
+          debts: filtered,
+          request: StrategyRequest(
+            strategyType: StrategyType.avalanche,
+            monthlyBudget: 0,
+            extraMonthlyPayment: 0,
+            startDate: asOf,
+            lumpSum: 0,
+            includeArchived: includeArchived,
+            customPriorities: {
+              for (final debt in filtered) debt.id: debt.customPriority,
+            },
+          ),
+        )
+        .minimumRequiredPerCycle;
+  }
 }
 
 class DebtProjectionEngine {
@@ -472,7 +503,8 @@ class DebtProjectionEngine {
       case PaymentFrequency.monthly:
         return 1;
       case PaymentFrequency.quarterly:
-        final startMonthIndex = anchor.year * 12 + anchor.month;
+        final cadenceAnchor = _cadenceAnchorDate(debt: debt, anchor: anchor);
+        final startMonthIndex = cadenceAnchor.year * 12 + cadenceAnchor.month;
         final periodMonthIndex = periodStart.year * 12 + periodStart.month;
         return (periodMonthIndex - startMonthIndex) % 3 == 0 ? 1 : 0;
       case PaymentFrequency.weekly:
@@ -518,6 +550,10 @@ class DebtProjectionEngine {
       cursor = cursor.add(Duration(days: stepDays));
     }
     return max(1, count);
+  }
+
+  DateTime _cadenceAnchorDate({required Debt debt, required DateTime anchor}) {
+    return debt.dueDate ?? anchor;
   }
 
   int _dueDay(Debt debt) {
