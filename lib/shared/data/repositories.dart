@@ -28,6 +28,7 @@ abstract class DebtsRepository {
 abstract class PaymentsRepository {
   Stream<List<Payment>> watchPaymentsForDebt(String debtId);
   Stream<List<Payment>> watchRecentPayments({int limit = 10});
+  Stream<List<Payment>> watchAllPayments();
   Future<List<Payment>> loadPaymentsForDebt(String debtId);
   Future<List<Payment>> loadAllPayments();
   Future<void> savePayment(Payment payment);
@@ -244,6 +245,16 @@ class DriftPaymentsRepository implements PaymentsRepository {
             OrderingTerm(expression: table.date, mode: OrderingMode.desc),
       ])
       ..limit(limit);
+    return query.watch().map((rows) => rows.map(_mapPayment).toList());
+  }
+
+  @override
+  Stream<List<Payment>> watchAllPayments() {
+    final query = database.select(database.paymentsTable)
+      ..orderBy([
+        (table) =>
+            OrderingTerm(expression: table.date, mode: OrderingMode.desc),
+      ]);
     return query.watch().map((rows) => rows.map(_mapPayment).toList());
   }
 

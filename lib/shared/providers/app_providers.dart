@@ -118,9 +118,7 @@ final sensitiveScreenProtectionServiceProvider = Provider(
   (ref) => const SensitiveScreenProtectionService(),
 );
 final reminderSchedulerProvider = Provider((ref) {
-  final scheduler = ReminderScheduler(ref.watch(notificationGatewayProvider));
-  scheduler.initialize();
-  return scheduler;
+  return ReminderScheduler(ref.watch(notificationGatewayProvider));
 });
 final reminderPlanBuilderProvider = Provider(
   (ref) => const ReminderPlanBuilder(),
@@ -305,6 +303,9 @@ final scenariosProvider = StreamProvider<List<Scenario>>(
 );
 final recentPaymentsProvider = StreamProvider<List<Payment>>(
   (ref) => ref.watch(paymentsRepositoryProvider).watchRecentPayments(limit: 10),
+);
+final allPaymentsProvider = StreamProvider<List<Payment>>(
+  (ref) => ref.watch(paymentsRepositoryProvider).watchAllPayments(),
 );
 final debtProvider = StreamProvider.family<Debt?, String>(
   (ref, id) => ref.watch(debtsRepositoryProvider).watchDebt(id),

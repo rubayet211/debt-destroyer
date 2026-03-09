@@ -53,7 +53,7 @@ class _DebtDestroyerAppState extends ConsumerState<DebtDestroyerApp>
         _scheduleReminderReconcile();
       }
     });
-    _paymentsSubscription = ref.listenManual(recentPaymentsProvider, (_, next) {
+    _paymentsSubscription = ref.listenManual(allPaymentsProvider, (_, next) {
       if (next.hasValue) {
         _scheduleReminderReconcile();
       }
@@ -102,7 +102,7 @@ class _DebtDestroyerAppState extends ConsumerState<DebtDestroyerApp>
     _reminderReconcileDebounce = Timer(const Duration(milliseconds: 200), () {
       final preferences = ref.read(userPreferencesProvider).valueOrNull;
       final debts = ref.read(allDebtsProvider).valueOrNull;
-      final payments = ref.read(recentPaymentsProvider).valueOrNull ?? const [];
+      final payments = ref.read(allPaymentsProvider).valueOrNull ?? const [];
       if (preferences == null || debts == null) {
         return;
       }

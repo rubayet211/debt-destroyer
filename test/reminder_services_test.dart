@@ -8,6 +8,7 @@ import 'package:debt_destroyer/shared/data/repositories.dart';
 import 'package:debt_destroyer/shared/enums/app_enums.dart';
 import 'package:debt_destroyer/shared/models/debt.dart';
 import 'package:debt_destroyer/shared/models/debt_financial_terms.dart';
+import 'package:debt_destroyer/shared/models/payment.dart';
 import 'package:debt_destroyer/shared/models/reminder_models.dart';
 import 'package:debt_destroyer/shared/models/user_preferences.dart';
 
@@ -108,6 +109,31 @@ void main() {
       expect(dueLead.scheduledAt, DateTime(2026, 3, 12, 9));
       expect(weekly.scheduledAt, DateTime(2026, 3, 16, 8));
     });
+
+    test('weekly summary counts all recent payments from uncapped input', () {
+      final now = DateTime(2026, 3, 10, 8);
+      final recentPayments = List.generate(
+        12,
+        (index) => _payment(
+          id: 'payment-$index',
+          date: now.subtract(Duration(days: index % 6)),
+        ),
+      );
+      final plan = builder.build(
+        preferences: UserPreferences.defaults().copyWith(
+          weeklySummaryEnabled: true,
+        ),
+        debts: [_debt(dueDate: DateTime(2026, 3, 15))],
+        recentPayments: recentPayments,
+        existingEventKeys: {ReminderPlanBuilder.bootstrapMarkerKey},
+        now: now,
+      );
+
+      final weekly = plan.scheduledItems.firstWhere(
+        (item) => item.kind == ReminderKind.weeklySummary,
+      );
+      expect(weekly.body, contains('12 recent payments'));
+    });
   });
 
   group('ReminderOrchestrator', () {
@@ -185,10 +211,95 @@ void main() {
         expect(events.keys, contains(ReminderPlanBuilder.bootstrapMarkerKey));
       },
     );
+
+    test(
+      'serializes concurrent reconciles to avoid duplicate milestone sends',
+      () async {
+        final gateway = _FakeNotificationGateway(
+          initializationDelay: const Duration(milliseconds: 20),
+        );
+        final events = _FakeReminderEventsRepository(
+          readDelay: const Duration(milliseconds: 15),
+          writeDelay: const Duration(milliseconds: 15),
+        );
+        final orchestrator = ReminderOrchestrator(
+          scheduler: ReminderScheduler(gateway),
+          planBuilder: const ReminderPlanBuilder(),
+          eventsRepository: events,
+        );
+        final now = DateTime(2026, 3, 10, 8);
+
+        await orchestrator.reconcile(
+          preferences: UserPreferences.defaults(),
+          debts: [_debt(dueDate: DateTime(2026, 3, 15))],
+          recentPayments: const [],
+          now: now,
+        );
+
+        await Future.wait([
+          orchestrator.reconcile(
+            preferences: UserPreferences.defaults(),
+            debts: [
+              _debt(
+                currentBalance: 0,
+                status: DebtStatus.paidOff,
+                dueDate: DateTime(2026, 3, 15),
+              ),
+            ],
+            recentPayments: const [],
+            now: now.add(const Duration(minutes: 1)),
+          ),
+          orchestrator.reconcile(
+            preferences: UserPreferences.defaults(),
+            debts: [
+              _debt(
+                currentBalance: 0,
+                status: DebtStatus.paidOff,
+                dueDate: DateTime(2026, 3, 15),
+              ),
+            ],
+            recentPayments: const [],
+            now: now.add(const Duration(minutes: 1)),
+          ),
+        ]);
+
+        expect(
+          gateway.shown.where((item) => item.title == 'Debt paid off'),
+          hasLength(1),
+        );
+      },
+    );
+
+    test(
+      'scheduler initializes lazily before scheduling notifications',
+      () async {
+        final gateway = _FakeNotificationGateway();
+        final scheduler = ReminderScheduler(gateway);
+
+        await scheduler.synchronizePlan([
+          ReminderPlanItem(
+            key: 'weekly_summary',
+            id: ReminderScheduler.notificationIdForKey('weekly_summary'),
+            kind: ReminderKind.weeklySummary,
+            title: 'Weekly debt progress',
+            body: '1 due this week',
+            scheduledAt: DateTime(2026, 3, 16, 8),
+            payload: '${ReminderScheduler.payloadPrefix}weekly_summary',
+          ),
+        ]);
+
+        expect(gateway.initializeCount, 1);
+        expect(gateway.pending, hasLength(1));
+      },
+    );
   });
 }
 
 class _FakeNotificationGateway implements NotificationGateway {
+  _FakeNotificationGateway({this.initializationDelay = Duration.zero});
+
+  final Duration initializationDelay;
+  int initializeCount = 0;
   final List<PendingNotificationRequest> pending = [];
   final List<_ShownNotification> shown = [];
 
@@ -198,7 +309,12 @@ class _FakeNotificationGateway implements NotificationGateway {
   }
 
   @override
-  Future<void> initialize() async {}
+  Future<void> initialize() async {
+    initializeCount += 1;
+    if (initializationDelay > Duration.zero) {
+      await Future<void>.delayed(initializationDelay);
+    }
+  }
 
   @override
   Future<List<PendingNotificationRequest>> pendingRequests() async {
@@ -231,13 +347,28 @@ class _FakeNotificationGateway implements NotificationGateway {
 }
 
 class _FakeReminderEventsRepository implements ReminderEventsRepository {
+  _FakeReminderEventsRepository({
+    this.readDelay = Duration.zero,
+    this.writeDelay = Duration.zero,
+  });
+
+  final Duration readDelay;
+  final Duration writeDelay;
   final Set<String> keys = <String>{};
 
   @override
-  Future<Set<String>> loadEventKeys() async => Set<String>.from(keys);
+  Future<Set<String>> loadEventKeys() async {
+    if (readDelay > Duration.zero) {
+      await Future<void>.delayed(readDelay);
+    }
+    return Set<String>.from(keys);
+  }
 
   @override
   Future<void> saveEvent(ReminderEventRecord event) async {
+    if (writeDelay > Duration.zero) {
+      await Future<void>.delayed(writeDelay);
+    }
     keys.add(event.id);
   }
 }
@@ -252,6 +383,20 @@ class _ShownNotification {
   final int id;
   final String title;
   final String body;
+}
+
+Payment _payment({required String id, required DateTime date}) {
+  return Payment(
+    id: id,
+    debtId: 'debt-1',
+    amount: 25,
+    date: date,
+    method: null,
+    sourceType: PaymentSourceType.manual,
+    notes: '',
+    tags: const [],
+    createdAt: date,
+  );
 }
 
 Debt _debt({

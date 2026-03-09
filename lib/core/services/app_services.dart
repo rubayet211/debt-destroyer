@@ -611,7 +611,7 @@ class ReminderScheduler {
 }
 
 class ReminderOrchestrator {
-  const ReminderOrchestrator({
+  ReminderOrchestrator({
     required this.scheduler,
     required this.planBuilder,
     required this.eventsRepository,
@@ -620,8 +620,53 @@ class ReminderOrchestrator {
   final ReminderScheduler scheduler;
   final ReminderPlanBuilder planBuilder;
   final ReminderEventsRepository eventsRepository;
+  Future<void>? _inFlight;
+  _ReminderReconcileInput? _pendingInput;
 
   Future<void> reconcile({
+    required UserPreferences preferences,
+    required List<Debt> debts,
+    required List<Payment> recentPayments,
+    DateTime? now,
+  }) async {
+    final nextInput = _ReminderReconcileInput(
+      preferences: preferences,
+      debts: debts,
+      recentPayments: recentPayments,
+      now: now,
+    );
+    if (_inFlight != null) {
+      _pendingInput = nextInput;
+      return _inFlight!;
+    }
+    _inFlight = _runSerialized(nextInput);
+    try {
+      await _inFlight;
+    } finally {
+      _inFlight = null;
+    }
+  }
+
+  Future<void> _runSerialized(_ReminderReconcileInput input) async {
+    await _reconcileNow(
+      preferences: input.preferences,
+      debts: input.debts,
+      recentPayments: input.recentPayments,
+      now: input.now,
+    );
+    while (_pendingInput != null) {
+      final next = _pendingInput!;
+      _pendingInput = null;
+      await _reconcileNow(
+        preferences: next.preferences,
+        debts: next.debts,
+        recentPayments: next.recentPayments,
+        now: next.now,
+      );
+    }
+  }
+
+  Future<void> _reconcileNow({
     required UserPreferences preferences,
     required List<Debt> debts,
     required List<Payment> recentPayments,
@@ -673,6 +718,20 @@ class ReminderOrchestrator {
       );
     }
   }
+}
+
+class _ReminderReconcileInput {
+  const _ReminderReconcileInput({
+    required this.preferences,
+    required this.debts,
+    required this.recentPayments,
+    required this.now,
+  });
+
+  final UserPreferences preferences;
+  final List<Debt> debts;
+  final List<Payment> recentPayments;
+  final DateTime? now;
 }
 
 class PremiumService {
