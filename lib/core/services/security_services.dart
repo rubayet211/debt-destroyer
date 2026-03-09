@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -109,7 +108,7 @@ class SensitiveScreenProtectionService {
   static const _channel = MethodChannel('debt_destroyer/privacy');
 
   Future<void> setSecureScreenEnabled(bool enabled) async {
-    if (kIsWeb || !Platform.isAndroid) {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
       return;
     }
     try {
@@ -162,10 +161,19 @@ class AppSecurityCoordinator extends StateNotifier<AppSecurityState> {
     _preferences = preferences;
     if (!state.isInitialized) {
       final snapshot = await sessionStore.read();
+      final canResumeUnlocked =
+          preferences.appLockEnabled &&
+          snapshot.activeSession &&
+          !_sessionPolicy.shouldRelock(
+            timeout: preferences.relockTimeout,
+            backgroundedAt: snapshot.lastBackgroundedAt,
+            now: DateTime.now(),
+          );
       state = state.copyWith(
         isInitialized: true,
-        isUnlocked: !preferences.appLockEnabled,
-        isLockRequired: preferences.appLockEnabled,
+        isUnlocked: !preferences.appLockEnabled || canResumeUnlocked,
+        isLockRequired: preferences.appLockEnabled && !canResumeUnlocked,
+        showPrivacyShield: false,
         lastUnlockedAt: snapshot.lastUnlockedAt,
         lastBackgroundedAt: snapshot.lastBackgroundedAt,
       );
@@ -227,8 +235,8 @@ class AppSecurityCoordinator extends StateNotifier<AppSecurityState> {
         lifecycleState: lifecycleState,
         lastBackgroundedAt: snapshot.lastBackgroundedAt,
         isUnlocked: shouldRelock ? false : state.isUnlocked,
-        isLockRequired: shouldRelock ? true : state.isLockRequired,
-        showPrivacyShield: shouldRelock,
+        isLockRequired: shouldRelock ? true : false,
+        showPrivacyShield: shouldRelock ? true : false,
       );
       await _applySensitiveProtection();
       return;
@@ -249,9 +257,7 @@ class AppSecurityCoordinator extends StateNotifier<AppSecurityState> {
         lifecycleState: lifecycleState,
         lastBackgroundedAt: now,
         isUnlocked: shouldImmediateLock ? false : state.isUnlocked,
-        isLockRequired: shouldImmediateLock
-            ? true
-            : _preferences.appLockEnabled,
+        isLockRequired: shouldImmediateLock ? true : false,
         showPrivacyShield: _preferences.privacyShieldOnAppSwitcherEnabled,
       );
       await _applySensitiveProtection();

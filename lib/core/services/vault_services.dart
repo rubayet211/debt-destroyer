@@ -185,25 +185,34 @@ class ProtectedPreferencesStore {
       'protected_pref_screenshot_protection_enabled';
   static const _privacyShieldKey =
       'protected_pref_privacy_shield_on_app_switcher_enabled';
-  static const _migrationKey = 'protected_pref_flags_migrated_v2';
+  static const _migrationKey = 'protected_pref_flags_migrated_v1';
+  static const _extendedMigrationKey =
+      'protected_pref_extended_flags_migrated_v1';
   final Map<String, String> _memoryFallback = <String, String>{};
 
   Future<void> migrateFromLegacy(UserPreferences preferences) async {
-    if (await _isMigrated()) {
+    if (!await _isMigrated()) {
+      if (await _hasExistingProtectedValues()) {
+        await _write(_migrationKey, 'true');
+        await _backfillExtendedFlags(preferences);
+        return;
+      }
+      await write(
+        ProtectedPreferenceValues(
+          hideBalances: preferences.hideBalances,
+          appLockEnabled: preferences.appLockEnabled,
+          aiConsentEnabled: preferences.aiConsentEnabled,
+          relockTimeout: preferences.relockTimeout,
+          screenshotProtectionEnabled: preferences.screenshotProtectionEnabled,
+          privacyShieldOnAppSwitcherEnabled:
+              preferences.privacyShieldOnAppSwitcherEnabled,
+        ),
+      );
+      await _write(_migrationKey, 'true');
+      await _write(_extendedMigrationKey, 'true');
       return;
     }
-    await write(
-      ProtectedPreferenceValues(
-        hideBalances: preferences.hideBalances,
-        appLockEnabled: preferences.appLockEnabled,
-        aiConsentEnabled: preferences.aiConsentEnabled,
-        relockTimeout: preferences.relockTimeout,
-        screenshotProtectionEnabled: preferences.screenshotProtectionEnabled,
-        privacyShieldOnAppSwitcherEnabled:
-            preferences.privacyShieldOnAppSwitcherEnabled,
-      ),
-    );
-    await _write(_migrationKey, 'true');
+    await _backfillExtendedFlags(preferences);
   }
 
   Future<ProtectedPreferenceValues> read() async {
@@ -249,6 +258,16 @@ class ProtectedPreferencesStore {
     return (await _read(_migrationKey)) == 'true';
   }
 
+  Future<bool> _isExtendedMigrationComplete() async {
+    return (await _read(_extendedMigrationKey)) == 'true';
+  }
+
+  Future<bool> _hasExistingProtectedValues() async {
+    return await _read(_hideBalancesKey) != null ||
+        await _read(_appLockEnabledKey) != null ||
+        await _read(_aiConsentEnabledKey) != null;
+  }
+
   Future<bool?> _readBool(String key) async {
     final value = await _read(key);
     if (value == null) {
@@ -287,6 +306,36 @@ class ProtectedPreferencesStore {
     } on MissingPluginException {
       _memoryFallback[key] = value;
     }
+  }
+
+  Future<void> _backfillExtendedFlags(UserPreferences preferences) async {
+    if (await _isExtendedMigrationComplete()) {
+      return;
+    }
+    final writes = <Future<void>>[];
+    if (await _read(_relockTimeoutKey) == null) {
+      writes.add(_write(_relockTimeoutKey, preferences.relockTimeout.name));
+    }
+    if (await _read(_screenshotProtectionKey) == null) {
+      writes.add(
+        _writeBool(
+          _screenshotProtectionKey,
+          preferences.screenshotProtectionEnabled,
+        ),
+      );
+    }
+    if (await _read(_privacyShieldKey) == null) {
+      writes.add(
+        _writeBool(
+          _privacyShieldKey,
+          preferences.privacyShieldOnAppSwitcherEnabled,
+        ),
+      );
+    }
+    if (writes.isNotEmpty) {
+      await Future.wait(writes);
+    }
+    await _write(_extendedMigrationKey, 'true');
   }
 }
 

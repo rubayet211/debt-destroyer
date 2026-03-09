@@ -146,6 +146,98 @@ void main() {
       expect(merged.privacyShieldOnAppSwitcherEnabled, isFalse);
     },
   );
+
+  test(
+    'protected preferences migration does not overwrite existing secure values',
+    () async {
+      final store = ProtectedPreferencesStore();
+      await store.write(
+        const ProtectedPreferenceValues(
+          hideBalances: true,
+          appLockEnabled: true,
+          aiConsentEnabled: true,
+          relockTimeout: AppRelockTimeout.minutes5,
+          screenshotProtectionEnabled: false,
+          privacyShieldOnAppSwitcherEnabled: false,
+        ),
+      );
+      final legacy = UserPreferences.defaults();
+
+      await store.migrateFromLegacy(legacy);
+      final merged = await store.mergeInto(UserPreferences.defaults());
+
+      expect(merged.hideBalances, isTrue);
+      expect(merged.appLockEnabled, isTrue);
+      expect(merged.aiConsentEnabled, isTrue);
+      expect(merged.relockTimeout, AppRelockTimeout.minutes5);
+      expect(merged.screenshotProtectionEnabled, isFalse);
+      expect(merged.privacyShieldOnAppSwitcherEnabled, isFalse);
+    },
+  );
+
+  test(
+    'coordinator restores active secure session on startup when still valid',
+    () async {
+      final sessionStore = AppSecuritySessionStore();
+      final now = DateTime.now();
+      await sessionStore.recordUnlock(
+        now.subtract(const Duration(seconds: 10)),
+      );
+      await sessionStore.recordBackground(
+        now.subtract(const Duration(seconds: 10)),
+      );
+      final coordinator = AppSecurityCoordinator(
+        sessionStore: sessionStore,
+        protectionService: _FakeSensitiveScreenProtectionService(),
+        routeRegistry: const SensitiveRouteRegistry(),
+        biometricAuthService: _FakeBiometricAuthService(
+          const AuthResult.success(),
+        ),
+      );
+
+      await coordinator.syncPreferences(
+        UserPreferences.defaults().copyWith(
+          appLockEnabled: true,
+          relockTimeout: AppRelockTimeout.seconds30,
+        ),
+      );
+
+      expect(coordinator.state.isUnlocked, isTrue);
+      expect(coordinator.state.isLockRequired, isFalse);
+    },
+  );
+
+  test(
+    'coordinator initializes locked when secure session is expired',
+    () async {
+      final sessionStore = AppSecuritySessionStore();
+      final now = DateTime.now();
+      await sessionStore.recordUnlock(
+        now.subtract(const Duration(minutes: 10)),
+      );
+      await sessionStore.recordBackground(
+        now.subtract(const Duration(minutes: 10)),
+      );
+      final coordinator = AppSecurityCoordinator(
+        sessionStore: sessionStore,
+        protectionService: _FakeSensitiveScreenProtectionService(),
+        routeRegistry: const SensitiveRouteRegistry(),
+        biometricAuthService: _FakeBiometricAuthService(
+          const AuthResult.success(),
+        ),
+      );
+
+      await coordinator.syncPreferences(
+        UserPreferences.defaults().copyWith(
+          appLockEnabled: true,
+          relockTimeout: AppRelockTimeout.seconds30,
+        ),
+      );
+
+      expect(coordinator.state.isUnlocked, isFalse);
+      expect(coordinator.state.isLockRequired, isTrue);
+    },
+  );
 }
 
 class _FakeBiometricAuthService extends BiometricAuthService {
