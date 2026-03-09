@@ -39,7 +39,7 @@ class PlayIntegrityAttestationService implements AttestationService {
           .invokeMethod<String>('requestIntegrityToken', {
             'installId': installId,
             'nonce': nonce,
-            'projectNumber': _config.playIntegrityProjectNumber,
+            'cloudProjectNumber': _config.playIntegrityCloudProjectNumber,
             'debugSecret': _config.debugAttestationSecret,
           });
       if (token != null && token.isNotEmpty) {

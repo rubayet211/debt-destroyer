@@ -1,6 +1,5 @@
 package com.debtdestroyer.app
 
-import com.google.android.gms.tasks.Tasks
 import com.google.android.play.core.integrity.IntegrityManagerFactory
 import com.google.android.play.core.integrity.IntegrityTokenRequest
 import io.flutter.embedding.android.FlutterActivity
@@ -25,27 +24,25 @@ class MainActivity : FlutterActivity() {
 
             val installId = call.argument<String>("installId") ?: ""
             val nonce = call.argument<String>("nonce") ?: ""
-            val projectNumber = call.argument<String>("projectNumber")
+            val cloudProjectNumber = call.argument<String>("cloudProjectNumber")
             val debugSecret = call.argument<String>("debugSecret")
 
-            if (!projectNumber.isNullOrBlank()) {
-                try {
-                    val token = requestPlayIntegrityToken(
-                        nonce = nonce,
-                        projectNumber = projectNumber
-                    )
-                    result.success(token)
-                    return@setMethodCallHandler
-                } catch (error: Exception) {
-                    if (debugSecret.isNullOrBlank()) {
-                        result.error(
-                            "attestation_unavailable",
-                            error.message ?: "Play Integrity request failed.",
-                            null
-                        )
-                        return@setMethodCallHandler
+            if (!cloudProjectNumber.isNullOrBlank()) {
+                requestPlayIntegrityToken(
+                    nonce = nonce,
+                    cloudProjectNumber = cloudProjectNumber,
+                    onSuccess = { token ->
+                        result.success(token)
+                    },
+                    onFailure = { errorCode, message ->
+                        if (!debugSecret.isNullOrBlank()) {
+                            result.success(buildDebugToken(installId, nonce, debugSecret))
+                        } else {
+                            result.error(errorCode, message, null)
+                        }
                     }
-                }
+                )
+                return@setMethodCallHandler
             }
 
             if (!debugSecret.isNullOrBlank()) {
@@ -55,7 +52,7 @@ class MainActivity : FlutterActivity() {
 
             result.error(
                 "attestation_unavailable",
-                "No Play Integrity project number or debug attestation secret configured.",
+                "No Play Integrity cloud project number or debug attestation secret configured.",
                 null
             )
         }
@@ -63,15 +60,43 @@ class MainActivity : FlutterActivity() {
 
     private fun requestPlayIntegrityToken(
         nonce: String,
-        projectNumber: String
-    ): String {
+        cloudProjectNumber: String,
+        onSuccess: (String) -> Unit,
+        onFailure: (String, String) -> Unit
+    ) {
+        val projectNumber = cloudProjectNumber.toLongOrNull()
+        if (projectNumber == null) {
+            onFailure(
+                "attestation_unavailable",
+                "Play Integrity cloud project number is invalid."
+            )
+            return
+        }
+
         val integrityManager = IntegrityManagerFactory.create(applicationContext)
         val request = IntegrityTokenRequest.builder()
             .setNonce(nonce)
-            .setCloudProjectNumber(projectNumber.toLong())
+            .setCloudProjectNumber(projectNumber)
             .build()
-        val response = Tasks.await(integrityManager.requestIntegrityToken(request))
-        return response.token()
+
+        integrityManager.requestIntegrityToken(request)
+            .addOnSuccessListener { response ->
+                val token = response.token()
+                if (token.isNullOrBlank()) {
+                    onFailure(
+                        "attestation_unavailable",
+                        "Play Integrity returned an empty token."
+                    )
+                } else {
+                    onSuccess(token)
+                }
+            }
+            .addOnFailureListener { error ->
+                onFailure(
+                    "attestation_unavailable",
+                    error.message ?: "Play Integrity request failed."
+                )
+            }
     }
 
     private fun buildDebugToken(

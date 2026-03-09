@@ -273,6 +273,57 @@ void main() {
       expect(row.retentionExpiresAt, isNotNull);
       expect(row.rawOcrExpiresAt!.isBefore(row.retentionExpiresAt!), isTrue);
     });
+
+    test(
+      'legacy deleted documents remain non-visible after migration',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp(
+          'protect_deleted',
+        );
+        addTearDown(() async => tempDir.delete(recursive: true));
+        final legacy = File('${tempDir.path}/legacy-deleted.txt')
+          ..writeAsStringSync('legacy payload');
+
+        final database = AppDatabase(NativeDatabase.memory());
+        addTearDown(() async => database.close());
+        await database
+            .into(database.importedDocumentsTable)
+            .insert(
+              ImportedDocumentsTableCompanion.insert(
+                id: 'doc-deleted-legacy',
+                localPath: Value(legacy.path),
+                sourceType: DocumentSourceType.gallery.name,
+                mimeType: 'text/plain',
+                createdAt: DateTime(2026, 3, 9),
+                lifecycleState: Value(
+                  DocumentLifecycleState.pendingDeletion.name,
+                ),
+                parseStatus: ParseStatus.failed.name,
+                parseVersion: 'v1',
+                deleted: const Value(true),
+                pendingDeletionAt: Value(DateTime(2026, 3, 9)),
+              ),
+            );
+
+        final service = DataProtectionBootstrapService(
+          database: database,
+          keyService: _FakeKeyService(),
+          documentVaultService: SecureDocumentVaultService(
+            _FakeKeyService(),
+            baseDirectoryLoader: () async => tempDir,
+          ),
+          retentionService: const DataRetentionService(),
+          protectedPreferencesStore: ProtectedPreferencesStore(),
+        );
+
+        await service.initialize();
+        final row = await database
+            .select(database.importedDocumentsTable)
+            .getSingle();
+        expect(row.lifecycleState, DocumentLifecycleState.pendingDeletion.name);
+        expect(row.pendingDeletionAt, isA<DateTime>());
+      },
+    );
   });
 
   test('logger redacts sensitive terms and forbidden keys', () {
@@ -280,13 +331,14 @@ void main() {
       'token balance ocr note',
     );
     final context = AppLogger.instance.sanitizeContextForTest('ocr.capture', {
+      'ocrText': 'statement body',
       'status': 'failed',
-      'detail': 'ocr body redacted',
       'count': 2,
     });
     expect(sanitized, '[redacted]');
     expect(context['event'], '[redacted]');
-    expect(context['detail'], '[redacted]');
+    expect(context.containsKey('ocrText'), isFalse);
+    expect(context['redactedFieldCount'], 1);
     expect(context['count'], 2);
   });
 

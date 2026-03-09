@@ -495,9 +495,15 @@ class DriftDocumentsRepository implements DocumentsRepository {
   }
 
   @override
-  Future<void> markDeleted(String documentId) {
-    final now = DateTime.now();
-    return (database.update(
+  Future<void> markDeleted(String documentId) async {
+    final existing = await (database.select(
+      database.importedDocumentsTable,
+    )..where((tbl) => tbl.id.equals(documentId))).getSingleOrNull();
+    if (existing == null) {
+      return;
+    }
+    final now = existing.pendingDeletionAt ?? DateTime.now();
+    await (database.update(
       database.importedDocumentsTable,
     )..where((tbl) => tbl.id.equals(documentId))).write(
       ImportedDocumentsTableCompanion(
@@ -509,11 +515,22 @@ class DriftDocumentsRepository implements DocumentsRepository {
   }
 
   @override
-  Future<void> linkDocument(String documentId, String? debtId) {
+  Future<void> linkDocument(String documentId, String? debtId) async {
+    final existing = await (database.select(
+      database.importedDocumentsTable,
+    )..where((tbl) => tbl.id.equals(documentId))).getSingleOrNull();
+    if (existing == null) {
+      return;
+    }
     final lifecycleState = debtId == null
         ? DocumentLifecycleState.processed
         : DocumentLifecycleState.linked;
-    return (database.update(
+    final processedAt =
+        existing.processedAt ??
+        (existing.lifecycleState == DocumentLifecycleState.imported.name
+            ? DateTime.now()
+            : null);
+    await (database.update(
       database.importedDocumentsTable,
     )..where((tbl) => tbl.id.equals(documentId))).write(
       ImportedDocumentsTableCompanion(
@@ -521,7 +538,7 @@ class DriftDocumentsRepository implements DocumentsRepository {
         lifecycleState: Value(lifecycleState.name),
         deleted: const Value(false),
         linkedAt: Value(debtId == null ? null : DateTime.now()),
-        processedAt: Value(DateTime.now()),
+        processedAt: Value(processedAt),
       ),
     );
   }
@@ -781,7 +798,7 @@ Future<void> _purgeDocumentRows({
   required List<ImportedDocumentsTableData> rows,
 }) async {
   for (final row in rows) {
-    final now = DateTime.now();
+    final now = row.pendingDeletionAt ?? DateTime.now();
     await (database.update(
       database.importedDocumentsTable,
     )..where((tbl) => tbl.id.equals(row.id))).write(

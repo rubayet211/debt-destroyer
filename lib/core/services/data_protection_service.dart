@@ -118,7 +118,11 @@ class DataProtectionBootstrapService {
       final rawOcrExists =
           row.rawOcrText != null && row.rawOcrText!.trim().isNotEmpty;
       final parseStatus = ParseStatus.values.byName(row.parseStatus);
-      final lifecycleState = row.linkedDebtId != null
+      final lifecycleState = row.purgedAt != null
+          ? DocumentLifecycleState.purged
+          : row.deleted
+          ? DocumentLifecycleState.pendingDeletion
+          : row.linkedDebtId != null
           ? DocumentLifecycleState.linked
           : parseStatus == ParseStatus.success
           ? DocumentLifecycleState.processed
@@ -154,6 +158,12 @@ class DataProtectionBootstrapService {
                 ? row.createdAt
                 : null,
           ),
+          pendingDeletionAt: drift.Value(
+            lifecycleState == DocumentLifecycleState.pendingDeletion
+                ? row.pendingDeletionAt ?? row.createdAt
+                : row.pendingDeletionAt,
+          ),
+          purgedAt: drift.Value(row.purgedAt),
           hasRawOcrText: drift.Value(retainRaw && rawOcrExists),
         ),
       );

@@ -358,7 +358,12 @@ describe('extraction endpoint', () => {
         },
       });
       expect(first.statusCode).toBe(500);
-      expect(first.headers.deprecation).toBe('true');
+      expect(Number.isNaN(Date.parse(first.headers.deprecation as string))).toBe(
+        false,
+      );
+      expect(Number.isNaN(Date.parse(first.headers.sunset as string))).toBe(
+        false,
+      );
 
       const capabilities = await failingApp.inject({
         method: 'GET',

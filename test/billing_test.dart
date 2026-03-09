@@ -22,7 +22,6 @@ import 'package:debt_destroyer/shared/providers/app_providers.dart';
 const _backendConfig = BackendConfig(
   baseUrl: 'https://example.test',
   environment: 'test',
-  playIntegrityProjectNumber: null,
   playIntegrityCloudProjectNumber: null,
   playIntegrityPackageName: 'com.debtdestroyer.app',
   debugAttestationSecret: null,

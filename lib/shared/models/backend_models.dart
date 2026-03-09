@@ -2,7 +2,6 @@ class BackendConfig {
   const BackendConfig({
     required this.baseUrl,
     required this.environment,
-    required this.playIntegrityProjectNumber,
     required this.playIntegrityCloudProjectNumber,
     required this.playIntegrityPackageName,
     required this.debugAttestationSecret,
@@ -14,7 +13,6 @@ class BackendConfig {
 
   final String baseUrl;
   final String environment;
-  final String? playIntegrityProjectNumber;
   final String? playIntegrityCloudProjectNumber;
   final String playIntegrityPackageName;
   final String? debugAttestationSecret;
@@ -28,7 +26,6 @@ class BackendConfig {
   BackendConfig copyWith({
     String? baseUrl,
     String? environment,
-    String? playIntegrityProjectNumber,
     String? playIntegrityCloudProjectNumber,
     String? playIntegrityPackageName,
     String? debugAttestationSecret,
@@ -40,8 +37,6 @@ class BackendConfig {
     return BackendConfig(
       baseUrl: baseUrl ?? this.baseUrl,
       environment: environment ?? this.environment,
-      playIntegrityProjectNumber:
-          playIntegrityProjectNumber ?? this.playIntegrityProjectNumber,
       playIntegrityCloudProjectNumber:
           playIntegrityCloudProjectNumber ??
           this.playIntegrityCloudProjectNumber,

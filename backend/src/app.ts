@@ -66,6 +66,10 @@ export async function createApp(options: CreateAppOptions = {}) {
       level: config.environment === 'production' ? 'info' : 'debug',
     },
   });
+  const extractionAliasDeprecatedAt = new Date().toUTCString();
+  const extractionAliasSunsetAt = new Date(
+    Date.now() + 30 * 24 * 60 * 60 * 1000,
+  ).toUTCString();
 
   app.setErrorHandler(async (error, request, reply) => {
     if (error instanceof AppError) {
@@ -530,8 +534,8 @@ export async function createApp(options: CreateAppOptions = {}) {
 
   app.post('/v1/import/extract', handleExtraction);
   app.post('/v1/ai/extractions', async (request, reply) => {
-    reply.header('Deprecation', 'true');
-    reply.header('Sunset', new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toUTCString());
+    reply.header('Deprecation', extractionAliasDeprecatedAt);
+    reply.header('Sunset', extractionAliasSunsetAt);
     return handleExtraction(request, reply);
   });
 

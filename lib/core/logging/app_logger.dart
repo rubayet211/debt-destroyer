@@ -69,8 +69,21 @@ class AppLogger {
     Map<String, Object?> context,
   ) {
     final sanitized = <String, Object?>{'event': _sanitizeString(event)};
+    var redactedFieldCount = 0;
     for (final entry in context.entries) {
-      sanitized[entry.key] = _sanitizeEntry(entry.key, entry.value);
+      final key = _sanitizeKey(entry.key);
+      final value = _sanitizeEntry(entry.key, entry.value);
+      if (key == null) {
+        redactedFieldCount += 1;
+        continue;
+      }
+      if (value is String && value == _redactedPlaceholder) {
+        redactedFieldCount += 1;
+      }
+      sanitized[key] = value;
+    }
+    if (redactedFieldCount > 0) {
+      sanitized['redactedFieldCount'] = redactedFieldCount;
     }
     assert(() {
       for (final entry in sanitized.entries) {
@@ -128,6 +141,13 @@ class AppLogger {
 
   bool _matchesForbiddenKey(String key) {
     return _forbiddenKeys.any(key.contains);
+  }
+
+  String? _sanitizeKey(String key) {
+    if (_matchesForbiddenKey(key.toLowerCase())) {
+      return null;
+    }
+    return key;
   }
 
   void _assertSafe(String key, Object? value) {

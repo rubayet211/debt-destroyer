@@ -54,9 +54,9 @@ final backendConfigProvider = Provider<BackendConfig>((ref) {
   return BackendConfig(
     baseUrl: dotenv.env['BACKEND_BASE_URL'] ?? '',
     environment: dotenv.env['BACKEND_ENV'] ?? 'development',
-    playIntegrityProjectNumber: dotenv.env['PLAY_INTEGRITY_PROJECT_NUMBER'],
     playIntegrityCloudProjectNumber:
-        dotenv.env['PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER'],
+        dotenv.env['PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER'] ??
+        dotenv.env['PLAY_INTEGRITY_PROJECT_NUMBER'],
     playIntegrityPackageName:
         dotenv.env['PLAY_INTEGRITY_PACKAGE_NAME'] ??
         AppConstants.androidPackageName,

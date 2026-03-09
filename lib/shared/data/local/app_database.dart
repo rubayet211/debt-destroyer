@@ -271,7 +271,8 @@ class AppDatabase extends _$AppDatabase {
         await customStatement('''
           update imported_documents_table
           set lifecycle_state = case
-            when purged_at is not null or deleted = 1 then 'purged'
+            when purged_at is not null then 'purged'
+            when deleted = 1 then 'pendingDeletion'
             when linked_debt_id is not null then 'linked'
             when parse_status = 'success' then 'processed'
             else 'imported'
@@ -288,6 +289,12 @@ class AppDatabase extends _$AppDatabase {
           set linked_at = created_at
           where lifecycle_state = 'linked'
             and linked_at is null
+        ''');
+        await customStatement('''
+          update imported_documents_table
+          set pending_deletion_at = coalesce(pending_deletion_at, created_at)
+          where lifecycle_state = 'pendingDeletion'
+            and pending_deletion_at is null
         ''');
       }
     },

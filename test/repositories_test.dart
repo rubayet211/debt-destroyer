@@ -358,6 +358,98 @@ void main() {
       expect(row.pendingDeletionAt, isA<DateTime>());
     },
   );
+
+  test('linkDocument preserves existing processedAt timestamp', () async {
+    final source = File('${tempDir.path}/processed-preserve.txt')
+      ..writeAsStringSync('preserve');
+    final stored = await vaultService.sealImport(
+      FileReference(
+        path: source.path,
+        sourceType: DocumentSourceType.gallery,
+        mimeType: 'text/plain',
+      ),
+    );
+    final processedAt = DateTime(2026, 1, 3, 8);
+
+    await documentsRepository.saveDocument(
+      ImportedDocument(
+        id: 'doc-processed-preserve',
+        storageRef: stored.storageRef,
+        sourceType: DocumentSourceType.gallery,
+        mimeType: 'text/plain',
+        createdAt: DateTime(2026, 1, 2),
+        lifecycleState: DocumentLifecycleState.processed,
+        linkedDebtId: null,
+        rawOcrText: null,
+        parseStatus: ParseStatus.success,
+        parseVersion: 'v2',
+        deleted: false,
+        retentionExpiresAt: DateTime(2026, 4, 1),
+        rawOcrExpiresAt: null,
+        processedAt: processedAt,
+        linkedAt: null,
+        pendingDeletionAt: null,
+        purgedAt: null,
+        encryptedAt: stored.encryptedAt,
+        hasRawOcrText: false,
+      ),
+    );
+
+    await documentsRepository.linkDocument('doc-processed-preserve', 'debt-2');
+
+    final row = await (database.select(
+      database.importedDocumentsTable,
+    )..where((tbl) => tbl.id.equals('doc-processed-preserve'))).getSingle();
+    expect(row.processedAt, processedAt);
+    expect(row.lifecycleState, DocumentLifecycleState.linked.name);
+  });
+
+  test(
+    'repeated purge attempts preserve original pending deletion timestamp',
+    () async {
+      final failingDatabase = AppDatabase(NativeDatabase.memory());
+      addTearDown(() async => failingDatabase.close());
+      final documents = DriftDocumentsRepository(
+        failingDatabase,
+        _ThrowingVaultService(),
+      );
+      final pendingAt = DateTime(2026, 1, 4, 10);
+
+      await documents.saveDocument(
+        ImportedDocument(
+          id: 'doc-pending-preserve',
+          storageRef: 'missing.vault',
+          sourceType: DocumentSourceType.gallery,
+          mimeType: 'text/plain',
+          createdAt: DateTime(2026, 1, 2),
+          lifecycleState: DocumentLifecycleState.pendingDeletion,
+          linkedDebtId: null,
+          rawOcrText: null,
+          parseStatus: ParseStatus.failed,
+          parseVersion: 'v2',
+          deleted: true,
+          retentionExpiresAt: DateTime(2026, 4, 1),
+          rawOcrExpiresAt: null,
+          processedAt: null,
+          linkedAt: null,
+          pendingDeletionAt: pendingAt,
+          purgedAt: null,
+          encryptedAt: DateTime(2026, 1, 2),
+          hasRawOcrText: false,
+        ),
+      );
+
+      await expectLater(
+        documents.purgeDocument('doc-pending-preserve'),
+        throwsA(isA<StateError>()),
+      );
+
+      final row = await (failingDatabase.select(
+        failingDatabase.importedDocumentsTable,
+      )..where((tbl) => tbl.id.equals('doc-pending-preserve'))).getSingle();
+      expect(row.pendingDeletionAt, pendingAt);
+    },
+  );
 }
 
 class _FakeKeyService extends LocalVaultKeyService {
