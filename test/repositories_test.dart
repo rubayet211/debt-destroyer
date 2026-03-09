@@ -164,6 +164,7 @@ void main() {
         sourceType: DocumentSourceType.gallery,
         mimeType: 'text/plain',
         createdAt: DateTime(2026, 1, 2),
+        lifecycleState: DocumentLifecycleState.linked,
         linkedDebtId: debt.id,
         rawOcrText: null,
         parseStatus: ParseStatus.success,
@@ -171,6 +172,9 @@ void main() {
         deleted: false,
         retentionExpiresAt: DateTime(2026, 4, 1),
         rawOcrExpiresAt: null,
+        processedAt: DateTime(2026, 1, 2),
+        linkedAt: DateTime(2026, 1, 2),
+        pendingDeletionAt: null,
         purgedAt: null,
         encryptedAt: stored.encryptedAt,
         hasRawOcrText: false,
@@ -230,6 +234,7 @@ void main() {
         sourceType: DocumentSourceType.gallery,
         mimeType: 'text/plain',
         createdAt: DateTime(2026, 1, 2),
+        lifecycleState: DocumentLifecycleState.linked,
         linkedDebtId: debt.id,
         rawOcrText: 'OCR',
         parseStatus: ParseStatus.success,
@@ -237,6 +242,9 @@ void main() {
         deleted: false,
         retentionExpiresAt: DateTime(2026, 4, 1),
         rawOcrExpiresAt: DateTime(2026, 1, 3),
+        processedAt: DateTime(2026, 1, 2),
+        linkedAt: DateTime(2026, 1, 2),
+        pendingDeletionAt: null,
         purgedAt: null,
         encryptedAt: DateTime(2026, 1, 2),
         hasRawOcrText: true,
@@ -259,7 +267,15 @@ void main() {
       throwsA(isA<StateError>()),
     );
 
-    expect(await failingDocumentsRepository.loadDocuments(), hasLength(1));
+    expect(await failingDocumentsRepository.loadDocuments(), isEmpty);
+    final remainingDocuments = await failingDatabase
+        .select(failingDatabase.importedDocumentsTable)
+        .get();
+    expect(remainingDocuments, hasLength(1));
+    expect(
+      remainingDocuments.single.lifecycleState,
+      DocumentLifecycleState.pendingDeletion.name,
+    );
     expect(
       await failingDatabase
           .select(failingDatabase.parsedExtractionsTable)
@@ -289,6 +305,59 @@ void main() {
     expect(subscription.isPremium, isTrue);
     expect(subscription.unlockedFeatures, {PremiumFeature.pdfImport});
   });
+
+  test(
+    'document lifecycle transitions from processed to linked to pending deletion',
+    () async {
+      final source = File('${tempDir.path}/lifecycle.txt')
+        ..writeAsStringSync('lifecycle');
+      final stored = await vaultService.sealImport(
+        FileReference(
+          path: source.path,
+          sourceType: DocumentSourceType.gallery,
+          mimeType: 'text/plain',
+        ),
+      );
+
+      await documentsRepository.saveDocument(
+        ImportedDocument(
+          id: 'doc-lifecycle',
+          storageRef: stored.storageRef,
+          sourceType: DocumentSourceType.gallery,
+          mimeType: 'text/plain',
+          createdAt: DateTime(2026, 1, 2),
+          lifecycleState: DocumentLifecycleState.processed,
+          linkedDebtId: null,
+          rawOcrText: null,
+          parseStatus: ParseStatus.success,
+          parseVersion: 'v2',
+          deleted: false,
+          retentionExpiresAt: DateTime(2026, 4, 1),
+          rawOcrExpiresAt: null,
+          processedAt: DateTime(2026, 1, 2),
+          linkedAt: null,
+          pendingDeletionAt: null,
+          purgedAt: null,
+          encryptedAt: stored.encryptedAt,
+          hasRawOcrText: false,
+        ),
+      );
+
+      await documentsRepository.linkDocument('doc-lifecycle', 'debt-1');
+      var row = await (database.select(
+        database.importedDocumentsTable,
+      )..where((tbl) => tbl.id.equals('doc-lifecycle'))).getSingle();
+      expect(row.lifecycleState, DocumentLifecycleState.linked.name);
+      expect(row.linkedAt, isA<DateTime>());
+
+      await documentsRepository.markDeleted('doc-lifecycle');
+      row = await (database.select(
+        database.importedDocumentsTable,
+      )..where((tbl) => tbl.id.equals('doc-lifecycle'))).getSingle();
+      expect(row.lifecycleState, DocumentLifecycleState.pendingDeletion.name);
+      expect(row.pendingDeletionAt, isA<DateTime>());
+    },
+  );
 }
 
 class _FakeKeyService extends LocalVaultKeyService {

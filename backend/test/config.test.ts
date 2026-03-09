@@ -16,6 +16,7 @@ afterEach(() => {
 describe('backend config validation', () => {
   test('rejects default JWT secrets in production', () => {
     process.env.NODE_ENV = 'production';
+    process.env.PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER = '123456789';
     delete process.env.JWT_ACCESS_SECRET;
     delete process.env.JWT_REFRESH_SECRET;
 
@@ -26,6 +27,7 @@ describe('backend config validation', () => {
     process.env.NODE_ENV = 'staging';
     process.env.JWT_ACCESS_SECRET = 'staging-access-secret';
     process.env.JWT_REFRESH_SECRET = 'staging-refresh-secret';
+    process.env.PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER = '123456789';
     process.env.ALLOW_DEBUG_ATTESTATION = 'true';
     process.env.DEBUG_ATTESTATION_SECRET = 'debug-secret';
 
@@ -38,6 +40,15 @@ describe('backend config validation', () => {
     delete process.env.DEBUG_ATTESTATION_SECRET;
 
     expect(() => loadConfig()).toThrow(/DEBUG_ATTESTATION_SECRET/);
+  });
+
+  test('requires play integrity project number outside local environments', () => {
+    process.env.NODE_ENV = 'production';
+    process.env.JWT_ACCESS_SECRET = 'prod-access-secret';
+    process.env.JWT_REFRESH_SECRET = 'prod-refresh-secret';
+    delete process.env.PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER;
+
+    expect(() => loadConfig()).toThrow(/PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER/);
   });
 });
 

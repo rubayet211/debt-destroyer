@@ -47,9 +47,13 @@ class PlayIntegrityAttestationService implements AttestationService {
       }
     } catch (error, stackTrace) {
       AppLogger.instance.error(
-        'Play Integrity method channel failed',
+        'attestation.channel_failed',
         error,
         stackTrace,
+        context: const {
+          'category': 'attestation',
+          'operation': 'requestIntegrityToken',
+        },
       );
     }
     final localDebugToken = await _buildLocalDebugToken(
@@ -460,7 +464,7 @@ class BackendAiExtractionService implements AiExtractionService {
 
     final installId = await sessionManager.getOrCreateInstallId();
     try {
-      final response = await client.postAuthorized('/v1/ai/extractions', {
+      final response = await client.postAuthorized('/v1/import/extract', {
         'request_id': const Uuid().v4(),
         'install_id': installId,
         'document_classification': classification.name,

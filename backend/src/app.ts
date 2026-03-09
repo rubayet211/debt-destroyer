@@ -1,4 +1,8 @@
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify, {
+  type FastifyInstance,
+  type FastifyReply,
+  type FastifyRequest,
+} from 'fastify';
 import jwt from 'jsonwebtoken';
 
 import { loadConfig, type AppConfig } from './config.js';
@@ -14,7 +18,10 @@ import {
   type ExtractionPayload,
 } from './types.js';
 import { AppError } from './utils.js';
-import { ConfigurableAttestationVerifier } from './services/attestation.js';
+import {
+  ConfigurableAttestationVerifier,
+  type AttestationVerifier,
+} from './services/attestation.js';
 import { makeId, makeNonce, makeOpaqueToken, redactTextPreview, sha256 } from './services/crypto.js';
 import { createBillingVerifier, type BillingVerifier } from './services/billing.js';
 import { GeminiProvider, type AiProvider } from './services/provider.js';
@@ -35,6 +42,7 @@ type CreateAppOptions = {
   provider?: AiProvider;
   rateLimiter?: RateLimiter;
   billingVerifier?: BillingVerifier;
+  attestationVerifier?: AttestationVerifier;
 };
 
 type AccessTokenPayload = {
@@ -50,7 +58,8 @@ export async function createApp(options: CreateAppOptions = {}) {
   const billingVerifier = options.billingVerifier ?? createBillingVerifier(config);
   const rateLimiter: RateLimiter =
     options.rateLimiter ?? (await createRateLimiter(config.redisUrl));
-  const attestationVerifier = new ConfigurableAttestationVerifier(config);
+  const attestationVerifier =
+    options.attestationVerifier ?? new ConfigurableAttestationVerifier(config);
 
   const app = Fastify({
     logger: {
@@ -235,6 +244,7 @@ export async function createApp(options: CreateAppOptions = {}) {
     if (body.package_name !== config.googlePlayPackageName) {
       throw new AppError(400, 'package_mismatch', 'Unexpected package name');
     }
+    validateBillingIds(config, body.product_id, body.base_plan_id ?? null);
 
     const verified = await billingVerifier.verifySubscription({
       productId: body.product_id,
@@ -313,6 +323,13 @@ export async function createApp(options: CreateAppOptions = {}) {
     if (body.package_name !== config.googlePlayPackageName) {
       throw new AppError(400, 'package_mismatch', 'Unexpected package name');
     }
+    for (const purchase of body.purchases) {
+      validateBillingIds(
+        config,
+        purchase.product_id,
+        purchase.base_plan_id ?? null,
+      );
+    }
 
     let bestEntitlement = await store.getEntitlement(installId);
     for (const purchase of body.purchases) {
@@ -372,7 +389,10 @@ export async function createApp(options: CreateAppOptions = {}) {
     );
   });
 
-  app.post('/v1/ai/extractions', async (request, reply) => {
+  const handleExtraction = async (
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ) => {
     const installId = await requireInstallId(request, config);
     const body = extractionRequestSchema.parse(request.body);
     if (body.install_id !== installId) {
@@ -506,9 +526,41 @@ export async function createApp(options: CreateAppOptions = {}) {
       }
       throw error;
     }
+  };
+
+  app.post('/v1/import/extract', handleExtraction);
+  app.post('/v1/ai/extractions', async (request, reply) => {
+    reply.header('Deprecation', 'true');
+    reply.header('Sunset', new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toUTCString());
+    return handleExtraction(request, reply);
   });
 
   return app;
+}
+
+function validateBillingIds(
+  config: AppConfig,
+  productId: string,
+  basePlanId: string | null,
+) {
+  if (productId !== config.premiumProductId) {
+    throw new AppError(
+      400,
+      'billing_product_mismatch',
+      'Unexpected Google Play product id.',
+    );
+  }
+  if (
+    basePlanId != null &&
+    basePlanId !== config.premiumMonthlyBasePlanId &&
+    basePlanId !== config.premiumYearlyBasePlanId
+  ) {
+    throw new AppError(
+      400,
+      'billing_plan_mismatch',
+      'Unexpected Google Play base plan id.',
+    );
+  }
 }
 
 async function requireInstallId(

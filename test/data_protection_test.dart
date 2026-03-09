@@ -88,6 +88,7 @@ void main() {
             baseDirectoryLoader: () async => tempDir,
           ),
           retentionService: const DataRetentionService(),
+          protectedPreferencesStore: ProtectedPreferencesStore(),
         );
 
         final state = await service.initialize();
@@ -148,6 +149,7 @@ void main() {
         keyService: keyService,
         documentVaultService: vault,
         retentionService: const DataRetentionService(),
+        protectedPreferencesStore: ProtectedPreferencesStore(),
       );
 
       await service.initialize();
@@ -204,6 +206,7 @@ void main() {
         keyService: keyService,
         documentVaultService: vault,
         retentionService: const DataRetentionService(),
+        protectedPreferencesStore: ProtectedPreferencesStore(),
       );
 
       await service.initialize();
@@ -257,6 +260,7 @@ void main() {
           baseDirectoryLoader: () async => tempDir,
         ),
         retentionService: const DataRetentionService(),
+        protectedPreferencesStore: ProtectedPreferencesStore(),
       );
 
       await service.initialize();
@@ -271,11 +275,19 @@ void main() {
     });
   });
 
-  test('logger redacts sensitive terms', () {
+  test('logger redacts sensitive terms and forbidden keys', () {
     final sanitized = AppLogger.instance.sanitizeForTest(
       'token balance ocr note',
     );
-    expect(sanitized, '[redacted] [redacted] [redacted] [redacted]');
+    final context = AppLogger.instance.sanitizeContextForTest('ocr.capture', {
+      'status': 'failed',
+      'detail': 'ocr body redacted',
+      'count': 2,
+    });
+    expect(sanitized, '[redacted]');
+    expect(context['event'], '[redacted]');
+    expect(context['detail'], '[redacted]');
+    expect(context['count'], 2);
   });
 
   test('retention defaults minimize OCR and expire failed imports quickly', () {
@@ -293,6 +305,25 @@ void main() {
       now.add(const Duration(hours: 24)),
     );
   });
+
+  test(
+    'protected preferences migrate sensitive flags out of legacy values',
+    () async {
+      final store = ProtectedPreferencesStore();
+      final legacy = UserPreferences.defaults().copyWith(
+        hideBalances: true,
+        appLockEnabled: true,
+        aiConsentEnabled: true,
+      );
+
+      await store.migrateFromLegacy(legacy);
+      final merged = await store.mergeInto(UserPreferences.defaults());
+
+      expect(merged.hideBalances, isTrue);
+      expect(merged.appLockEnabled, isTrue);
+      expect(merged.aiConsentEnabled, isTrue);
+    },
+  );
 }
 
 class _FakeKeyService extends LocalVaultKeyService {

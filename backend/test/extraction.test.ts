@@ -84,6 +84,13 @@ describe('extraction endpoint', () => {
       requestTimeoutMs: 15000,
       allowDebugAttestation: true,
       debugAttestationSecret: 'debug-secret',
+      googlePlayPackageName: 'com.debtdestroyer.app',
+      googlePlayServiceAccountJson: undefined,
+      playIntegrityCloudProjectNumber: '123456789',
+      playIntegrityPackageName: 'com.debtdestroyer.app',
+      premiumProductId: 'premium',
+      premiumMonthlyBasePlanId: 'monthly',
+      premiumYearlyBasePlanId: 'yearly',
     },
     store,
     rateLimiter: new MemoryRateLimiter(),
@@ -136,7 +143,7 @@ describe('extraction endpoint', () => {
     const accessToken = await bootstrap('install-2');
     const response = await app.inject({
       method: 'POST',
-      url: '/v1/ai/extractions',
+      url: '/v1/import/extract',
       headers: {
         authorization: `Bearer ${accessToken}`,
       },
@@ -161,7 +168,7 @@ describe('extraction endpoint', () => {
     const accessToken = await bootstrap('install-2');
     const response = await app.inject({
       method: 'POST',
-      url: '/v1/ai/extractions',
+      url: '/v1/import/extract',
       headers: {
         authorization: `Bearer ${accessToken}`,
       },
@@ -197,6 +204,13 @@ describe('extraction endpoint', () => {
         requestTimeoutMs: 15000,
         allowDebugAttestation: true,
         debugAttestationSecret: 'debug-secret',
+        googlePlayPackageName: 'com.debtdestroyer.app',
+        googlePlayServiceAccountJson: undefined,
+        playIntegrityCloudProjectNumber: '123456789',
+        playIntegrityPackageName: 'com.debtdestroyer.app',
+        premiumProductId: 'premium',
+        premiumMonthlyBasePlanId: 'monthly',
+        premiumYearlyBasePlanId: 'yearly',
       },
       store: new MemoryAppStore(),
       rateLimiter: new MemoryRateLimiter(),
@@ -243,7 +257,7 @@ describe('extraction endpoint', () => {
       const [first, second] = await Promise.all([
         concurrentApp.inject({
           method: 'POST',
-          url: '/v1/ai/extractions',
+          url: '/v1/import/extract',
           headers: { authorization: `Bearer ${accessToken}` },
           payload: {
             request_id: 'req-race-1',
@@ -253,7 +267,7 @@ describe('extraction endpoint', () => {
         }),
         concurrentApp.inject({
           method: 'POST',
-          url: '/v1/ai/extractions',
+          url: '/v1/import/extract',
           headers: { authorization: `Bearer ${accessToken}` },
           payload: {
             request_id: 'req-race-2',
@@ -287,6 +301,13 @@ describe('extraction endpoint', () => {
         requestTimeoutMs: 15000,
         allowDebugAttestation: true,
         debugAttestationSecret: 'debug-secret',
+        googlePlayPackageName: 'com.debtdestroyer.app',
+        googlePlayServiceAccountJson: undefined,
+        playIntegrityCloudProjectNumber: '123456789',
+        playIntegrityPackageName: 'com.debtdestroyer.app',
+        premiumProductId: 'premium',
+        premiumMonthlyBasePlanId: 'monthly',
+        premiumYearlyBasePlanId: 'yearly',
       },
       store: new MemoryAppStore(),
       rateLimiter: new MemoryRateLimiter(),
@@ -337,6 +358,7 @@ describe('extraction endpoint', () => {
         },
       });
       expect(first.statusCode).toBe(500);
+      expect(first.headers.deprecation).toBe('true');
 
       const capabilities = await failingApp.inject({
         method: 'GET',

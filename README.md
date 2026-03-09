@@ -80,7 +80,7 @@ Import pipeline:
 3. Run local OCR first.
 4. Classify the document type.
 5. If the user explicitly allows cloud extraction for that import, the app bootstraps an install session with the backend.
-6. The backend verifies attestation, enforces quota and rate limits, then calls the AI provider using server-held secrets.
+6. The backend verifies Play Integrity attestation, enforces quota and rate limits, then calls the AI provider using server-held secrets.
 7. The backend validates and normalizes the provider response against a strict schema.
 8. The app falls back to heuristic local parsing if the backend is unavailable or denies extraction.
 9. The app shows a review screen before saving anything.
@@ -100,7 +100,9 @@ Important behavior:
 - Optional app lock via local device auth
 - Optional hidden balance mode
 - Imported documents can be discarded or deleted
+- Imported documents use explicit lifecycle states: imported, processed, linked, pending deletion, purged
 - Raw OCR text is not persisted in ordinary backend logs; request audit stores hashes/redacted previews
+- `hideBalances`, `aiConsentEnabled`, and `appLockEnabled` are mirrored into secure storage and treated as protected preferences
 
 ## Setup
 ### Prerequisites
@@ -117,7 +119,12 @@ Copy `.env.example` to `.env` and set:
 BACKEND_BASE_URL=http://10.0.2.2:8787
 BACKEND_ENV=development
 PLAY_INTEGRITY_PROJECT_NUMBER=
+PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER=
+PLAY_INTEGRITY_PACKAGE_NAME=com.debtdestroyer.app
 DEBUG_ATTESTATION_SECRET=
+PREMIUM_PRODUCT_ID=premium
+PREMIUM_MONTHLY_BASE_PLAN_ID=monthly
+PREMIUM_YEARLY_BASE_PLAN_ID=yearly
 ```
 
 If the backend URL is missing, the app still runs with local OCR and manual review fallback.
@@ -131,12 +138,17 @@ REDIS_URL=redis://localhost:6379
 JWT_ACCESS_SECRET=replace_me_access
 JWT_REFRESH_SECRET=replace_me_refresh
 GEMINI_API_KEY=replace_me_gemini
-ALLOW_DEBUG_ATTESTATION=true
+ALLOW_DEBUG_ATTESTATION=false
 GOOGLE_PLAY_PACKAGE_NAME=com.debtdestroyer.app
 GOOGLE_PLAY_SERVICE_ACCOUNT_JSON={"type":"service_account","project_id":"replace_me"}
+PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER=123456789
+PLAY_INTEGRITY_PACKAGE_NAME=com.debtdestroyer.app
+PREMIUM_PRODUCT_ID=premium
+PREMIUM_MONTHLY_BASE_PLAN_ID=monthly
+PREMIUM_YEARLY_BASE_PLAN_ID=yearly
 ```
 
-For local development, debug attestation is enabled so the app can bootstrap without a real Play Integrity verdict.
+For local development, debug attestation can be enabled explicitly. Production should use a real Play Integrity verdict plus matching package and cloud project configuration.
 
 ## Run
 Backend:
@@ -173,17 +185,16 @@ flutter build apk --debug
 - Premium entitlement is verified through the backend after Google Play purchase or restore.
 - CSV export, PDF import, and scenario saving are premium-gated in both the UI and the verified entitlement snapshot.
 - Android Gradle desugaring is enabled for local notifications support.
-- Android debug builds currently use a method-channel debug attestation token for backend bootstrap.
+- Android can request real Play Integrity tokens when `PLAY_INTEGRITY_PROJECT_NUMBER` is configured; debug attestation remains development-only.
 
 ## Known Limitations
-- Real Play Integrity verification is still debug-bypassed in local builds; production attestation backend verification needs live Google configuration
+- Production still requires live Google credentials and Play Console setup for Play Integrity and Google Play Billing verification
 - Aggregate dashboard totals assume a single display currency when multiple debt currencies exist
 - Import parsing is conservative and still depends on manual review for accuracy
 - Camera and biometric flows are implemented for Android but are not covered by full device E2E tests in this repo
 - Postgres and Redis adapters are implemented for backend deployment, but local tests use in-memory stores
 
 ## Roadmap
-- Full production Play Integrity verification
 - Multiple saved strategy comparisons with deeper scenario analysis
 - Richer statement line-item extraction
 - Encrypted local backups and restore

@@ -295,6 +295,7 @@ class ImportCoordinator {
         sourceType: input.sourceType,
         mimeType: input.mimeType,
         createdAt: now,
+        lifecycleState: DocumentLifecycleState.processed,
         linkedDebtId: null,
         rawOcrText: retainRaw ? normalized : null,
         parseStatus: candidate.confidence > 0
@@ -310,6 +311,9 @@ class ImportCoordinator {
           now: now,
         ),
         rawOcrExpiresAt: retainRaw ? rawOcrExpiry : null,
+        processedAt: now,
+        linkedAt: null,
+        pendingDeletionAt: null,
         purgedAt: null,
         encryptedAt: stored.encryptedAt,
         hasRawOcrText: retainRaw && normalized.isNotEmpty,

@@ -320,17 +320,25 @@ class DriftPaymentsRepository implements PaymentsRepository {
 }
 
 class DriftPreferencesRepository implements PreferencesRepository {
-  const DriftPreferencesRepository(this.database);
+  const DriftPreferencesRepository(
+    this.database,
+    this.protectedPreferencesStore,
+  );
 
   final AppDatabase database;
+  final ProtectedPreferencesStore protectedPreferencesStore;
 
   @override
   Stream<UserPreferences> watchPreferences() {
     return database
         .select(database.appPreferencesTable)
         .watchSingleOrNull()
-        .map((row) {
-          return row == null ? UserPreferences.defaults() : _map(row);
+        .asyncMap((row) async {
+          final preferences = row == null
+              ? UserPreferences.defaults()
+              : _map(row);
+          await protectedPreferencesStore.migrateFromLegacy(preferences);
+          return protectedPreferencesStore.mergeInto(preferences);
         });
   }
 
@@ -339,12 +347,21 @@ class DriftPreferencesRepository implements PreferencesRepository {
     final row = await database
         .select(database.appPreferencesTable)
         .getSingleOrNull();
-    return row == null ? UserPreferences.defaults() : _map(row);
+    final preferences = row == null ? UserPreferences.defaults() : _map(row);
+    await protectedPreferencesStore.migrateFromLegacy(preferences);
+    return protectedPreferencesStore.mergeInto(preferences);
   }
 
   @override
-  Future<void> savePreferences(UserPreferences preferences) {
-    return database
+  Future<void> savePreferences(UserPreferences preferences) async {
+    await protectedPreferencesStore.write(
+      ProtectedPreferenceValues(
+        hideBalances: preferences.hideBalances,
+        appLockEnabled: preferences.appLockEnabled,
+        aiConsentEnabled: preferences.aiConsentEnabled,
+      ),
+    );
+    await database
         .into(database.appPreferencesTable)
         .insertOnConflictUpdate(
           AppPreferencesTableCompanion.insert(
@@ -352,9 +369,9 @@ class DriftPreferencesRepository implements PreferencesRepository {
             currencyCode: Value(preferences.currencyCode),
             localeCode: Value(preferences.localeCode),
             defaultStrategy: Value(preferences.defaultStrategy.name),
-            hideBalances: Value(preferences.hideBalances),
-            appLockEnabled: Value(preferences.appLockEnabled),
-            aiConsentEnabled: Value(preferences.aiConsentEnabled),
+            hideBalances: const Value(false),
+            appLockEnabled: const Value(false),
+            aiConsentEnabled: const Value(false),
             notificationsEnabled: Value(preferences.notificationsEnabled),
             onboardingCompleted: Value(preferences.onboardingCompleted),
             weeklySummaryEnabled: Value(preferences.weeklySummaryEnabled),
@@ -409,7 +426,7 @@ class DriftDocumentsRepository implements DocumentsRepository {
         (table) =>
             OrderingTerm(expression: table.createdAt, mode: OrderingMode.desc),
       ]);
-    query.where((table) => table.deleted.equals(false));
+    query.where((table) => _isVisibleLifecycle(table.lifecycleState));
     if (debtId != null) {
       query.where((table) => table.linkedDebtId.equals(debtId));
     }
@@ -423,7 +440,7 @@ class DriftDocumentsRepository implements DocumentsRepository {
         (table) =>
             OrderingTerm(expression: table.createdAt, mode: OrderingMode.desc),
       ]);
-    query.where((table) => table.deleted.equals(false));
+    query.where((table) => _isVisibleLifecycle(table.lifecycleState));
     if (debtId != null) {
       query.where((table) => table.linkedDebtId.equals(debtId));
     }
@@ -442,6 +459,7 @@ class DriftDocumentsRepository implements DocumentsRepository {
             sourceType: document.sourceType.name,
             mimeType: document.mimeType,
             createdAt: document.createdAt,
+            lifecycleState: Value(document.lifecycleState.name),
             linkedDebtId: Value(document.linkedDebtId),
             rawOcrText: Value(document.rawOcrText),
             parseStatus: document.parseStatus.name,
@@ -449,6 +467,9 @@ class DriftDocumentsRepository implements DocumentsRepository {
             deleted: Value(document.deleted),
             retentionExpiresAt: Value(document.retentionExpiresAt),
             rawOcrExpiresAt: Value(document.rawOcrExpiresAt),
+            processedAt: Value(document.processedAt),
+            linkedAt: Value(document.linkedAt),
+            pendingDeletionAt: Value(document.pendingDeletionAt),
             purgedAt: Value(document.purgedAt),
             encryptedAt: Value(document.encryptedAt),
             hasRawOcrText: Value(document.hasRawOcrText),
@@ -475,14 +496,34 @@ class DriftDocumentsRepository implements DocumentsRepository {
 
   @override
   Future<void> markDeleted(String documentId) {
-    return purgeDocument(documentId);
+    final now = DateTime.now();
+    return (database.update(
+      database.importedDocumentsTable,
+    )..where((tbl) => tbl.id.equals(documentId))).write(
+      ImportedDocumentsTableCompanion(
+        lifecycleState: Value(DocumentLifecycleState.pendingDeletion.name),
+        deleted: const Value(true),
+        pendingDeletionAt: Value(now),
+      ),
+    );
   }
 
   @override
   Future<void> linkDocument(String documentId, String? debtId) {
-    return (database.update(database.importedDocumentsTable)
-          ..where((tbl) => tbl.id.equals(documentId)))
-        .write(ImportedDocumentsTableCompanion(linkedDebtId: Value(debtId)));
+    final lifecycleState = debtId == null
+        ? DocumentLifecycleState.processed
+        : DocumentLifecycleState.linked;
+    return (database.update(
+      database.importedDocumentsTable,
+    )..where((tbl) => tbl.id.equals(documentId))).write(
+      ImportedDocumentsTableCompanion(
+        linkedDebtId: Value(debtId),
+        lifecycleState: Value(lifecycleState.name),
+        deleted: const Value(false),
+        linkedAt: Value(debtId == null ? null : DateTime.now()),
+        processedAt: Value(DateTime.now()),
+      ),
+    );
   }
 
   @override
@@ -512,6 +553,9 @@ class DriftDocumentsRepository implements DocumentsRepository {
     if (row == null) {
       return;
     }
+    if (row.lifecycleState != DocumentLifecycleState.pendingDeletion.name) {
+      await markDeleted(documentId);
+    }
     await _purgeDocumentRows(
       database: database,
       vaultService: vaultService,
@@ -521,9 +565,14 @@ class DriftDocumentsRepository implements DocumentsRepository {
 
   @override
   Future<void> purgeExpiredDocuments(DateTime now) async {
-    final rows = await (database.select(
-      database.importedDocumentsTable,
-    )..where((tbl) => tbl.retentionExpiresAt.isSmallerThanValue(now))).get();
+    final rows =
+        await (database.select(database.importedDocumentsTable)..where((tbl) {
+              return tbl.retentionExpiresAt.isSmallerThanValue(now) |
+                  tbl.lifecycleState.equals(
+                    DocumentLifecycleState.pendingDeletion.name,
+                  );
+            }))
+            .get();
     await _purgeDocumentRows(
       database: database,
       vaultService: vaultService,
@@ -582,6 +631,7 @@ class DriftDocumentsRepository implements DocumentsRepository {
       sourceType: DocumentSourceType.values.byName(row.sourceType),
       mimeType: row.mimeType,
       createdAt: row.createdAt,
+      lifecycleState: documentLifecycleStateByName(row.lifecycleState),
       linkedDebtId: row.linkedDebtId,
       rawOcrText: row.rawOcrText,
       parseStatus: ParseStatus.values.byName(row.parseStatus),
@@ -589,10 +639,21 @@ class DriftDocumentsRepository implements DocumentsRepository {
       deleted: row.deleted,
       retentionExpiresAt: row.retentionExpiresAt,
       rawOcrExpiresAt: row.rawOcrExpiresAt,
+      processedAt: row.processedAt,
+      linkedAt: row.linkedAt,
+      pendingDeletionAt: row.pendingDeletionAt,
       purgedAt: row.purgedAt,
       encryptedAt: row.encryptedAt,
       hasRawOcrText: row.hasRawOcrText,
     );
+  }
+
+  Expression<bool> _isVisibleLifecycle(GeneratedColumn<String> lifecycleState) {
+    return lifecycleState.isIn([
+      DocumentLifecycleState.imported.name,
+      DocumentLifecycleState.processed.name,
+      DocumentLifecycleState.linked.name,
+    ]);
   }
 }
 
@@ -720,6 +781,16 @@ Future<void> _purgeDocumentRows({
   required List<ImportedDocumentsTableData> rows,
 }) async {
   for (final row in rows) {
+    final now = DateTime.now();
+    await (database.update(
+      database.importedDocumentsTable,
+    )..where((tbl) => tbl.id.equals(row.id))).write(
+      ImportedDocumentsTableCompanion(
+        lifecycleState: Value(DocumentLifecycleState.pendingDeletion.name),
+        deleted: const Value(true),
+        pendingDeletionAt: Value(now),
+      ),
+    );
     await vaultService.purgeStoredDocument(row.storageRef);
     await vaultService.purgeLegacyPlaintext(
       row.localPath.isEmpty ? null : row.localPath,
@@ -733,4 +804,13 @@ Future<void> _purgeDocumentRows({
       )..where((tbl) => tbl.id.equals(row.id))).go();
     });
   }
+}
+
+DocumentLifecycleState documentLifecycleStateByName(String raw) {
+  for (final state in DocumentLifecycleState.values) {
+    if (state.name == raw) {
+      return state;
+    }
+  }
+  return DocumentLifecycleState.imported;
 }
