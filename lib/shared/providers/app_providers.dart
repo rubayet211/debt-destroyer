@@ -98,6 +98,10 @@ final localAuthProvider = Provider((ref) => LocalAuthentication());
 final localNotificationsProvider = Provider(
   (ref) => FlutterLocalNotificationsPlugin(),
 );
+final notificationGatewayProvider = Provider<NotificationGateway>(
+  (ref) =>
+      FlutterLocalNotificationsGateway(ref.watch(localNotificationsProvider)),
+);
 final analyticsServiceProvider = Provider<AnalyticsService>(
   (ref) => NoopAnalyticsService(),
 );
@@ -114,9 +118,25 @@ final sensitiveScreenProtectionServiceProvider = Provider(
   (ref) => const SensitiveScreenProtectionService(),
 );
 final reminderSchedulerProvider = Provider((ref) {
-  final scheduler = ReminderScheduler(ref.watch(localNotificationsProvider));
+  final scheduler = ReminderScheduler(ref.watch(notificationGatewayProvider));
   scheduler.initialize();
   return scheduler;
+});
+final reminderPlanBuilderProvider = Provider(
+  (ref) => const ReminderPlanBuilder(),
+);
+final reminderEventsRepositoryProvider = Provider<ReminderEventsRepository>(
+  (ref) => DriftReminderEventsRepository(ref.watch(appDatabaseProvider)),
+);
+final reminderOrchestratorProvider = Provider(
+  (ref) => ReminderOrchestrator(
+    scheduler: ref.watch(reminderSchedulerProvider),
+    planBuilder: ref.watch(reminderPlanBuilderProvider),
+    eventsRepository: ref.watch(reminderEventsRepositoryProvider),
+  ),
+);
+final notificationPermissionProvider = FutureProvider<bool>((ref) {
+  return ref.watch(reminderSchedulerProvider).isPermissionGranted();
 });
 final premiumServiceProvider = Provider((ref) => const PremiumService());
 final inAppPurchaseProvider = Provider<InAppPurchase>((ref) {

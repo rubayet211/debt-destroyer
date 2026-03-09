@@ -254,8 +254,12 @@ class DataProtectionBootstrapService {
       screenshotProtectionEnabled: true,
       privacyShieldOnAppSwitcherEnabled: true,
       notificationsEnabled: row.notificationsEnabled,
+      dueRemindersEnabled: row.dueRemindersEnabled,
+      overdueRemindersEnabled: row.overdueRemindersEnabled,
+      milestoneNotificationsEnabled: row.milestoneNotificationsEnabled,
       onboardingCompleted: row.onboardingCompleted,
       weeklySummaryEnabled: row.weeklySummaryEnabled,
+      dueReminderLeadDays: row.dueReminderLeadDays.clamp(1, 3),
       rawOcrRetentionEnabled: row.rawOcrRetentionEnabled,
       rawOcrRetentionHours: row.rawOcrRetentionHours,
       documentRetentionMode: DocumentRetentionMode.values.byName(

@@ -215,6 +215,13 @@ flutter build apk --debug
 - Android Gradle desugaring is enabled for local notifications support.
 - Android can request real Play Integrity tokens when `PLAY_INTEGRITY_PROJECT_NUMBER` is configured; debug attestation remains development-only.
 - App lock currently uses biometrics or device credentials only; no separate in-app PIN is implemented.
+- Reminder orchestration now reconciles from live debts, recent payments, and preferences on app startup plus data changes instead of scheduling only from debt edit flows.
+- Implemented reminder types:
+  - due lead reminders (1, 2, or 3 days before)
+  - due-today reminders
+  - overdue reminders on days 1, 3, and 7
+  - weekly Monday morning progress summary
+  - one-time progress and paid-off milestones
 
 ## Known Limitations
 - Production still requires live Google credentials and Play Console setup for Play Integrity and Google Play Billing verification
@@ -225,6 +232,8 @@ flutter build apk --debug
 - Debt balances are still user-recorded values; the app does not fully reconstruct live balances from historical statements or lender-specific ledgers
 - Camera and biometric flows are implemented for Android but are not covered by full device E2E tests in this repo
 - Screenshot blocking and recents-thumbnail masking are Android-first; exact system-recents behavior may vary by OEM/device version
+- Weekly summary content is privacy-conscious and regenerated on app reconciliation, but it can become stale if the app is not reopened before the next scheduled delivery
+- Automatic rehydration after device reboot is not implemented with a boot receiver in this repo; reminders are restored on next app launch
 - Postgres and Redis adapters are implemented for backend deployment, but local tests use in-memory stores
 
 ## Roadmap

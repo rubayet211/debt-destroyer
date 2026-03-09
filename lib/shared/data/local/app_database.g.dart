@@ -3605,6 +3605,318 @@ class ReminderRulesTableCompanion
   }
 }
 
+class $ReminderEventsTableTable extends ReminderEventsTable
+    with TableInfo<$ReminderEventsTableTable, ReminderEventsTableData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ReminderEventsTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _debtIdMeta = const VerificationMeta('debtId');
+  @override
+  late final GeneratedColumn<String> debtId = GeneratedColumn<String>(
+    'debt_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _kindMeta = const VerificationMeta('kind');
+  @override
+  late final GeneratedColumn<String> kind = GeneratedColumn<String>(
+    'kind',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, debtId, kind, createdAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'reminder_events_table';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ReminderEventsTableData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('debt_id')) {
+      context.handle(
+        _debtIdMeta,
+        debtId.isAcceptableOrUnknown(data['debt_id']!, _debtIdMeta),
+      );
+    }
+    if (data.containsKey('kind')) {
+      context.handle(
+        _kindMeta,
+        kind.isAcceptableOrUnknown(data['kind']!, _kindMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_kindMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ReminderEventsTableData map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ReminderEventsTableData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      debtId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}debt_id'],
+      ),
+      kind: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}kind'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $ReminderEventsTableTable createAlias(String alias) {
+    return $ReminderEventsTableTable(attachedDatabase, alias);
+  }
+}
+
+class ReminderEventsTableData extends DataClass
+    implements Insertable<ReminderEventsTableData> {
+  final String id;
+  final String? debtId;
+  final String kind;
+  final DateTime createdAt;
+  const ReminderEventsTableData({
+    required this.id,
+    this.debtId,
+    required this.kind,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    if (!nullToAbsent || debtId != null) {
+      map['debt_id'] = Variable<String>(debtId);
+    }
+    map['kind'] = Variable<String>(kind);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  ReminderEventsTableCompanion toCompanion(bool nullToAbsent) {
+    return ReminderEventsTableCompanion(
+      id: Value(id),
+      debtId: debtId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(debtId),
+      kind: Value(kind),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory ReminderEventsTableData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ReminderEventsTableData(
+      id: serializer.fromJson<String>(json['id']),
+      debtId: serializer.fromJson<String?>(json['debtId']),
+      kind: serializer.fromJson<String>(json['kind']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'debtId': serializer.toJson<String?>(debtId),
+      'kind': serializer.toJson<String>(kind),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  ReminderEventsTableData copyWith({
+    String? id,
+    Value<String?> debtId = const Value.absent(),
+    String? kind,
+    DateTime? createdAt,
+  }) => ReminderEventsTableData(
+    id: id ?? this.id,
+    debtId: debtId.present ? debtId.value : this.debtId,
+    kind: kind ?? this.kind,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  ReminderEventsTableData copyWithCompanion(ReminderEventsTableCompanion data) {
+    return ReminderEventsTableData(
+      id: data.id.present ? data.id.value : this.id,
+      debtId: data.debtId.present ? data.debtId.value : this.debtId,
+      kind: data.kind.present ? data.kind.value : this.kind,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReminderEventsTableData(')
+          ..write('id: $id, ')
+          ..write('debtId: $debtId, ')
+          ..write('kind: $kind, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, debtId, kind, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ReminderEventsTableData &&
+          other.id == this.id &&
+          other.debtId == this.debtId &&
+          other.kind == this.kind &&
+          other.createdAt == this.createdAt);
+}
+
+class ReminderEventsTableCompanion
+    extends UpdateCompanion<ReminderEventsTableData> {
+  final Value<String> id;
+  final Value<String?> debtId;
+  final Value<String> kind;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const ReminderEventsTableCompanion({
+    this.id = const Value.absent(),
+    this.debtId = const Value.absent(),
+    this.kind = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ReminderEventsTableCompanion.insert({
+    required String id,
+    this.debtId = const Value.absent(),
+    required String kind,
+    required DateTime createdAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       kind = Value(kind),
+       createdAt = Value(createdAt);
+  static Insertable<ReminderEventsTableData> custom({
+    Expression<String>? id,
+    Expression<String>? debtId,
+    Expression<String>? kind,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (debtId != null) 'debt_id': debtId,
+      if (kind != null) 'kind': kind,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ReminderEventsTableCompanion copyWith({
+    Value<String>? id,
+    Value<String?>? debtId,
+    Value<String>? kind,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return ReminderEventsTableCompanion(
+      id: id ?? this.id,
+      debtId: debtId ?? this.debtId,
+      kind: kind ?? this.kind,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (debtId.present) {
+      map['debt_id'] = Variable<String>(debtId.value);
+    }
+    if (kind.present) {
+      map['kind'] = Variable<String>(kind.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReminderEventsTableCompanion(')
+          ..write('id: $id, ')
+          ..write('debtId: $debtId, ')
+          ..write('kind: $kind, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $ScenariosTableTable extends ScenariosTable
     with TableInfo<$ScenariosTableTable, ScenariosTableData> {
   @override
@@ -4311,6 +4623,50 @@ class $AppPreferencesTableTable extends AppPreferencesTable
     ),
     defaultValue: const Constant(true),
   );
+  static const VerificationMeta _dueRemindersEnabledMeta =
+      const VerificationMeta('dueRemindersEnabled');
+  @override
+  late final GeneratedColumn<bool> dueRemindersEnabled = GeneratedColumn<bool>(
+    'due_reminders_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("due_reminders_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _overdueRemindersEnabledMeta =
+      const VerificationMeta('overdueRemindersEnabled');
+  @override
+  late final GeneratedColumn<bool> overdueRemindersEnabled =
+      GeneratedColumn<bool>(
+        'overdue_reminders_enabled',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("overdue_reminders_enabled" IN (0, 1))',
+        ),
+        defaultValue: const Constant(true),
+      );
+  static const VerificationMeta _milestoneNotificationsEnabledMeta =
+      const VerificationMeta('milestoneNotificationsEnabled');
+  @override
+  late final GeneratedColumn<bool> milestoneNotificationsEnabled =
+      GeneratedColumn<bool>(
+        'milestone_notifications_enabled',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("milestone_notifications_enabled" IN (0, 1))',
+        ),
+        defaultValue: const Constant(true),
+      );
   static const VerificationMeta _onboardingCompletedMeta =
       const VerificationMeta('onboardingCompleted');
   @override
@@ -4338,6 +4694,17 @@ class $AppPreferencesTableTable extends AppPreferencesTable
       'CHECK ("weekly_summary_enabled" IN (0, 1))',
     ),
     defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _dueReminderLeadDaysMeta =
+      const VerificationMeta('dueReminderLeadDays');
+  @override
+  late final GeneratedColumn<int> dueReminderLeadDays = GeneratedColumn<int>(
+    'due_reminder_lead_days',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(2),
   );
   static const VerificationMeta _rawOcrRetentionEnabledMeta =
       const VerificationMeta('rawOcrRetentionEnabled');
@@ -4415,8 +4782,12 @@ class $AppPreferencesTableTable extends AppPreferencesTable
     appLockEnabled,
     aiConsentEnabled,
     notificationsEnabled,
+    dueRemindersEnabled,
+    overdueRemindersEnabled,
+    milestoneNotificationsEnabled,
     onboardingCompleted,
     weeklySummaryEnabled,
+    dueReminderLeadDays,
     rawOcrRetentionEnabled,
     rawOcrRetentionHours,
     documentRetentionMode,
@@ -4507,6 +4878,33 @@ class $AppPreferencesTableTable extends AppPreferencesTable
         ),
       );
     }
+    if (data.containsKey('due_reminders_enabled')) {
+      context.handle(
+        _dueRemindersEnabledMeta,
+        dueRemindersEnabled.isAcceptableOrUnknown(
+          data['due_reminders_enabled']!,
+          _dueRemindersEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('overdue_reminders_enabled')) {
+      context.handle(
+        _overdueRemindersEnabledMeta,
+        overdueRemindersEnabled.isAcceptableOrUnknown(
+          data['overdue_reminders_enabled']!,
+          _overdueRemindersEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('milestone_notifications_enabled')) {
+      context.handle(
+        _milestoneNotificationsEnabledMeta,
+        milestoneNotificationsEnabled.isAcceptableOrUnknown(
+          data['milestone_notifications_enabled']!,
+          _milestoneNotificationsEnabledMeta,
+        ),
+      );
+    }
     if (data.containsKey('onboarding_completed')) {
       context.handle(
         _onboardingCompletedMeta,
@@ -4522,6 +4920,15 @@ class $AppPreferencesTableTable extends AppPreferencesTable
         weeklySummaryEnabled.isAcceptableOrUnknown(
           data['weekly_summary_enabled']!,
           _weeklySummaryEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('due_reminder_lead_days')) {
+      context.handle(
+        _dueReminderLeadDaysMeta,
+        dueReminderLeadDays.isAcceptableOrUnknown(
+          data['due_reminder_lead_days']!,
+          _dueReminderLeadDaysMeta,
         ),
       );
     }
@@ -4618,6 +5025,18 @@ class $AppPreferencesTableTable extends AppPreferencesTable
         DriftSqlType.bool,
         data['${effectivePrefix}notifications_enabled'],
       )!,
+      dueRemindersEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}due_reminders_enabled'],
+      )!,
+      overdueRemindersEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}overdue_reminders_enabled'],
+      )!,
+      milestoneNotificationsEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}milestone_notifications_enabled'],
+      )!,
       onboardingCompleted: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}onboarding_completed'],
@@ -4625,6 +5044,10 @@ class $AppPreferencesTableTable extends AppPreferencesTable
       weeklySummaryEnabled: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}weekly_summary_enabled'],
+      )!,
+      dueReminderLeadDays: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}due_reminder_lead_days'],
       )!,
       rawOcrRetentionEnabled: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
@@ -4666,8 +5089,12 @@ class AppPreferencesTableData extends DataClass
   final bool appLockEnabled;
   final bool aiConsentEnabled;
   final bool notificationsEnabled;
+  final bool dueRemindersEnabled;
+  final bool overdueRemindersEnabled;
+  final bool milestoneNotificationsEnabled;
   final bool onboardingCompleted;
   final bool weeklySummaryEnabled;
+  final int dueReminderLeadDays;
   final bool rawOcrRetentionEnabled;
   final int rawOcrRetentionHours;
   final String documentRetentionMode;
@@ -4683,8 +5110,12 @@ class AppPreferencesTableData extends DataClass
     required this.appLockEnabled,
     required this.aiConsentEnabled,
     required this.notificationsEnabled,
+    required this.dueRemindersEnabled,
+    required this.overdueRemindersEnabled,
+    required this.milestoneNotificationsEnabled,
     required this.onboardingCompleted,
     required this.weeklySummaryEnabled,
+    required this.dueReminderLeadDays,
     required this.rawOcrRetentionEnabled,
     required this.rawOcrRetentionHours,
     required this.documentRetentionMode,
@@ -4703,8 +5134,14 @@ class AppPreferencesTableData extends DataClass
     map['app_lock_enabled'] = Variable<bool>(appLockEnabled);
     map['ai_consent_enabled'] = Variable<bool>(aiConsentEnabled);
     map['notifications_enabled'] = Variable<bool>(notificationsEnabled);
+    map['due_reminders_enabled'] = Variable<bool>(dueRemindersEnabled);
+    map['overdue_reminders_enabled'] = Variable<bool>(overdueRemindersEnabled);
+    map['milestone_notifications_enabled'] = Variable<bool>(
+      milestoneNotificationsEnabled,
+    );
     map['onboarding_completed'] = Variable<bool>(onboardingCompleted);
     map['weekly_summary_enabled'] = Variable<bool>(weeklySummaryEnabled);
+    map['due_reminder_lead_days'] = Variable<int>(dueReminderLeadDays);
     map['raw_ocr_retention_enabled'] = Variable<bool>(rawOcrRetentionEnabled);
     map['raw_ocr_retention_hours'] = Variable<int>(rawOcrRetentionHours);
     map['document_retention_mode'] = Variable<String>(documentRetentionMode);
@@ -4728,8 +5165,12 @@ class AppPreferencesTableData extends DataClass
       appLockEnabled: Value(appLockEnabled),
       aiConsentEnabled: Value(aiConsentEnabled),
       notificationsEnabled: Value(notificationsEnabled),
+      dueRemindersEnabled: Value(dueRemindersEnabled),
+      overdueRemindersEnabled: Value(overdueRemindersEnabled),
+      milestoneNotificationsEnabled: Value(milestoneNotificationsEnabled),
       onboardingCompleted: Value(onboardingCompleted),
       weeklySummaryEnabled: Value(weeklySummaryEnabled),
+      dueReminderLeadDays: Value(dueReminderLeadDays),
       rawOcrRetentionEnabled: Value(rawOcrRetentionEnabled),
       rawOcrRetentionHours: Value(rawOcrRetentionHours),
       documentRetentionMode: Value(documentRetentionMode),
@@ -4755,11 +5196,23 @@ class AppPreferencesTableData extends DataClass
       notificationsEnabled: serializer.fromJson<bool>(
         json['notificationsEnabled'],
       ),
+      dueRemindersEnabled: serializer.fromJson<bool>(
+        json['dueRemindersEnabled'],
+      ),
+      overdueRemindersEnabled: serializer.fromJson<bool>(
+        json['overdueRemindersEnabled'],
+      ),
+      milestoneNotificationsEnabled: serializer.fromJson<bool>(
+        json['milestoneNotificationsEnabled'],
+      ),
       onboardingCompleted: serializer.fromJson<bool>(
         json['onboardingCompleted'],
       ),
       weeklySummaryEnabled: serializer.fromJson<bool>(
         json['weeklySummaryEnabled'],
+      ),
+      dueReminderLeadDays: serializer.fromJson<int>(
+        json['dueReminderLeadDays'],
       ),
       rawOcrRetentionEnabled: serializer.fromJson<bool>(
         json['rawOcrRetentionEnabled'],
@@ -4791,8 +5244,16 @@ class AppPreferencesTableData extends DataClass
       'appLockEnabled': serializer.toJson<bool>(appLockEnabled),
       'aiConsentEnabled': serializer.toJson<bool>(aiConsentEnabled),
       'notificationsEnabled': serializer.toJson<bool>(notificationsEnabled),
+      'dueRemindersEnabled': serializer.toJson<bool>(dueRemindersEnabled),
+      'overdueRemindersEnabled': serializer.toJson<bool>(
+        overdueRemindersEnabled,
+      ),
+      'milestoneNotificationsEnabled': serializer.toJson<bool>(
+        milestoneNotificationsEnabled,
+      ),
       'onboardingCompleted': serializer.toJson<bool>(onboardingCompleted),
       'weeklySummaryEnabled': serializer.toJson<bool>(weeklySummaryEnabled),
+      'dueReminderLeadDays': serializer.toJson<int>(dueReminderLeadDays),
       'rawOcrRetentionEnabled': serializer.toJson<bool>(rawOcrRetentionEnabled),
       'rawOcrRetentionHours': serializer.toJson<int>(rawOcrRetentionHours),
       'documentRetentionMode': serializer.toJson<String>(documentRetentionMode),
@@ -4815,8 +5276,12 @@ class AppPreferencesTableData extends DataClass
     bool? appLockEnabled,
     bool? aiConsentEnabled,
     bool? notificationsEnabled,
+    bool? dueRemindersEnabled,
+    bool? overdueRemindersEnabled,
+    bool? milestoneNotificationsEnabled,
     bool? onboardingCompleted,
     bool? weeklySummaryEnabled,
+    int? dueReminderLeadDays,
     bool? rawOcrRetentionEnabled,
     int? rawOcrRetentionHours,
     String? documentRetentionMode,
@@ -4832,8 +5297,14 @@ class AppPreferencesTableData extends DataClass
     appLockEnabled: appLockEnabled ?? this.appLockEnabled,
     aiConsentEnabled: aiConsentEnabled ?? this.aiConsentEnabled,
     notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
+    dueRemindersEnabled: dueRemindersEnabled ?? this.dueRemindersEnabled,
+    overdueRemindersEnabled:
+        overdueRemindersEnabled ?? this.overdueRemindersEnabled,
+    milestoneNotificationsEnabled:
+        milestoneNotificationsEnabled ?? this.milestoneNotificationsEnabled,
     onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
     weeklySummaryEnabled: weeklySummaryEnabled ?? this.weeklySummaryEnabled,
+    dueReminderLeadDays: dueReminderLeadDays ?? this.dueReminderLeadDays,
     rawOcrRetentionEnabled:
         rawOcrRetentionEnabled ?? this.rawOcrRetentionEnabled,
     rawOcrRetentionHours: rawOcrRetentionHours ?? this.rawOcrRetentionHours,
@@ -4868,12 +5339,24 @@ class AppPreferencesTableData extends DataClass
       notificationsEnabled: data.notificationsEnabled.present
           ? data.notificationsEnabled.value
           : this.notificationsEnabled,
+      dueRemindersEnabled: data.dueRemindersEnabled.present
+          ? data.dueRemindersEnabled.value
+          : this.dueRemindersEnabled,
+      overdueRemindersEnabled: data.overdueRemindersEnabled.present
+          ? data.overdueRemindersEnabled.value
+          : this.overdueRemindersEnabled,
+      milestoneNotificationsEnabled: data.milestoneNotificationsEnabled.present
+          ? data.milestoneNotificationsEnabled.value
+          : this.milestoneNotificationsEnabled,
       onboardingCompleted: data.onboardingCompleted.present
           ? data.onboardingCompleted.value
           : this.onboardingCompleted,
       weeklySummaryEnabled: data.weeklySummaryEnabled.present
           ? data.weeklySummaryEnabled.value
           : this.weeklySummaryEnabled,
+      dueReminderLeadDays: data.dueReminderLeadDays.present
+          ? data.dueReminderLeadDays.value
+          : this.dueReminderLeadDays,
       rawOcrRetentionEnabled: data.rawOcrRetentionEnabled.present
           ? data.rawOcrRetentionEnabled.value
           : this.rawOcrRetentionEnabled,
@@ -4904,8 +5387,14 @@ class AppPreferencesTableData extends DataClass
           ..write('appLockEnabled: $appLockEnabled, ')
           ..write('aiConsentEnabled: $aiConsentEnabled, ')
           ..write('notificationsEnabled: $notificationsEnabled, ')
+          ..write('dueRemindersEnabled: $dueRemindersEnabled, ')
+          ..write('overdueRemindersEnabled: $overdueRemindersEnabled, ')
+          ..write(
+            'milestoneNotificationsEnabled: $milestoneNotificationsEnabled, ',
+          )
           ..write('onboardingCompleted: $onboardingCompleted, ')
           ..write('weeklySummaryEnabled: $weeklySummaryEnabled, ')
+          ..write('dueReminderLeadDays: $dueReminderLeadDays, ')
           ..write('rawOcrRetentionEnabled: $rawOcrRetentionEnabled, ')
           ..write('rawOcrRetentionHours: $rawOcrRetentionHours, ')
           ..write('documentRetentionMode: $documentRetentionMode, ')
@@ -4928,8 +5417,12 @@ class AppPreferencesTableData extends DataClass
     appLockEnabled,
     aiConsentEnabled,
     notificationsEnabled,
+    dueRemindersEnabled,
+    overdueRemindersEnabled,
+    milestoneNotificationsEnabled,
     onboardingCompleted,
     weeklySummaryEnabled,
+    dueReminderLeadDays,
     rawOcrRetentionEnabled,
     rawOcrRetentionHours,
     documentRetentionMode,
@@ -4949,8 +5442,13 @@ class AppPreferencesTableData extends DataClass
           other.appLockEnabled == this.appLockEnabled &&
           other.aiConsentEnabled == this.aiConsentEnabled &&
           other.notificationsEnabled == this.notificationsEnabled &&
+          other.dueRemindersEnabled == this.dueRemindersEnabled &&
+          other.overdueRemindersEnabled == this.overdueRemindersEnabled &&
+          other.milestoneNotificationsEnabled ==
+              this.milestoneNotificationsEnabled &&
           other.onboardingCompleted == this.onboardingCompleted &&
           other.weeklySummaryEnabled == this.weeklySummaryEnabled &&
+          other.dueReminderLeadDays == this.dueReminderLeadDays &&
           other.rawOcrRetentionEnabled == this.rawOcrRetentionEnabled &&
           other.rawOcrRetentionHours == this.rawOcrRetentionHours &&
           other.documentRetentionMode == this.documentRetentionMode &&
@@ -4971,8 +5469,12 @@ class AppPreferencesTableCompanion
   final Value<bool> appLockEnabled;
   final Value<bool> aiConsentEnabled;
   final Value<bool> notificationsEnabled;
+  final Value<bool> dueRemindersEnabled;
+  final Value<bool> overdueRemindersEnabled;
+  final Value<bool> milestoneNotificationsEnabled;
   final Value<bool> onboardingCompleted;
   final Value<bool> weeklySummaryEnabled;
+  final Value<int> dueReminderLeadDays;
   final Value<bool> rawOcrRetentionEnabled;
   final Value<int> rawOcrRetentionHours;
   final Value<String> documentRetentionMode;
@@ -4988,8 +5490,12 @@ class AppPreferencesTableCompanion
     this.appLockEnabled = const Value.absent(),
     this.aiConsentEnabled = const Value.absent(),
     this.notificationsEnabled = const Value.absent(),
+    this.dueRemindersEnabled = const Value.absent(),
+    this.overdueRemindersEnabled = const Value.absent(),
+    this.milestoneNotificationsEnabled = const Value.absent(),
     this.onboardingCompleted = const Value.absent(),
     this.weeklySummaryEnabled = const Value.absent(),
+    this.dueReminderLeadDays = const Value.absent(),
     this.rawOcrRetentionEnabled = const Value.absent(),
     this.rawOcrRetentionHours = const Value.absent(),
     this.documentRetentionMode = const Value.absent(),
@@ -5006,8 +5512,12 @@ class AppPreferencesTableCompanion
     this.appLockEnabled = const Value.absent(),
     this.aiConsentEnabled = const Value.absent(),
     this.notificationsEnabled = const Value.absent(),
+    this.dueRemindersEnabled = const Value.absent(),
+    this.overdueRemindersEnabled = const Value.absent(),
+    this.milestoneNotificationsEnabled = const Value.absent(),
     this.onboardingCompleted = const Value.absent(),
     this.weeklySummaryEnabled = const Value.absent(),
+    this.dueReminderLeadDays = const Value.absent(),
     this.rawOcrRetentionEnabled = const Value.absent(),
     this.rawOcrRetentionHours = const Value.absent(),
     this.documentRetentionMode = const Value.absent(),
@@ -5024,8 +5534,12 @@ class AppPreferencesTableCompanion
     Expression<bool>? appLockEnabled,
     Expression<bool>? aiConsentEnabled,
     Expression<bool>? notificationsEnabled,
+    Expression<bool>? dueRemindersEnabled,
+    Expression<bool>? overdueRemindersEnabled,
+    Expression<bool>? milestoneNotificationsEnabled,
     Expression<bool>? onboardingCompleted,
     Expression<bool>? weeklySummaryEnabled,
+    Expression<int>? dueReminderLeadDays,
     Expression<bool>? rawOcrRetentionEnabled,
     Expression<int>? rawOcrRetentionHours,
     Expression<String>? documentRetentionMode,
@@ -5043,10 +5557,18 @@ class AppPreferencesTableCompanion
       if (aiConsentEnabled != null) 'ai_consent_enabled': aiConsentEnabled,
       if (notificationsEnabled != null)
         'notifications_enabled': notificationsEnabled,
+      if (dueRemindersEnabled != null)
+        'due_reminders_enabled': dueRemindersEnabled,
+      if (overdueRemindersEnabled != null)
+        'overdue_reminders_enabled': overdueRemindersEnabled,
+      if (milestoneNotificationsEnabled != null)
+        'milestone_notifications_enabled': milestoneNotificationsEnabled,
       if (onboardingCompleted != null)
         'onboarding_completed': onboardingCompleted,
       if (weeklySummaryEnabled != null)
         'weekly_summary_enabled': weeklySummaryEnabled,
+      if (dueReminderLeadDays != null)
+        'due_reminder_lead_days': dueReminderLeadDays,
       if (rawOcrRetentionEnabled != null)
         'raw_ocr_retention_enabled': rawOcrRetentionEnabled,
       if (rawOcrRetentionHours != null)
@@ -5070,8 +5592,12 @@ class AppPreferencesTableCompanion
     Value<bool>? appLockEnabled,
     Value<bool>? aiConsentEnabled,
     Value<bool>? notificationsEnabled,
+    Value<bool>? dueRemindersEnabled,
+    Value<bool>? overdueRemindersEnabled,
+    Value<bool>? milestoneNotificationsEnabled,
     Value<bool>? onboardingCompleted,
     Value<bool>? weeklySummaryEnabled,
+    Value<int>? dueReminderLeadDays,
     Value<bool>? rawOcrRetentionEnabled,
     Value<int>? rawOcrRetentionHours,
     Value<String>? documentRetentionMode,
@@ -5088,8 +5614,14 @@ class AppPreferencesTableCompanion
       appLockEnabled: appLockEnabled ?? this.appLockEnabled,
       aiConsentEnabled: aiConsentEnabled ?? this.aiConsentEnabled,
       notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
+      dueRemindersEnabled: dueRemindersEnabled ?? this.dueRemindersEnabled,
+      overdueRemindersEnabled:
+          overdueRemindersEnabled ?? this.overdueRemindersEnabled,
+      milestoneNotificationsEnabled:
+          milestoneNotificationsEnabled ?? this.milestoneNotificationsEnabled,
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
       weeklySummaryEnabled: weeklySummaryEnabled ?? this.weeklySummaryEnabled,
+      dueReminderLeadDays: dueReminderLeadDays ?? this.dueReminderLeadDays,
       rawOcrRetentionEnabled:
           rawOcrRetentionEnabled ?? this.rawOcrRetentionEnabled,
       rawOcrRetentionHours: rawOcrRetentionHours ?? this.rawOcrRetentionHours,
@@ -5132,6 +5664,19 @@ class AppPreferencesTableCompanion
     if (notificationsEnabled.present) {
       map['notifications_enabled'] = Variable<bool>(notificationsEnabled.value);
     }
+    if (dueRemindersEnabled.present) {
+      map['due_reminders_enabled'] = Variable<bool>(dueRemindersEnabled.value);
+    }
+    if (overdueRemindersEnabled.present) {
+      map['overdue_reminders_enabled'] = Variable<bool>(
+        overdueRemindersEnabled.value,
+      );
+    }
+    if (milestoneNotificationsEnabled.present) {
+      map['milestone_notifications_enabled'] = Variable<bool>(
+        milestoneNotificationsEnabled.value,
+      );
+    }
     if (onboardingCompleted.present) {
       map['onboarding_completed'] = Variable<bool>(onboardingCompleted.value);
     }
@@ -5139,6 +5684,9 @@ class AppPreferencesTableCompanion
       map['weekly_summary_enabled'] = Variable<bool>(
         weeklySummaryEnabled.value,
       );
+    }
+    if (dueReminderLeadDays.present) {
+      map['due_reminder_lead_days'] = Variable<int>(dueReminderLeadDays.value);
     }
     if (rawOcrRetentionEnabled.present) {
       map['raw_ocr_retention_enabled'] = Variable<bool>(
@@ -5180,8 +5728,14 @@ class AppPreferencesTableCompanion
           ..write('appLockEnabled: $appLockEnabled, ')
           ..write('aiConsentEnabled: $aiConsentEnabled, ')
           ..write('notificationsEnabled: $notificationsEnabled, ')
+          ..write('dueRemindersEnabled: $dueRemindersEnabled, ')
+          ..write('overdueRemindersEnabled: $overdueRemindersEnabled, ')
+          ..write(
+            'milestoneNotificationsEnabled: $milestoneNotificationsEnabled, ',
+          )
           ..write('onboardingCompleted: $onboardingCompleted, ')
           ..write('weeklySummaryEnabled: $weeklySummaryEnabled, ')
+          ..write('dueReminderLeadDays: $dueReminderLeadDays, ')
           ..write('rawOcrRetentionEnabled: $rawOcrRetentionEnabled, ')
           ..write('rawOcrRetentionHours: $rawOcrRetentionHours, ')
           ..write('documentRetentionMode: $documentRetentionMode, ')
@@ -5786,6 +6340,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $ParsedExtractionsTableTable(this);
   late final $ReminderRulesTableTable reminderRulesTable =
       $ReminderRulesTableTable(this);
+  late final $ReminderEventsTableTable reminderEventsTable =
+      $ReminderEventsTableTable(this);
   late final $ScenariosTableTable scenariosTable = $ScenariosTableTable(this);
   late final $AppPreferencesTableTable appPreferencesTable =
       $AppPreferencesTableTable(this);
@@ -5801,6 +6357,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     importedDocumentsTable,
     parsedExtractionsTable,
     reminderRulesTable,
+    reminderEventsTable,
     scenariosTable,
     appPreferencesTable,
     subscriptionStateTable,
@@ -8260,6 +8817,203 @@ typedef $$ReminderRulesTableTableProcessedTableManager =
       ReminderRulesTableData,
       PrefetchHooks Function({bool debtId})
     >;
+typedef $$ReminderEventsTableTableCreateCompanionBuilder =
+    ReminderEventsTableCompanion Function({
+      required String id,
+      Value<String?> debtId,
+      required String kind,
+      required DateTime createdAt,
+      Value<int> rowid,
+    });
+typedef $$ReminderEventsTableTableUpdateCompanionBuilder =
+    ReminderEventsTableCompanion Function({
+      Value<String> id,
+      Value<String?> debtId,
+      Value<String> kind,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$ReminderEventsTableTableFilterComposer
+    extends Composer<_$AppDatabase, $ReminderEventsTableTable> {
+  $$ReminderEventsTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get debtId => $composableBuilder(
+    column: $table.debtId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ReminderEventsTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $ReminderEventsTableTable> {
+  $$ReminderEventsTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get debtId => $composableBuilder(
+    column: $table.debtId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ReminderEventsTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ReminderEventsTableTable> {
+  $$ReminderEventsTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get debtId =>
+      $composableBuilder(column: $table.debtId, builder: (column) => column);
+
+  GeneratedColumn<String> get kind =>
+      $composableBuilder(column: $table.kind, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$ReminderEventsTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ReminderEventsTableTable,
+          ReminderEventsTableData,
+          $$ReminderEventsTableTableFilterComposer,
+          $$ReminderEventsTableTableOrderingComposer,
+          $$ReminderEventsTableTableAnnotationComposer,
+          $$ReminderEventsTableTableCreateCompanionBuilder,
+          $$ReminderEventsTableTableUpdateCompanionBuilder,
+          (
+            ReminderEventsTableData,
+            BaseReferences<
+              _$AppDatabase,
+              $ReminderEventsTableTable,
+              ReminderEventsTableData
+            >,
+          ),
+          ReminderEventsTableData,
+          PrefetchHooks Function()
+        > {
+  $$ReminderEventsTableTableTableManager(
+    _$AppDatabase db,
+    $ReminderEventsTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ReminderEventsTableTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ReminderEventsTableTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$ReminderEventsTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String?> debtId = const Value.absent(),
+                Value<String> kind = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ReminderEventsTableCompanion(
+                id: id,
+                debtId: debtId,
+                kind: kind,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                Value<String?> debtId = const Value.absent(),
+                required String kind,
+                required DateTime createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => ReminderEventsTableCompanion.insert(
+                id: id,
+                debtId: debtId,
+                kind: kind,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ReminderEventsTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ReminderEventsTableTable,
+      ReminderEventsTableData,
+      $$ReminderEventsTableTableFilterComposer,
+      $$ReminderEventsTableTableOrderingComposer,
+      $$ReminderEventsTableTableAnnotationComposer,
+      $$ReminderEventsTableTableCreateCompanionBuilder,
+      $$ReminderEventsTableTableUpdateCompanionBuilder,
+      (
+        ReminderEventsTableData,
+        BaseReferences<
+          _$AppDatabase,
+          $ReminderEventsTableTable,
+          ReminderEventsTableData
+        >,
+      ),
+      ReminderEventsTableData,
+      PrefetchHooks Function()
+    >;
 typedef $$ScenariosTableTableCreateCompanionBuilder =
     ScenariosTableCompanion Function({
       required String id,
@@ -8563,8 +9317,12 @@ typedef $$AppPreferencesTableTableCreateCompanionBuilder =
       Value<bool> appLockEnabled,
       Value<bool> aiConsentEnabled,
       Value<bool> notificationsEnabled,
+      Value<bool> dueRemindersEnabled,
+      Value<bool> overdueRemindersEnabled,
+      Value<bool> milestoneNotificationsEnabled,
       Value<bool> onboardingCompleted,
       Value<bool> weeklySummaryEnabled,
+      Value<int> dueReminderLeadDays,
       Value<bool> rawOcrRetentionEnabled,
       Value<int> rawOcrRetentionHours,
       Value<String> documentRetentionMode,
@@ -8582,8 +9340,12 @@ typedef $$AppPreferencesTableTableUpdateCompanionBuilder =
       Value<bool> appLockEnabled,
       Value<bool> aiConsentEnabled,
       Value<bool> notificationsEnabled,
+      Value<bool> dueRemindersEnabled,
+      Value<bool> overdueRemindersEnabled,
+      Value<bool> milestoneNotificationsEnabled,
       Value<bool> onboardingCompleted,
       Value<bool> weeklySummaryEnabled,
+      Value<int> dueReminderLeadDays,
       Value<bool> rawOcrRetentionEnabled,
       Value<int> rawOcrRetentionHours,
       Value<String> documentRetentionMode,
@@ -8645,6 +9407,21 @@ class $$AppPreferencesTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<bool> get dueRemindersEnabled => $composableBuilder(
+    column: $table.dueRemindersEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get overdueRemindersEnabled => $composableBuilder(
+    column: $table.overdueRemindersEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get milestoneNotificationsEnabled => $composableBuilder(
+    column: $table.milestoneNotificationsEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<bool> get onboardingCompleted => $composableBuilder(
     column: $table.onboardingCompleted,
     builder: (column) => ColumnFilters(column),
@@ -8652,6 +9429,11 @@ class $$AppPreferencesTableTableFilterComposer
 
   ColumnFilters<bool> get weeklySummaryEnabled => $composableBuilder(
     column: $table.weeklySummaryEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get dueReminderLeadDays => $composableBuilder(
+    column: $table.dueReminderLeadDays,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -8735,6 +9517,21 @@ class $$AppPreferencesTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get dueRemindersEnabled => $composableBuilder(
+    column: $table.dueRemindersEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get overdueRemindersEnabled => $composableBuilder(
+    column: $table.overdueRemindersEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get milestoneNotificationsEnabled => $composableBuilder(
+    column: $table.milestoneNotificationsEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get onboardingCompleted => $composableBuilder(
     column: $table.onboardingCompleted,
     builder: (column) => ColumnOrderings(column),
@@ -8742,6 +9539,11 @@ class $$AppPreferencesTableTableOrderingComposer
 
   ColumnOrderings<bool> get weeklySummaryEnabled => $composableBuilder(
     column: $table.weeklySummaryEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get dueReminderLeadDays => $composableBuilder(
+    column: $table.dueReminderLeadDays,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -8821,6 +9623,21 @@ class $$AppPreferencesTableTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<bool> get dueRemindersEnabled => $composableBuilder(
+    column: $table.dueRemindersEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get overdueRemindersEnabled => $composableBuilder(
+    column: $table.overdueRemindersEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get milestoneNotificationsEnabled => $composableBuilder(
+    column: $table.milestoneNotificationsEnabled,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<bool> get onboardingCompleted => $composableBuilder(
     column: $table.onboardingCompleted,
     builder: (column) => column,
@@ -8828,6 +9645,11 @@ class $$AppPreferencesTableTableAnnotationComposer
 
   GeneratedColumn<bool> get weeklySummaryEnabled => $composableBuilder(
     column: $table.weeklySummaryEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get dueReminderLeadDays => $composableBuilder(
+    column: $table.dueReminderLeadDays,
     builder: (column) => column,
   );
 
@@ -8909,8 +9731,13 @@ class $$AppPreferencesTableTableTableManager
                 Value<bool> appLockEnabled = const Value.absent(),
                 Value<bool> aiConsentEnabled = const Value.absent(),
                 Value<bool> notificationsEnabled = const Value.absent(),
+                Value<bool> dueRemindersEnabled = const Value.absent(),
+                Value<bool> overdueRemindersEnabled = const Value.absent(),
+                Value<bool> milestoneNotificationsEnabled =
+                    const Value.absent(),
                 Value<bool> onboardingCompleted = const Value.absent(),
                 Value<bool> weeklySummaryEnabled = const Value.absent(),
+                Value<int> dueReminderLeadDays = const Value.absent(),
                 Value<bool> rawOcrRetentionEnabled = const Value.absent(),
                 Value<int> rawOcrRetentionHours = const Value.absent(),
                 Value<String> documentRetentionMode = const Value.absent(),
@@ -8926,8 +9753,12 @@ class $$AppPreferencesTableTableTableManager
                 appLockEnabled: appLockEnabled,
                 aiConsentEnabled: aiConsentEnabled,
                 notificationsEnabled: notificationsEnabled,
+                dueRemindersEnabled: dueRemindersEnabled,
+                overdueRemindersEnabled: overdueRemindersEnabled,
+                milestoneNotificationsEnabled: milestoneNotificationsEnabled,
                 onboardingCompleted: onboardingCompleted,
                 weeklySummaryEnabled: weeklySummaryEnabled,
+                dueReminderLeadDays: dueReminderLeadDays,
                 rawOcrRetentionEnabled: rawOcrRetentionEnabled,
                 rawOcrRetentionHours: rawOcrRetentionHours,
                 documentRetentionMode: documentRetentionMode,
@@ -8945,8 +9776,13 @@ class $$AppPreferencesTableTableTableManager
                 Value<bool> appLockEnabled = const Value.absent(),
                 Value<bool> aiConsentEnabled = const Value.absent(),
                 Value<bool> notificationsEnabled = const Value.absent(),
+                Value<bool> dueRemindersEnabled = const Value.absent(),
+                Value<bool> overdueRemindersEnabled = const Value.absent(),
+                Value<bool> milestoneNotificationsEnabled =
+                    const Value.absent(),
                 Value<bool> onboardingCompleted = const Value.absent(),
                 Value<bool> weeklySummaryEnabled = const Value.absent(),
+                Value<int> dueReminderLeadDays = const Value.absent(),
                 Value<bool> rawOcrRetentionEnabled = const Value.absent(),
                 Value<int> rawOcrRetentionHours = const Value.absent(),
                 Value<String> documentRetentionMode = const Value.absent(),
@@ -8962,8 +9798,12 @@ class $$AppPreferencesTableTableTableManager
                 appLockEnabled: appLockEnabled,
                 aiConsentEnabled: aiConsentEnabled,
                 notificationsEnabled: notificationsEnabled,
+                dueRemindersEnabled: dueRemindersEnabled,
+                overdueRemindersEnabled: overdueRemindersEnabled,
+                milestoneNotificationsEnabled: milestoneNotificationsEnabled,
                 onboardingCompleted: onboardingCompleted,
                 weeklySummaryEnabled: weeklySummaryEnabled,
+                dueReminderLeadDays: dueReminderLeadDays,
                 rawOcrRetentionEnabled: rawOcrRetentionEnabled,
                 rawOcrRetentionHours: rawOcrRetentionHours,
                 documentRetentionMode: documentRetentionMode,
@@ -9314,6 +10154,8 @@ class $AppDatabaseManager {
       );
   $$ReminderRulesTableTableTableManager get reminderRulesTable =>
       $$ReminderRulesTableTableTableManager(_db, _db.reminderRulesTable);
+  $$ReminderEventsTableTableTableManager get reminderEventsTable =>
+      $$ReminderEventsTableTableTableManager(_db, _db.reminderEventsTable);
   $$ScenariosTableTableTableManager get scenariosTable =>
       $$ScenariosTableTableTableManager(_db, _db.scenariosTable);
   $$AppPreferencesTableTableTableManager get appPreferencesTable =>

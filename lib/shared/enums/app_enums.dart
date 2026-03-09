@@ -87,6 +87,24 @@ enum PremiumFeature {
   premiumThemes,
 }
 
+enum ReminderKind {
+  dueLead,
+  dueToday,
+  overdueDay1,
+  overdueDay3,
+  overdueDay7,
+  weeklySummary,
+  milestone,
+}
+
+enum MilestoneKind {
+  progress25,
+  progress50,
+  progress75,
+  paidOff,
+  bootstrapSeeded,
+}
+
 PremiumFeature? premiumFeatureByNameOrNull(String name) {
   for (final feature in PremiumFeature.values) {
     if (feature.name == name) {
