@@ -234,6 +234,19 @@ flutter test
 flutter build apk --debug
 ```
 
+Targeted regression suites:
+```bash
+flutter test test/strategy_engine_test.dart
+flutter test test/reminder_services_test.dart
+flutter test test/data_portability_test.dart
+flutter test test/reports_screen_test.dart
+flutter test test/data_backups_screen_test.dart
+flutter test test/biometric_unlock_screen_test.dart
+flutter test test/ocr_processing_screen_test.dart
+```
+
+Manual device QA and release sanity steps are documented in [docs/qa/release_checklist.md](/J:/codex/docs/qa/release_checklist.md).
+
 ## Development Notes
 - Use the `Seed demo data` action in Settings to populate local sample debts and payments.
 - Premium entitlement is verified through the backend after Google Play purchase or restore.

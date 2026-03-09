@@ -536,6 +536,91 @@ void main() {
       expect(row.pendingDeletionAt, pendingAt);
     },
   );
+
+  test(
+    'archive and restore preserve linked documents until final delete',
+    () async {
+      final debt = Debt(
+        id: 'd-archive-flow',
+        title: 'Archive flow card',
+        creditorName: 'Bank',
+        type: DebtType.creditCard,
+        currency: 'USD',
+        originalBalance: 700,
+        currentBalance: 520,
+        apr: 17,
+        minimumPayment: 45,
+        dueDate: null,
+        paymentFrequency: PaymentFrequency.monthly,
+        createdAt: DateTime(2026, 1, 1),
+        updatedAt: DateTime(2026, 1, 1),
+        notes: '',
+        tags: const [],
+        status: DebtStatus.active,
+        remindersEnabled: true,
+        customPriority: 3,
+      );
+      await debtsRepository.saveDebt(debt);
+
+      final source = File('${tempDir.path}/archive-flow.txt')
+        ..writeAsStringSync('linked document');
+      final stored = await vaultService.sealImport(
+        FileReference(
+          path: source.path,
+          sourceType: DocumentSourceType.gallery,
+          mimeType: 'text/plain',
+        ),
+      );
+      await documentsRepository.saveDocument(
+        ImportedDocument(
+          id: 'doc-archive-flow',
+          storageRef: stored.storageRef,
+          sourceType: DocumentSourceType.gallery,
+          mimeType: 'text/plain',
+          createdAt: DateTime(2026, 1, 2),
+          lifecycleState: DocumentLifecycleState.linked,
+          linkedDebtId: debt.id,
+          rawOcrText: null,
+          parseStatus: ParseStatus.success,
+          parseVersion: 'v2',
+          deleted: false,
+          retentionExpiresAt: DateTime(2026, 4, 1),
+          rawOcrExpiresAt: null,
+          processedAt: DateTime(2026, 1, 2),
+          linkedAt: DateTime(2026, 1, 2),
+          pendingDeletionAt: null,
+          purgedAt: null,
+          encryptedAt: stored.encryptedAt,
+          hasRawOcrText: false,
+        ),
+      );
+
+      await debtsRepository.archiveDebt(debt.id);
+      var debts = await debtsRepository.loadDebts(includeArchived: true);
+      expect(debts.single.status, DebtStatus.archived);
+      expect(
+        await documentsRepository.loadDocuments(debtId: debt.id),
+        hasLength(1),
+      );
+
+      await debtsRepository.restoreDebt(debt.id);
+      debts = await debtsRepository.loadDebts(includeArchived: true);
+      expect(debts.single.status, DebtStatus.active);
+      expect(
+        await documentsRepository.loadDocuments(debtId: debt.id),
+        hasLength(1),
+      );
+
+      await debtsRepository.deleteDebt(debt.id);
+      expect(await documentsRepository.loadDocuments(debtId: debt.id), isEmpty);
+      expect(
+        File(
+          '${tempDir.path}${Platform.pathSeparator}secure_vault${Platform.pathSeparator}documents${Platform.pathSeparator}${stored.storageRef}',
+        ).existsSync(),
+        isFalse,
+      );
+    },
+  );
 }
 
 class _FakeKeyService extends LocalVaultKeyService {

@@ -292,6 +292,60 @@ void main() {
         expect(gateway.pending, hasLength(1));
       },
     );
+
+    test(
+      'scheduler cancels stale managed reminders while preserving others',
+      () async {
+        final gateway = _FakeNotificationGateway()
+          ..pending.addAll([
+            PendingNotificationRequest(
+              ReminderScheduler.notificationIdForKey('stale_due'),
+              'stale',
+              'stale',
+              '${ReminderScheduler.payloadPrefix}stale_due',
+            ),
+            const PendingNotificationRequest(
+              777,
+              'foreign',
+              'foreign',
+              'foreign',
+            ),
+          ]);
+        final scheduler = ReminderScheduler(gateway);
+
+        await scheduler.synchronizePlan([
+          ReminderPlanItem(
+            key: 'weekly_summary',
+            id: ReminderScheduler.notificationIdForKey('weekly_summary'),
+            kind: ReminderKind.weeklySummary,
+            title: 'Weekly debt progress',
+            body: '1 due this week',
+            scheduledAt: DateTime(2026, 3, 16, 8),
+            payload: '${ReminderScheduler.payloadPrefix}weekly_summary',
+          ),
+        ]);
+
+        expect(
+          gateway.pending.any((item) => item.payload == 'foreign'),
+          isTrue,
+        );
+        expect(
+          gateway.pending.any(
+            (item) =>
+                item.payload == '${ReminderScheduler.payloadPrefix}stale_due',
+          ),
+          isFalse,
+        );
+        expect(
+          gateway.pending.any(
+            (item) =>
+                item.payload ==
+                '${ReminderScheduler.payloadPrefix}weekly_summary',
+          ),
+          isTrue,
+        );
+      },
+    );
   });
 }
 
