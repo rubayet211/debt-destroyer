@@ -110,6 +110,9 @@ Important behavior:
 - Backend is used only for attested cloud extraction and quota/auth decisions
 - No silent screenshot or statement upload
 - Optional app lock via local device auth
+- Configurable relock timeout after backgrounding
+- Sensitive-screen screenshot blocking on Android
+- Privacy shield overlay for app switcher/background transitions
 - Optional hidden balance mode
 - Imported documents can be discarded or deleted
 - Imported documents use explicit lifecycle states: imported, processed, linked, pending deletion, purged
@@ -211,6 +214,7 @@ flutter build apk --debug
 - CSV export, PDF import, and scenario saving are premium-gated in both the UI and the verified entitlement snapshot.
 - Android Gradle desugaring is enabled for local notifications support.
 - Android can request real Play Integrity tokens when `PLAY_INTEGRITY_PROJECT_NUMBER` is configured; debug attestation remains development-only.
+- App lock currently uses biometrics or device credentials only; no separate in-app PIN is implemented.
 
 ## Known Limitations
 - Production still requires live Google credentials and Play Console setup for Play Integrity and Google Play Billing verification
@@ -220,6 +224,7 @@ flutter build apk --debug
 - OCR-wrapped rows, missing years, and heavily degraded screenshots can still require manual correction on the review screen
 - Debt balances are still user-recorded values; the app does not fully reconstruct live balances from historical statements or lender-specific ledgers
 - Camera and biometric flows are implemented for Android but are not covered by full device E2E tests in this repo
+- Screenshot blocking and recents-thumbnail masking are Android-first; exact system-recents behavior may vary by OEM/device version
 - Postgres and Redis adapters are implemented for backend deployment, but local tests use in-memory stores
 
 ## Roadmap

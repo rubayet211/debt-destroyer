@@ -9,6 +9,9 @@ class UserPreferences {
     required this.hideBalances,
     required this.appLockEnabled,
     required this.aiConsentEnabled,
+    required this.relockTimeout,
+    required this.screenshotProtectionEnabled,
+    required this.privacyShieldOnAppSwitcherEnabled,
     required this.notificationsEnabled,
     required this.onboardingCompleted,
     required this.weeklySummaryEnabled,
@@ -27,6 +30,9 @@ class UserPreferences {
     hideBalances: false,
     appLockEnabled: false,
     aiConsentEnabled: false,
+    relockTimeout: AppRelockTimeout.seconds30,
+    screenshotProtectionEnabled: true,
+    privacyShieldOnAppSwitcherEnabled: true,
     notificationsEnabled: true,
     onboardingCompleted: false,
     weeklySummaryEnabled: false,
@@ -44,6 +50,9 @@ class UserPreferences {
   final bool hideBalances;
   final bool appLockEnabled;
   final bool aiConsentEnabled;
+  final AppRelockTimeout relockTimeout;
+  final bool screenshotProtectionEnabled;
+  final bool privacyShieldOnAppSwitcherEnabled;
   final bool notificationsEnabled;
   final bool onboardingCompleted;
   final bool weeklySummaryEnabled;
@@ -61,6 +70,9 @@ class UserPreferences {
     bool? hideBalances,
     bool? appLockEnabled,
     bool? aiConsentEnabled,
+    AppRelockTimeout? relockTimeout,
+    bool? screenshotProtectionEnabled,
+    bool? privacyShieldOnAppSwitcherEnabled,
     bool? notificationsEnabled,
     bool? onboardingCompleted,
     bool? weeklySummaryEnabled,
@@ -78,6 +90,12 @@ class UserPreferences {
       hideBalances: hideBalances ?? this.hideBalances,
       appLockEnabled: appLockEnabled ?? this.appLockEnabled,
       aiConsentEnabled: aiConsentEnabled ?? this.aiConsentEnabled,
+      relockTimeout: relockTimeout ?? this.relockTimeout,
+      screenshotProtectionEnabled:
+          screenshotProtectionEnabled ?? this.screenshotProtectionEnabled,
+      privacyShieldOnAppSwitcherEnabled:
+          privacyShieldOnAppSwitcherEnabled ??
+          this.privacyShieldOnAppSwitcherEnabled,
       notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
       weeklySummaryEnabled: weeklySummaryEnabled ?? this.weeklySummaryEnabled,

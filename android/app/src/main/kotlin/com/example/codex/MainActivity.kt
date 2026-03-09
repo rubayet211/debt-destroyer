@@ -1,5 +1,6 @@
 package com.debtdestroyer.app
 
+import android.view.WindowManager
 import com.google.android.play.core.integrity.IntegrityManagerFactory
 import com.google.android.play.core.integrity.IntegrityTokenRequest
 import io.flutter.embedding.android.FlutterActivity
@@ -55,6 +56,26 @@ class MainActivity : FlutterActivity() {
                 "No Play Integrity cloud project number or debug attestation secret configured.",
                 null
             )
+        }
+
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "debt_destroyer/privacy"
+        ).setMethodCallHandler { call, result ->
+            if (call.method != "setSecureScreenEnabled") {
+                result.notImplemented()
+                return@setMethodCallHandler
+            }
+
+            val enabled = call.argument<Boolean>("enabled") ?: false
+            runOnUiThread {
+                if (enabled) {
+                    window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                } else {
+                    window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                }
+                result.success(null)
+            }
         }
     }
 

@@ -42,6 +42,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     final prefs = await ref
         .read(preferencesRepositoryProvider)
         .loadPreferences();
+    await ref
+        .read(appSecurityCoordinatorProvider.notifier)
+        .syncPreferences(prefs);
     if (!mounted) {
       return;
     }
@@ -49,7 +52,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       context.go('/onboarding');
       return;
     }
-    if (prefs.appLockEnabled && !ref.read(appLockSessionProvider)) {
+    final security = ref.read(appSecurityCoordinatorProvider);
+    if (prefs.appLockEnabled && security.isLockRequired) {
       context.go('/unlock');
       return;
     }

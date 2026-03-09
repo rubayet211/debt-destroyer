@@ -250,6 +250,9 @@ class DataProtectionBootstrapService {
       hideBalances: row.hideBalances,
       appLockEnabled: row.appLockEnabled,
       aiConsentEnabled: row.aiConsentEnabled,
+      relockTimeout: AppRelockTimeout.seconds30,
+      screenshotProtectionEnabled: true,
+      privacyShieldOnAppSwitcherEnabled: true,
       notificationsEnabled: row.notificationsEnabled,
       onboardingCompleted: row.onboardingCompleted,
       weeklySummaryEnabled: row.weeklySummaryEnabled,
@@ -271,6 +274,10 @@ class DataProtectionBootstrapService {
         hideBalances: preferences.hideBalances,
         appLockEnabled: preferences.appLockEnabled,
         aiConsentEnabled: preferences.aiConsentEnabled,
+        relockTimeout: preferences.relockTimeout,
+        screenshotProtectionEnabled: preferences.screenshotProtectionEnabled,
+        privacyShieldOnAppSwitcherEnabled:
+            preferences.privacyShieldOnAppSwitcherEnabled,
       ),
     );
     await database

@@ -1,4 +1,5 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter/services.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
@@ -32,23 +33,81 @@ class NoopCrashReporter implements CrashReporter {
   Future<void> recordError(Object error, StackTrace stackTrace) async {}
 }
 
+class AuthResult {
+  const AuthResult({required this.outcome, this.message});
+
+  const AuthResult.success() : outcome = AuthOutcome.success, message = null;
+
+  final AuthOutcome outcome;
+  final String? message;
+
+  bool get isSuccess => outcome == AuthOutcome.success;
+}
+
 class BiometricAuthService {
   const BiometricAuthService(this._localAuth);
 
   final LocalAuthentication _localAuth;
 
-  Future<bool> authenticate() async {
-    final isSupported = await _localAuth.isDeviceSupported();
-    if (!isSupported) {
-      return false;
+  Future<AuthResult> authenticate() async {
+    try {
+      final isSupported = await _localAuth.isDeviceSupported();
+      if (!isSupported) {
+        return const AuthResult(
+          outcome: AuthOutcome.unavailable,
+          message: 'Device authentication is not available on this device.',
+        );
+      }
+      final success = await _localAuth.authenticate(
+        localizedReason: 'Unlock DEBT DESTROYER',
+        options: const AuthenticationOptions(
+          biometricOnly: false,
+          stickyAuth: true,
+        ),
+      );
+      return success
+          ? const AuthResult.success()
+          : const AuthResult(
+              outcome: AuthOutcome.cancelled,
+              message: 'Authentication was cancelled.',
+            );
+    } on PlatformException catch (error) {
+      return switch (error.code) {
+        'NotAvailable' ||
+        'PasscodeNotSet' ||
+        'NotEnrolled' ||
+        'NoBiometricHardware' ||
+        'NoHardware' ||
+        'NoCredentials' => const AuthResult(
+          outcome: AuthOutcome.unavailable,
+          message:
+              'Device authentication is unavailable. Add a screen lock or biometrics in system settings.',
+        ),
+        'LockedOut' || 'TemporaryLockout' => const AuthResult(
+          outcome: AuthOutcome.temporaryLockout,
+          message:
+              'Authentication is temporarily locked. Wait a moment, then try again.',
+        ),
+        'PermanentlyLockedOut' || 'BiometricLockout' => const AuthResult(
+          outcome: AuthOutcome.permanentLockout,
+          message:
+              'Biometrics are locked. Unlock your device first, then try again.',
+        ),
+        'UserCanceled' || 'SystemCanceled' || 'Timeout' => const AuthResult(
+          outcome: AuthOutcome.cancelled,
+          message: 'Authentication was not completed.',
+        ),
+        _ => AuthResult(
+          outcome: AuthOutcome.error,
+          message: error.message ?? 'Authentication failed.',
+        ),
+      };
+    } catch (_) {
+      return const AuthResult(
+        outcome: AuthOutcome.error,
+        message: 'Authentication failed.',
+      );
     }
-    return _localAuth.authenticate(
-      localizedReason: 'Unlock DEBT DESTROYER',
-      options: const AuthenticationOptions(
-        biometricOnly: false,
-        stickyAuth: true,
-      ),
-    );
   }
 }
 
