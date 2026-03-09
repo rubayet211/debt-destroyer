@@ -5,6 +5,7 @@ import 'package:drift/drift.dart';
 import '../../core/services/vault_services.dart';
 import '../enums/app_enums.dart';
 import '../models/debt.dart';
+import '../models/debt_financial_terms.dart';
 import '../models/import_models.dart';
 import '../models/payment.dart';
 import '../models/strategy_models.dart';
@@ -128,6 +129,7 @@ class DriftDebtsRepository implements DebtsRepository {
             updatedAt: debt.updatedAt,
             notes: Value(debt.notes),
             tagsJson: Value(database.encodeStringList(debt.tags)),
+            financialTermsJson: Value(jsonEncode(debt.financialTerms.toJson())),
             status: debt.status.name,
             remindersEnabled: Value(debt.remindersEnabled),
             customPriority: Value(debt.customPriority),
@@ -193,11 +195,23 @@ class DriftDebtsRepository implements DebtsRepository {
       updatedAt: row.updatedAt,
       notes: row.notes,
       tags: database.decodeStringList(row.tagsJson),
+      financialTerms: _decodeFinancialTerms(row.financialTermsJson),
       status: DebtStatus.values.byName(row.status),
       remindersEnabled: row.remindersEnabled,
       customPriority: row.customPriority,
     );
   }
+}
+
+DebtFinancialTerms _decodeFinancialTerms(String raw) {
+  if (raw.trim().isEmpty) {
+    return const DebtFinancialTerms();
+  }
+  final decoded = jsonDecode(raw);
+  if (decoded is! Map<String, dynamic>) {
+    return const DebtFinancialTerms();
+  }
+  return DebtFinancialTerms.fromJson(decoded);
 }
 
 class DriftPaymentsRepository implements PaymentsRepository {

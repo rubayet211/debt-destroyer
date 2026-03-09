@@ -8,6 +8,7 @@ import '../../../core/utils/parsers.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../../../shared/enums/app_enums.dart';
 import '../../../shared/models/debt.dart';
+import '../../../shared/models/debt_financial_terms.dart';
 import '../../../shared/models/payment.dart';
 import '../../../shared/models/user_preferences.dart';
 import '../../../shared/providers/app_providers.dart';
@@ -314,6 +315,64 @@ class DebtDetailsScreen extends ConsumerWidget {
                   ],
                 ),
               ),
+              if (item.financialTerms.hasAdvancedTerms) ...[
+                const SizedBox(height: 16),
+                AppCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SectionHeader(title: 'Projection terms'),
+                      const SizedBox(height: 12),
+                      _SummaryRow(
+                        label: 'Compounding',
+                        value: _compoundingLabel(
+                          item.financialTerms.interestCompounding,
+                        ),
+                      ),
+                      _SummaryRow(
+                        label: 'Minimum rule',
+                        value: _minimumRuleLabel(
+                          item.financialTerms.minimumPaymentRule,
+                        ),
+                      ),
+                      if (item.financialTerms.minimumPaymentPercent != null)
+                        _SummaryRow(
+                          label: 'Minimum %',
+                          value: Formatters.percent(
+                            item.financialTerms.minimumPaymentPercent!,
+                          ),
+                        ),
+                      if (item.financialTerms.promoApr != null)
+                        _SummaryRow(
+                          label: 'Promo APR',
+                          value:
+                              '${Formatters.percent(item.financialTerms.promoApr!)} until ${Formatters.date(item.financialTerms.promoEndsOn)}',
+                        ),
+                      if (item.financialTerms.monthlyFee > 0)
+                        _SummaryRow(
+                          label: 'Monthly fee',
+                          value: Formatters.currency(
+                            item.financialTerms.monthlyFee,
+                            currencyCode: item.currency,
+                          ),
+                        ),
+                      if (item.financialTerms.lateFee > 0)
+                        _SummaryRow(
+                          label: 'Late fee',
+                          value:
+                              '${Formatters.currency(item.financialTerms.lateFee, currencyCode: item.currency)} after ${item.financialTerms.lateFeeGraceDays} grace days',
+                        ),
+                      if (item.financialTerms.penaltyApr != null)
+                        _SummaryRow(
+                          label: 'Penalty APR',
+                          value: Formatters.percent(
+                            item.financialTerms.penaltyApr!,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 16),
               SectionHeader(
                 title: 'Recent payments',
@@ -470,11 +529,22 @@ class _AddEditDebtScreenState extends ConsumerState<AddEditDebtScreen> {
   late final TextEditingController _apr;
   late final TextEditingController _minimumPayment;
   late final TextEditingController _notes;
+  late final TextEditingController _minimumPercent;
+  late final TextEditingController _statementDay;
+  late final TextEditingController _promoApr;
+  late final TextEditingController _monthlyFee;
+  late final TextEditingController _lateFee;
+  late final TextEditingController _lateFeeGraceDays;
+  late final TextEditingController _penaltyApr;
   DebtType _type = DebtType.creditCard;
   PaymentFrequency _frequency = PaymentFrequency.monthly;
   DebtStatus _status = DebtStatus.active;
   bool _reminders = true;
   DateTime? _dueDate;
+  DateTime? _promoEndsOn;
+  InterestCompounding _interestCompounding =
+      InterestCompounding.monthlyCompound;
+  MinimumPaymentRule _minimumPaymentRule = MinimumPaymentRule.fixedAmount;
 
   @override
   void initState() {
@@ -493,11 +563,39 @@ class _AddEditDebtScreenState extends ConsumerState<AddEditDebtScreen> {
       text: debt?.minimumPayment.toString() ?? '',
     );
     _notes = TextEditingController(text: debt?.notes ?? '');
+    _minimumPercent = TextEditingController(
+      text: debt?.financialTerms.minimumPaymentPercent?.toString() ?? '',
+    );
+    _statementDay = TextEditingController(
+      text: debt?.financialTerms.statementDayOfMonth?.toString() ?? '',
+    );
+    _promoApr = TextEditingController(
+      text: debt?.financialTerms.promoApr?.toString() ?? '',
+    );
+    _monthlyFee = TextEditingController(
+      text: debt?.financialTerms.monthlyFee.toString() ?? '0',
+    );
+    _lateFee = TextEditingController(
+      text: debt?.financialTerms.lateFee.toString() ?? '0',
+    );
+    _lateFeeGraceDays = TextEditingController(
+      text: debt?.financialTerms.lateFeeGraceDays.toString() ?? '0',
+    );
+    _penaltyApr = TextEditingController(
+      text: debt?.financialTerms.penaltyApr?.toString() ?? '',
+    );
     _type = debt?.type ?? DebtType.creditCard;
     _frequency = debt?.paymentFrequency ?? PaymentFrequency.monthly;
     _status = debt?.status ?? DebtStatus.active;
     _reminders = debt?.remindersEnabled ?? true;
     _dueDate = debt?.dueDate;
+    _promoEndsOn = debt?.financialTerms.promoEndsOn;
+    _interestCompounding =
+        debt?.financialTerms.interestCompounding ??
+        InterestCompounding.monthlyCompound;
+    _minimumPaymentRule =
+        debt?.financialTerms.minimumPaymentRule ??
+        MinimumPaymentRule.fixedAmount;
   }
 
   @override
@@ -509,6 +607,13 @@ class _AddEditDebtScreenState extends ConsumerState<AddEditDebtScreen> {
     _apr.dispose();
     _minimumPayment.dispose();
     _notes.dispose();
+    _minimumPercent.dispose();
+    _statementDay.dispose();
+    _promoApr.dispose();
+    _monthlyFee.dispose();
+    _lateFee.dispose();
+    _lateFeeGraceDays.dispose();
+    _penaltyApr.dispose();
     super.dispose();
   }
 
@@ -675,6 +780,175 @@ class _AddEditDebtScreenState extends ConsumerState<AddEditDebtScreen> {
               decoration: const InputDecoration(labelText: 'Notes'),
               maxLines: 4,
             ),
+            const SizedBox(height: 12),
+            ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: EdgeInsets.zero,
+              title: const Text('Advanced payoff terms'),
+              subtitle: const Text(
+                'Optional promo APR, fees, and payment rules for better projections.',
+              ),
+              children: [
+                DropdownButtonFormField<InterestCompounding>(
+                  initialValue: _interestCompounding,
+                  decoration: const InputDecoration(
+                    labelText: 'Interest compounding',
+                  ),
+                  items: InterestCompounding.values
+                      .map(
+                        (value) => DropdownMenuItem(
+                          value: value,
+                          child: Text(_interestCompoundingLabel(value)),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) => setState(
+                    () => _interestCompounding = value ?? _interestCompounding,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<MinimumPaymentRule>(
+                  initialValue: _minimumPaymentRule,
+                  decoration: const InputDecoration(
+                    labelText: 'Minimum payment rule',
+                  ),
+                  items: MinimumPaymentRule.values
+                      .map(
+                        (value) => DropdownMenuItem(
+                          value: value,
+                          child: Text(_minimumPaymentRuleLabel(value)),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) => setState(
+                    () => _minimumPaymentRule = value ?? _minimumPaymentRule,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _minimumPercent,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: const InputDecoration(
+                          labelText: 'Minimum % of balance',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _statementDay,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Statement day',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _promoApr,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: const InputDecoration(
+                          labelText: 'Promo APR %',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(
+                          _promoEndsOn == null
+                              ? 'Promo end date'
+                              : Formatters.date(_promoEndsOn),
+                        ),
+                        trailing: const Icon(Icons.event_outlined),
+                        onTap: () async {
+                          final selected = await showDatePicker(
+                            context: context,
+                            firstDate: DateTime.now().subtract(
+                              const Duration(days: 365),
+                            ),
+                            lastDate: DateTime.now().add(
+                              const Duration(days: 3650),
+                            ),
+                            initialDate: _promoEndsOn ?? DateTime.now(),
+                          );
+                          if (selected != null) {
+                            setState(() => _promoEndsOn = selected);
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _monthlyFee,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: const InputDecoration(
+                          labelText: 'Monthly fee',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _lateFee,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: const InputDecoration(
+                          labelText: 'Late fee',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _lateFeeGraceDays,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Late fee grace days',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _penaltyApr,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: const InputDecoration(
+                          labelText: 'Penalty APR %',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
             const SizedBox(height: 24),
             FilledButton(
               onPressed: () => _save(context, preferences),
@@ -692,6 +966,18 @@ class _AddEditDebtScreenState extends ConsumerState<AddEditDebtScreen> {
     }
 
     final id = widget.initialDebt?.id ?? const Uuid().v4();
+    final financialTerms = DebtFinancialTerms(
+      interestCompounding: _interestCompounding,
+      statementDayOfMonth: int.tryParse(_statementDay.text),
+      minimumPaymentRule: _minimumPaymentRule,
+      minimumPaymentPercent: _nullableMoney(_minimumPercent.text),
+      promoApr: _nullableMoney(_promoApr.text),
+      promoEndsOn: _promoEndsOn,
+      monthlyFee: Parsers.parseMoney(_monthlyFee.text),
+      lateFee: Parsers.parseMoney(_lateFee.text),
+      lateFeeGraceDays: int.tryParse(_lateFeeGraceDays.text) ?? 0,
+      penaltyApr: _nullableMoney(_penaltyApr.text),
+    );
     final debt = Debt(
       id: id,
       title: _title.text.trim(),
@@ -713,6 +999,7 @@ class _AddEditDebtScreenState extends ConsumerState<AddEditDebtScreen> {
       status: _status,
       remindersEnabled: _reminders,
       customPriority: widget.initialDebt?.customPriority ?? 99,
+      financialTerms: financialTerms,
     );
 
     await ref.read(debtsRepositoryProvider).saveDebt(debt);
@@ -721,6 +1008,36 @@ class _AddEditDebtScreenState extends ConsumerState<AddEditDebtScreen> {
         .syncDebtReminders(debt, preferences.notificationsEnabled);
     if (context.mounted) {
       context.pop();
+    }
+  }
+
+  double? _nullableMoney(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) {
+      return null;
+    }
+    return Parsers.parseMoney(trimmed);
+  }
+
+  String _interestCompoundingLabel(InterestCompounding value) {
+    switch (value) {
+      case InterestCompounding.none:
+        return 'No interest';
+      case InterestCompounding.dailySimple:
+        return 'Daily simple';
+      case InterestCompounding.monthlyCompound:
+        return 'Monthly compound';
+    }
+  }
+
+  String _minimumPaymentRuleLabel(MinimumPaymentRule value) {
+    switch (value) {
+      case MinimumPaymentRule.fixedAmount:
+        return 'Fixed amount';
+      case MinimumPaymentRule.maxOfFixedOrPercent:
+        return 'Max of fixed or %';
+      case MinimumPaymentRule.interestPlusPercent:
+        return 'Interest plus %';
     }
   }
 }
@@ -933,5 +1250,53 @@ class _DetailStat extends StatelessWidget {
         Text(value, style: Theme.of(context).textTheme.titleMedium),
       ],
     );
+  }
+}
+
+class _SummaryRow extends StatelessWidget {
+  const _SummaryRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          Expanded(child: Text(label)),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _compoundingLabel(InterestCompounding value) {
+  switch (value) {
+    case InterestCompounding.none:
+      return 'No interest';
+    case InterestCompounding.dailySimple:
+      return 'Daily simple';
+    case InterestCompounding.monthlyCompound:
+      return 'Monthly compound';
+  }
+}
+
+String _minimumRuleLabel(MinimumPaymentRule value) {
+  switch (value) {
+    case MinimumPaymentRule.fixedAmount:
+      return 'Fixed amount';
+    case MinimumPaymentRule.maxOfFixedOrPercent:
+      return 'Max of fixed or %';
+    case MinimumPaymentRule.interestPlusPercent:
+      return 'Interest plus %';
   }
 }

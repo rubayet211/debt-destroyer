@@ -41,11 +41,29 @@ enum PaymentFrequency { weekly, biweekly, monthly, quarterly }
 
 enum DebtStatus { active, paidOff, archived }
 
+enum InterestCompounding { none, dailySimple, monthlyCompound }
+
+enum MinimumPaymentRule {
+  fixedAmount,
+  maxOfFixedOrPercent,
+  interestPlusPercent,
+}
+
 enum DocumentSourceType { camera, gallery, screenshot, pdf, receipt, bill }
 
 enum ParseStatus { pending, success, failed, discarded }
 
 enum StrategyType { snowball, avalanche, customPriority }
+
+enum ProjectionWarning {
+  underMinimumBudget,
+  overdueDebt,
+  promoRateApplied,
+  recurringFeesApplied,
+  lateFeesApplied,
+  penaltyAprApplied,
+  mixedPaymentFrequencies,
+}
 
 enum PremiumFeature {
   unlimitedScans,

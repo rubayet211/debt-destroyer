@@ -12,6 +12,7 @@ import 'package:debt_destroyer/shared/data/local/app_database.dart';
 import 'package:debt_destroyer/shared/data/repositories.dart';
 import 'package:debt_destroyer/shared/enums/app_enums.dart';
 import 'package:debt_destroyer/shared/models/debt.dart';
+import 'package:debt_destroyer/shared/models/debt_financial_terms.dart';
 import 'package:debt_destroyer/shared/models/import_models.dart';
 import 'package:debt_destroyer/shared/models/payment.dart';
 
@@ -82,6 +83,49 @@ void main() {
     final updated = await debtsRepository.loadDebts();
     expect(updated.single.currentBalance, 750);
     expect(updated.single.status, DebtStatus.active);
+  });
+
+  test('debt financial terms persist through repository mapping', () async {
+    final debt = Debt(
+      id: 'd-financial-terms',
+      title: 'Rewards Card',
+      creditorName: 'Bank',
+      type: DebtType.creditCard,
+      currency: 'USD',
+      originalBalance: 2800,
+      currentBalance: 2400,
+      apr: 24.9,
+      minimumPayment: 65,
+      dueDate: DateTime(2026, 1, 15),
+      paymentFrequency: PaymentFrequency.monthly,
+      createdAt: DateTime(2026, 1, 1),
+      updatedAt: DateTime(2026, 1, 1),
+      notes: '',
+      tags: const [],
+      status: DebtStatus.active,
+      remindersEnabled: false,
+      customPriority: 1,
+      financialTerms: const DebtFinancialTerms(
+        minimumPaymentRule: MinimumPaymentRule.maxOfFixedOrPercent,
+        minimumPaymentPercent: 2,
+        promoApr: 0,
+        monthlyFee: 7,
+        lateFee: 29,
+        penaltyApr: 29.99,
+      ),
+    );
+
+    await debtsRepository.saveDebt(debt);
+
+    final loaded = await debtsRepository.loadDebts();
+
+    expect(
+      loaded.single.financialTerms.minimumPaymentRule,
+      MinimumPaymentRule.maxOfFixedOrPercent,
+    );
+    expect(loaded.single.financialTerms.minimumPaymentPercent, 2);
+    expect(loaded.single.financialTerms.monthlyFee, 7);
+    expect(loaded.single.financialTerms.penaltyApr, 29.99);
   });
 
   test('paying full balance marks debt as paid off', () async {
