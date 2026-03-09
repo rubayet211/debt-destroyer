@@ -147,7 +147,7 @@ describe('billing verification endpoints', () => {
     expect(capabilities.json().entitlement.status).toBe('active');
   });
 
-  test('restore chooses the active entitlement from owned purchases', async () => {
+  test('restore persists the same active entitlement it returns', async () => {
     const accessToken = await bootstrap('install-restore');
     const restore = await app.inject({
       method: 'POST',
@@ -160,17 +160,17 @@ describe('billing verification endpoints', () => {
         purchases: [
           {
             product_id: 'premium',
-            base_plan_id: 'monthly',
-            purchase_token: 'expired-token',
-            purchase_state: 'restored',
-            purchase_time: '2026-03-01T00:00:00.000Z',
-          },
-          {
-            product_id: 'premium',
             base_plan_id: 'yearly',
             purchase_token: 'token-2',
             purchase_state: 'restored',
             purchase_time: '2026-03-09T00:00:00.000Z',
+          },
+          {
+            product_id: 'premium',
+            base_plan_id: 'monthly',
+            purchase_token: 'expired-token',
+            purchase_state: 'restored',
+            purchase_time: '2026-03-01T00:00:00.000Z',
           },
         ],
       },
@@ -179,5 +179,15 @@ describe('billing verification endpoints', () => {
     expect(restore.statusCode).toBe(200);
     expect(restore.json().entitlement.is_premium).toBe(true);
     expect(restore.json().entitlement.plan_id).toBe('yearly');
+
+    const capabilities = await app.inject({
+      method: 'GET',
+      url: '/v1/mobile/me/capabilities',
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    expect(capabilities.statusCode).toBe(200);
+    expect(capabilities.json().premium).toBe(true);
+    expect(capabilities.json().entitlement.plan_id).toBe('yearly');
+    expect(capabilities.json().entitlement.status).toBe('active');
   });
 });

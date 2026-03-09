@@ -49,6 +49,29 @@ enum PremiumFeature {
   premiumThemes,
 }
 
+PremiumFeature? premiumFeatureByNameOrNull(String name) {
+  for (final feature in PremiumFeature.values) {
+    if (feature.name == name) {
+      return feature;
+    }
+  }
+  return null;
+}
+
+Set<PremiumFeature> decodePremiumFeatures(Iterable<Object?> values) {
+  final features = <PremiumFeature>{};
+  for (final value in values) {
+    if (value == null) {
+      continue;
+    }
+    final feature = premiumFeatureByNameOrNull(value.toString());
+    if (feature != null) {
+      features.add(feature);
+    }
+  }
+  return features;
+}
+
 enum ImportActionType { createDebt, addPayment, importStatementItems }
 
 enum DocumentClassification {

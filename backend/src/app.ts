@@ -340,7 +340,6 @@ export async function createApp(options: CreateAppOptions = {}) {
         originalExternalId: normalized.originalExternalId,
         features: normalized.features,
       };
-      await store.upsertEntitlement(nextEntitlement);
       await store.savePurchaseHistory({
         recordId: makeId(),
         installId,
@@ -359,10 +358,12 @@ export async function createApp(options: CreateAppOptions = {}) {
         (bestEntitlement.validUntil == null ||
           (nextEntitlement.validUntil?.getTime() ?? 0) >
             (bestEntitlement.validUntil?.getTime() ?? 0))
-      ) {
-        bestEntitlement = nextEntitlement;
-      }
+        ) {
+          bestEntitlement = nextEntitlement;
+        }
     }
+
+    await store.upsertEntitlement(bestEntitlement);
 
     return reply.send(
       entitlementResponseSchema.parse({

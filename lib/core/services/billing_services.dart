@@ -41,10 +41,19 @@ class GooglePlayBillingService implements BillingService {
       throw StateError(response.error!.message);
     }
 
+    final invalidPlanErrors = <String>[];
     final plans =
         response.productDetails
             .whereType<GooglePlayProductDetails>()
-            .map(_mapPlan)
+            .map((details) {
+              try {
+                return _mapPlan(details);
+              } on StateError catch (error) {
+                invalidPlanErrors.add(error.message);
+                return null;
+              }
+            })
+            .whereType<BillingPlan>()
             .where(
               (plan) =>
                   plan.basePlanId == 'monthly' || plan.basePlanId == 'yearly',
@@ -59,7 +68,10 @@ class GooglePlayBillingService implements BillingService {
 
     if (plans.isEmpty) {
       throw StateError(
-        'No Play Billing plans found for premium/monthly/yearly.',
+        invalidPlanErrors.isEmpty
+            ? 'No valid Play Billing plans found for premium/monthly/yearly.'
+            : 'No valid Play Billing plans found for premium/monthly/yearly. '
+                  'Check Play Console offer configuration.',
       );
     }
 
@@ -116,13 +128,34 @@ class GooglePlayBillingService implements BillingService {
   }
 
   BillingPlan _mapPlan(GooglePlayProductDetails details) {
-    final offer = details
-        .productDetails
-        .subscriptionOfferDetails![details.subscriptionIndex!];
+    final offers = details.productDetails.subscriptionOfferDetails;
+    if (offers == null || offers.isEmpty) {
+      throw StateError(
+        'Google Play product ${details.id} is missing subscription offers.',
+      );
+    }
+    final index = details.subscriptionIndex;
+    if (index == null || index < 0 || index >= offers.length) {
+      throw StateError(
+        'Google Play product ${details.id} returned an invalid offer index.',
+      );
+    }
+    final offer = offers[index];
+    if (offer.pricingPhases.isEmpty) {
+      throw StateError(
+        'Google Play product ${details.id} offer ${offer.basePlanId} is missing pricing phases.',
+      );
+    }
+    final offerToken = details.offerToken ?? offer.offerIdToken;
+    if (offerToken.isEmpty) {
+      throw StateError(
+        'Google Play product ${details.id} offer ${offer.basePlanId} is missing an offer token.',
+      );
+    }
     return BillingPlan(
       productId: details.id,
       basePlanId: offer.basePlanId,
-      offerToken: details.offerToken ?? offer.offerIdToken,
+      offerToken: offerToken,
       title: details.title,
       description: details.description,
       priceLabel: details.price,
@@ -253,9 +286,7 @@ class EntitlementSyncService {
         .toSet();
     return EntitlementSnapshot(
       isPremium: json['is_premium'] as bool? ?? false,
-      features: featureNames
-          .map((name) => PremiumFeature.values.byName(name))
-          .toSet(),
+      features: decodePremiumFeatures(featureNames),
       validUntil: json['valid_until'] == null
           ? null
           : DateTime.tryParse(json['valid_until'].toString()),
@@ -401,7 +432,7 @@ class BillingController extends StateNotifier<BillingState> {
     try {
       final attempt = PurchaseAttempt(
         productId: purchase.productID,
-        basePlanId: state.selectedPlanId,
+        basePlanId: _extractBasePlanId(purchase),
         purchaseToken: purchase.verificationData.serverVerificationData,
         purchaseState: purchase.status.name,
         purchaseTime: _parsePurchaseDate(purchase.transactionDate),
@@ -428,6 +459,13 @@ class BillingController extends StateNotifier<BillingState> {
         message: error.toString(),
       );
     }
+  }
+
+  String? _extractBasePlanId(PurchaseDetails purchase) {
+    if (purchase is GooglePlayPurchaseDetails) {
+      return null;
+    }
+    return null;
   }
 
   DateTime? _parsePurchaseDate(String? value) {

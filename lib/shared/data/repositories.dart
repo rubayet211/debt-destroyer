@@ -698,9 +698,9 @@ class DriftSubscriptionRepository implements SubscriptionRepository {
   }
 
   SubscriptionState _map(SubscriptionStateTableData row) {
-    final features = (jsonDecode(row.unlockedFeaturesJson) as List<dynamic>)
-        .map((item) => PremiumFeature.values.byName(item.toString()))
-        .toSet();
+    final features = decodePremiumFeatures(
+      jsonDecode(row.unlockedFeaturesJson) as List<dynamic>,
+    );
     return SubscriptionState(
       isPremium: row.isPremium,
       expiresAt: row.expiresAt,
