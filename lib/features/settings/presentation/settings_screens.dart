@@ -452,10 +452,44 @@ class SecurityPrivacyScreen extends ConsumerWidget {
             subtitle: const Text(
               'Require biometric or device authentication before viewing data.',
             ),
+            onChanged: (value) =>
+                _toggleAppLock(context, ref, preferences, value),
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Relock timeout'),
+            subtitle: Text(_relockLabel(preferences.relockTimeout)),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => _showRelockSheet(context, ref, preferences),
+          ),
+          SwitchListTile.adaptive(
+            value: preferences.screenshotProtectionEnabled,
+            title: const Text('Screenshot protection'),
+            subtitle: const Text(
+              'Block screenshots and recents previews on sensitive screens.',
+            ),
             onChanged: (value) async {
               await ref
                   .read(preferencesRepositoryProvider)
-                  .savePreferences(preferences.copyWith(appLockEnabled: value));
+                  .savePreferences(
+                    preferences.copyWith(screenshotProtectionEnabled: value),
+                  );
+            },
+          ),
+          SwitchListTile.adaptive(
+            value: preferences.privacyShieldOnAppSwitcherEnabled,
+            title: const Text('Privacy shield in app switcher'),
+            subtitle: const Text(
+              'Obscure content when the app moves to the background.',
+            ),
+            onChanged: (value) async {
+              await ref
+                  .read(preferencesRepositoryProvider)
+                  .savePreferences(
+                    preferences.copyWith(
+                      privacyShieldOnAppSwitcherEnabled: value,
+                    ),
+                  );
             },
           ),
           SwitchListTile.adaptive(
@@ -564,6 +598,86 @@ class SecurityPrivacyScreen extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _toggleAppLock(
+    BuildContext context,
+    WidgetRef ref,
+    UserPreferences preferences,
+    bool value,
+  ) async {
+    if (!value) {
+      final updated = preferences.copyWith(appLockEnabled: false);
+      await ref.read(preferencesRepositoryProvider).savePreferences(updated);
+      await ref
+          .read(appSecurityCoordinatorProvider.notifier)
+          .syncPreferences(updated);
+      return;
+    }
+    final authResult = await ref
+        .read(appSecurityCoordinatorProvider.notifier)
+        .unlock();
+    if (!context.mounted) {
+      return;
+    }
+    if (!authResult.isSuccess) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            authResult.message ??
+                'Authentication is required before app lock can be enabled.',
+          ),
+        ),
+      );
+      return;
+    }
+    final updated = preferences.copyWith(appLockEnabled: true);
+    await ref.read(preferencesRepositoryProvider).savePreferences(updated);
+    await ref
+        .read(appSecurityCoordinatorProvider.notifier)
+        .syncPreferences(updated);
+    if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('App lock enabled')));
+    }
+  }
+
+  String _relockLabel(AppRelockTimeout timeout) {
+    return switch (timeout) {
+      AppRelockTimeout.immediate => 'Lock immediately after backgrounding',
+      AppRelockTimeout.seconds30 => 'Lock after 30 seconds',
+      AppRelockTimeout.minutes5 => 'Lock after 5 minutes',
+    };
+  }
+
+  Future<void> _showRelockSheet(
+    BuildContext context,
+    WidgetRef ref,
+    UserPreferences preferences,
+  ) {
+    return showModalBottomSheet<void>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: AppRelockTimeout.values.map((timeout) {
+            return ListTile(
+              title: Text(_relockLabel(timeout)),
+              onTap: () async {
+                await ref
+                    .read(preferencesRepositoryProvider)
+                    .savePreferences(
+                      preferences.copyWith(relockTimeout: timeout),
+                    );
+                if (context.mounted) {
+                  Navigator.of(context).pop();
+                }
+              },
+            );
+          }).toList(),
+        ),
       ),
     );
   }

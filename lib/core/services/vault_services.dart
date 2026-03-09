@@ -127,6 +127,9 @@ class ProtectedPreferenceValues {
     required this.hideBalances,
     required this.appLockEnabled,
     required this.aiConsentEnabled,
+    required this.relockTimeout,
+    required this.screenshotProtectionEnabled,
+    required this.privacyShieldOnAppSwitcherEnabled,
   });
 
   factory ProtectedPreferenceValues.defaults() {
@@ -134,22 +137,37 @@ class ProtectedPreferenceValues {
       hideBalances: false,
       appLockEnabled: false,
       aiConsentEnabled: false,
+      relockTimeout: AppRelockTimeout.seconds30,
+      screenshotProtectionEnabled: true,
+      privacyShieldOnAppSwitcherEnabled: true,
     );
   }
 
   final bool hideBalances;
   final bool appLockEnabled;
   final bool aiConsentEnabled;
+  final AppRelockTimeout relockTimeout;
+  final bool screenshotProtectionEnabled;
+  final bool privacyShieldOnAppSwitcherEnabled;
 
   ProtectedPreferenceValues copyWith({
     bool? hideBalances,
     bool? appLockEnabled,
     bool? aiConsentEnabled,
+    AppRelockTimeout? relockTimeout,
+    bool? screenshotProtectionEnabled,
+    bool? privacyShieldOnAppSwitcherEnabled,
   }) {
     return ProtectedPreferenceValues(
       hideBalances: hideBalances ?? this.hideBalances,
       appLockEnabled: appLockEnabled ?? this.appLockEnabled,
       aiConsentEnabled: aiConsentEnabled ?? this.aiConsentEnabled,
+      relockTimeout: relockTimeout ?? this.relockTimeout,
+      screenshotProtectionEnabled:
+          screenshotProtectionEnabled ?? this.screenshotProtectionEnabled,
+      privacyShieldOnAppSwitcherEnabled:
+          privacyShieldOnAppSwitcherEnabled ??
+          this.privacyShieldOnAppSwitcherEnabled,
     );
   }
 }
@@ -162,7 +180,12 @@ class ProtectedPreferencesStore {
   static const _hideBalancesKey = 'protected_pref_hide_balances';
   static const _appLockEnabledKey = 'protected_pref_app_lock_enabled';
   static const _aiConsentEnabledKey = 'protected_pref_ai_consent_enabled';
-  static const _migrationKey = 'protected_pref_flags_migrated_v1';
+  static const _relockTimeoutKey = 'protected_pref_relock_timeout';
+  static const _screenshotProtectionKey =
+      'protected_pref_screenshot_protection_enabled';
+  static const _privacyShieldKey =
+      'protected_pref_privacy_shield_on_app_switcher_enabled';
+  static const _migrationKey = 'protected_pref_flags_migrated_v2';
   final Map<String, String> _memoryFallback = <String, String>{};
 
   Future<void> migrateFromLegacy(UserPreferences preferences) async {
@@ -174,6 +197,10 @@ class ProtectedPreferencesStore {
         hideBalances: preferences.hideBalances,
         appLockEnabled: preferences.appLockEnabled,
         aiConsentEnabled: preferences.aiConsentEnabled,
+        relockTimeout: preferences.relockTimeout,
+        screenshotProtectionEnabled: preferences.screenshotProtectionEnabled,
+        privacyShieldOnAppSwitcherEnabled:
+            preferences.privacyShieldOnAppSwitcherEnabled,
       ),
     );
     await _write(_migrationKey, 'true');
@@ -184,6 +211,13 @@ class ProtectedPreferencesStore {
       hideBalances: await _readBool(_hideBalancesKey) ?? false,
       appLockEnabled: await _readBool(_appLockEnabledKey) ?? false,
       aiConsentEnabled: await _readBool(_aiConsentEnabledKey) ?? false,
+      relockTimeout:
+          _readRelockTimeout(await _read(_relockTimeoutKey)) ??
+          AppRelockTimeout.seconds30,
+      screenshotProtectionEnabled:
+          await _readBool(_screenshotProtectionKey) ?? true,
+      privacyShieldOnAppSwitcherEnabled:
+          await _readBool(_privacyShieldKey) ?? true,
     );
   }
 
@@ -192,6 +226,9 @@ class ProtectedPreferencesStore {
       _writeBool(_hideBalancesKey, values.hideBalances),
       _writeBool(_appLockEnabledKey, values.appLockEnabled),
       _writeBool(_aiConsentEnabledKey, values.aiConsentEnabled),
+      _write(_relockTimeoutKey, values.relockTimeout.name),
+      _writeBool(_screenshotProtectionKey, values.screenshotProtectionEnabled),
+      _writeBool(_privacyShieldKey, values.privacyShieldOnAppSwitcherEnabled),
     ]);
   }
 
@@ -201,6 +238,10 @@ class ProtectedPreferencesStore {
       hideBalances: protected.hideBalances,
       appLockEnabled: protected.appLockEnabled,
       aiConsentEnabled: protected.aiConsentEnabled,
+      relockTimeout: protected.relockTimeout,
+      screenshotProtectionEnabled: protected.screenshotProtectionEnabled,
+      privacyShieldOnAppSwitcherEnabled:
+          protected.privacyShieldOnAppSwitcherEnabled,
     );
   }
 
@@ -214,6 +255,18 @@ class ProtectedPreferencesStore {
       return null;
     }
     return value == 'true';
+  }
+
+  AppRelockTimeout? _readRelockTimeout(String? raw) {
+    if (raw == null || raw.isEmpty) {
+      return null;
+    }
+    for (final value in AppRelockTimeout.values) {
+      if (value.name == raw) {
+        return value;
+      }
+    }
+    return null;
   }
 
   Future<void> _writeBool(String key, bool value) {
@@ -233,6 +286,111 @@ class ProtectedPreferencesStore {
       await _storage.write(key: key, value: value);
     } on MissingPluginException {
       _memoryFallback[key] = value;
+    }
+  }
+}
+
+class AppSecuritySessionSnapshot {
+  const AppSecuritySessionSnapshot({
+    required this.lastUnlockedAt,
+    required this.lastBackgroundedAt,
+    required this.activeSession,
+  });
+
+  factory AppSecuritySessionSnapshot.empty() {
+    return const AppSecuritySessionSnapshot(
+      lastUnlockedAt: null,
+      lastBackgroundedAt: null,
+      activeSession: false,
+    );
+  }
+
+  final DateTime? lastUnlockedAt;
+  final DateTime? lastBackgroundedAt;
+  final bool activeSession;
+
+  AppSecuritySessionSnapshot copyWith({
+    DateTime? lastUnlockedAt,
+    DateTime? lastBackgroundedAt,
+    bool? activeSession,
+  }) {
+    return AppSecuritySessionSnapshot(
+      lastUnlockedAt: lastUnlockedAt ?? this.lastUnlockedAt,
+      lastBackgroundedAt: lastBackgroundedAt ?? this.lastBackgroundedAt,
+      activeSession: activeSession ?? this.activeSession,
+    );
+  }
+}
+
+class AppSecuritySessionStore {
+  AppSecuritySessionStore([this._storage = _defaultVaultStorage]);
+
+  final FlutterSecureStorage _storage;
+  final Map<String, String> _memoryFallback = <String, String>{};
+
+  static const _lastUnlockedAtKey = 'app_security_last_unlocked_at';
+  static const _lastBackgroundedAtKey = 'app_security_last_backgrounded_at';
+  static const _activeSessionKey = 'app_security_active_session';
+
+  Future<AppSecuritySessionSnapshot> read() async {
+    return AppSecuritySessionSnapshot(
+      lastUnlockedAt: _parseDate(await _read(_lastUnlockedAtKey)),
+      lastBackgroundedAt: _parseDate(await _read(_lastBackgroundedAtKey)),
+      activeSession: (await _read(_activeSessionKey)) == 'true',
+    );
+  }
+
+  Future<void> recordUnlock(DateTime now) async {
+    await Future.wait([
+      _write(_lastUnlockedAtKey, now.toIso8601String()),
+      _write(_activeSessionKey, 'true'),
+    ]);
+  }
+
+  Future<void> recordBackground(DateTime now) async {
+    await _write(_lastBackgroundedAtKey, now.toIso8601String());
+  }
+
+  Future<void> markLocked() async {
+    await _write(_activeSessionKey, 'false');
+  }
+
+  Future<void> clear() async {
+    await Future.wait([
+      _delete(_lastUnlockedAtKey),
+      _delete(_lastBackgroundedAtKey),
+      _delete(_activeSessionKey),
+    ]);
+  }
+
+  DateTime? _parseDate(String? raw) {
+    if (raw == null || raw.isEmpty) {
+      return null;
+    }
+    return DateTime.tryParse(raw);
+  }
+
+  Future<String?> _read(String key) async {
+    try {
+      return await _storage.read(key: key);
+    } on MissingPluginException {
+      return _memoryFallback[key];
+    }
+  }
+
+  Future<void> _write(String key, String value) async {
+    try {
+      await _storage.write(key: key, value: value);
+    } on MissingPluginException {
+      _memoryFallback[key] = value;
+    }
+  }
+
+  Future<void> _delete(String key) async {
+    try {
+      await _storage.delete(key: key);
+    } on MissingPluginException {
+      _memoryFallback.remove(key);
     }
   }
 }

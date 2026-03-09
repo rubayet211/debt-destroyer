@@ -4,6 +4,18 @@ enum ThemePreference { system, light, dark }
 
 enum DocumentRetentionMode { days7, days30, manual }
 
+enum AppRelockTimeout { immediate, seconds30, minutes5 }
+
+extension AppRelockTimeoutX on AppRelockTimeout {
+  Duration get duration {
+    return switch (this) {
+      AppRelockTimeout.immediate => Duration.zero,
+      AppRelockTimeout.seconds30 => const Duration(seconds: 30),
+      AppRelockTimeout.minutes5 => const Duration(minutes: 5),
+    };
+  }
+}
+
 enum DocumentLifecycleState {
   imported,
   processed,
@@ -117,3 +129,12 @@ enum DocumentClassification {
 enum PaymentSourceType { manual, scan, imported }
 
 enum ImportProcessingState { idle, loading, success, error }
+
+enum AuthOutcome {
+  success,
+  cancelled,
+  unavailable,
+  temporaryLockout,
+  permanentLockout,
+  error,
+}

@@ -19,6 +19,7 @@ import '../../core/services/app_services.dart';
 import '../../core/services/backend_services.dart';
 import '../../core/services/billing_services.dart';
 import '../../core/services/data_protection_service.dart';
+import '../../core/services/security_services.dart';
 import '../../core/services/vault_services.dart';
 import '../../features/dashboard/domain/debt_metrics_service.dart';
 import '../../features/scan_import/domain/import_services.dart';
@@ -84,6 +85,9 @@ final localVaultKeyServiceProvider = Provider(
 final protectedPreferencesStoreProvider = Provider(
   (ref) => ProtectedPreferencesStore(ref.watch(secureStorageProvider)),
 );
+final appSecuritySessionStoreProvider = Provider(
+  (ref) => AppSecuritySessionStore(ref.watch(secureStorageProvider)),
+);
 final dataRetentionServiceProvider = Provider(
   (ref) => const DataRetentionService(),
 );
@@ -102,6 +106,12 @@ final crashReporterProvider = Provider<CrashReporter>(
 );
 final biometricAuthServiceProvider = Provider(
   (ref) => BiometricAuthService(ref.watch(localAuthProvider)),
+);
+final sensitiveRouteRegistryProvider = Provider(
+  (ref) => const SensitiveRouteRegistry(),
+);
+final sensitiveScreenProtectionServiceProvider = Provider(
+  (ref) => const SensitiveScreenProtectionService(),
 );
 final reminderSchedulerProvider = Provider((ref) {
   final scheduler = ReminderScheduler(ref.watch(localNotificationsProvider));
@@ -324,7 +334,15 @@ final appRouterProvider = Provider((ref) => buildRouter(ref));
 final selectedDebtFilterProvider = StateProvider<String>((ref) => '');
 final debtSortStrategyProvider = StateProvider<StrategyType?>((ref) => null);
 final debtSortModeProvider = StateProvider<String>((ref) => 'updated');
-final appLockSessionProvider = StateProvider<bool>((ref) => false);
+final appSecurityCoordinatorProvider =
+    StateNotifierProvider<AppSecurityCoordinator, AppSecurityState>(
+      (ref) => AppSecurityCoordinator(
+        sessionStore: ref.watch(appSecuritySessionStoreProvider),
+        protectionService: ref.watch(sensitiveScreenProtectionServiceProvider),
+        routeRegistry: ref.watch(sensitiveRouteRegistryProvider),
+        biometricAuthService: ref.watch(biometricAuthServiceProvider),
+      ),
+    );
 final scanImportStateProvider =
     StateNotifierProvider<
       ScanImportController,
