@@ -111,6 +111,9 @@ class BackendEntitlement {
 class BackendExtractionResponse {
   const BackendExtractionResponse({
     required this.extraction,
+    required this.summary,
+    required this.lineItems,
+    required this.documentSignals,
     required this.warnings,
     required this.quota,
     required this.requestId,
@@ -120,6 +123,9 @@ class BackendExtractionResponse {
   });
 
   final Map<String, dynamic> extraction;
+  final Map<String, dynamic> summary;
+  final List<Map<String, dynamic>> lineItems;
+  final List<String> documentSignals;
   final List<String> warnings;
   final BackendQuotaSnapshot quota;
   final String requestId;

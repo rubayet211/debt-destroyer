@@ -27,6 +27,25 @@ class FakeProvider implements AiProvider {
       confidence: 0.92,
       last4: '1234',
       raw_detected_labels: ['statement'],
+      statement_start_date: '2026-02-01',
+      statement_end_date: '2026-02-28',
+      line_items: [
+        {
+          date: '2026-02-05',
+          description: 'ONLINE PAYMENT THANK YOU',
+          amount: 250,
+          type: 'payment',
+          confidence: 0.88,
+          currency: 'usd',
+          warnings: [],
+        },
+        {
+          description: null,
+          amount: 40.5,
+          type: 'fee',
+        },
+      ],
+      document_signals: ['statement', 'line_items_detected'],
     };
   }
 }
@@ -161,6 +180,11 @@ describe('extraction endpoint', () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json().extraction.currency).toBe('USD');
+    expect(response.json().summary.statement_start_date).toBe('2026-02-01');
+    expect(response.json().line_items).toHaveLength(1);
+    expect(response.json().line_items[0].type).toBe('payment');
+    expect(response.json().document_signals).toContain('line_items_detected');
+    expect(response.json().warnings).toContain('dropped_malformed_line_items');
     expect(response.json().quota.remaining_free_scans).toBe(0);
   });
 

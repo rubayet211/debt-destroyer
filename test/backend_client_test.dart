@@ -65,7 +65,7 @@ void main() {
           allowCloud: false,
         );
 
-        expect(candidate.currentBalance, 1200);
+        expect(candidate.summary.currentBalance, 1200);
         expect(candidate.warnings, isEmpty);
       },
     );
@@ -109,6 +109,76 @@ void main() {
 
         expect(candidate.warnings, contains('quota_exhausted'));
         expect(candidate.quotaSnapshot?.premiumRequired, true);
+      },
+    );
+
+    test(
+      'deduplicates cloud and local line items after sign normalization',
+      () async {
+        final service = BackendAiExtractionService(
+          client: BackendApiClient(
+            httpClient: _SequenceClient([
+              http.Response(
+                jsonEncode({
+                  'summary': {
+                    'title': 'Acme Statement',
+                    'issuer_name': 'Acme Bank',
+                    'debt_type': 'credit card',
+                    'confidence': 0.9,
+                    'currency': null,
+                  },
+                  'extraction': {
+                    'title': 'Acme Statement',
+                    'issuer_name': 'Acme Bank',
+                    'debt_type': 'credit card',
+                    'confidence': 0.9,
+                    'currency': null,
+                  },
+                  'line_items': [
+                    {
+                      'id': 'remote-1',
+                      'date': '2026-02-05',
+                      'description': 'ONLINE PAYMENT THANK YOU',
+                      'amount': -250,
+                      'type': 'payment',
+                      'confidence': 0.95,
+                      'currency': null,
+                      'warnings': [],
+                    },
+                  ],
+                  'document_signals': ['statement'],
+                  'warnings': [],
+                  'quota': {
+                    'allowed': true,
+                    'remaining_free_scans': 3,
+                    'premium_required': false,
+                    'reset_at': '2026-04-01T00:00:00.000Z',
+                  },
+                }),
+                200,
+              ),
+            ]),
+            config: _backendConfig,
+            sessionManager: _FakeSessionManager(),
+          ),
+          sessionManager: _FakeSessionManager(),
+          config: _backendConfig,
+          parser: HeuristicExtractionParser(),
+        );
+
+        final result = await service.extract(
+          classification: DocumentClassification.creditCardStatement,
+          normalizedText: '''
+ACME CREDIT CARD STATEMENT
+02/05/2026 ONLINE PAYMENT THANK YOU 250.00
+''',
+          sourceType: DocumentSourceType.gallery,
+          allowCloud: true,
+        );
+
+        expect(result.statementLineItems, hasLength(1));
+        expect(result.statementLineItems.single.amount, 250);
+        expect(result.summary.currency, isNull);
       },
     );
   });
