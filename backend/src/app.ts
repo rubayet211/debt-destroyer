@@ -5,6 +5,9 @@ import { loadConfig, type AppConfig } from './config.js';
 import {
   bootstrapChallengeRequestSchema,
   bootstrapVerifyRequestSchema,
+  billingRestoreRequestSchema,
+  billingVerifyRequestSchema,
+  entitlementResponseSchema,
   extractionRequestSchema,
   extractionResponseSchema,
   tokenRefreshRequestSchema,
@@ -13,10 +16,12 @@ import {
 import { AppError } from './utils.js';
 import { ConfigurableAttestationVerifier } from './services/attestation.js';
 import { makeId, makeNonce, makeOpaqueToken, redactTextPreview, sha256 } from './services/crypto.js';
+import { createBillingVerifier, type BillingVerifier } from './services/billing.js';
 import { GeminiProvider, type AiProvider } from './services/provider.js';
 import { createRateLimiter, type RateLimiter } from './services/rate-limit.js';
 import {
   createStore,
+  type EntitlementRecord,
   hashToken,
   monthKeyFor,
   type AppStore,
@@ -29,6 +34,7 @@ type CreateAppOptions = {
   store?: AppStore;
   provider?: AiProvider;
   rateLimiter?: RateLimiter;
+  billingVerifier?: BillingVerifier;
 };
 
 type AccessTokenPayload = {
@@ -41,6 +47,7 @@ export async function createApp(options: CreateAppOptions = {}) {
   const store: AppStore =
     options.store ?? (await createStore(config.postgresUrl));
   const provider = options.provider ?? new GeminiProvider(config);
+  const billingVerifier = options.billingVerifier ?? createBillingVerifier(config);
   const rateLimiter: RateLimiter =
     options.rateLimiter ?? (await createRateLimiter(config.redisUrl));
   const attestationVerifier = new ConfigurableAttestationVerifier(config);
@@ -215,7 +222,153 @@ export async function createApp(options: CreateAppOptions = {}) {
       features: entitlement.features,
       free_scan_remaining: quota.remaining_free_scans,
       rate_limit_state: 'ok',
+      entitlement: serializeEntitlement(entitlement),
     });
+  });
+
+  app.post('/v1/billing/google-play/verify', async (request, reply) => {
+    const installId = await requireInstallId(request, config);
+    const body = billingVerifyRequestSchema.parse(request.body);
+    if (body.install_id !== installId) {
+      throw new AppError(403, 'install_mismatch', 'Install id mismatch');
+    }
+    if (body.package_name !== config.googlePlayPackageName) {
+      throw new AppError(400, 'package_mismatch', 'Unexpected package name');
+    }
+
+    const verified = await billingVerifier.verifySubscription({
+      productId: body.product_id,
+      basePlanId: body.base_plan_id ?? null,
+      purchaseToken: body.purchase_token,
+      packageName: body.package_name,
+    });
+    const normalized = {
+      ...verified,
+      purchaseTokenHash: sha256(body.purchase_token),
+    };
+
+    await store.upsertEntitlement({
+      installId,
+      isPremium: normalized.isPremium,
+      productId: normalized.productId,
+      planId: normalized.planId,
+      billingProvider: normalized.billingProvider,
+      status: normalized.status,
+      validUntil: normalized.validUntil,
+      autoRenewing: normalized.autoRenewing,
+      lastVerifiedAt: normalized.lastVerifiedAt,
+      purchaseTokenHash: normalized.purchaseTokenHash,
+      originalExternalId: normalized.originalExternalId,
+      features: normalized.features,
+    });
+    await store.savePurchaseHistory({
+      recordId: makeId(),
+      installId,
+      productId: normalized.productId ?? body.product_id,
+      planId: normalized.planId,
+      billingProvider: normalized.billingProvider,
+      status: normalized.status,
+      purchaseTokenHash: normalized.purchaseTokenHash,
+      originalExternalId: normalized.originalExternalId,
+      validUntil: normalized.validUntil,
+      autoRenewing: normalized.autoRenewing,
+      payload: normalized.rawProviderPayload,
+    });
+    await store.saveAuditEvent({
+      installId,
+      eventType: 'billing.verify.completed',
+      payload: {
+        productId: normalized.productId,
+        planId: normalized.planId,
+        status: normalized.status,
+      },
+    });
+
+    return reply.send(
+      entitlementResponseSchema.parse({
+        entitlement: serializeEntitlement({
+          installId,
+          isPremium: normalized.isPremium,
+          productId: normalized.productId,
+          planId: normalized.planId,
+          billingProvider: normalized.billingProvider,
+          status: normalized.status,
+          validUntil: normalized.validUntil,
+          autoRenewing: normalized.autoRenewing,
+          lastVerifiedAt: normalized.lastVerifiedAt,
+          purchaseTokenHash: normalized.purchaseTokenHash,
+          originalExternalId: normalized.originalExternalId,
+          features: normalized.features,
+        }),
+      }),
+    );
+  });
+
+  app.post('/v1/billing/google-play/restore', async (request, reply) => {
+    const installId = await requireInstallId(request, config);
+    const body = billingRestoreRequestSchema.parse(request.body);
+    if (body.install_id !== installId) {
+      throw new AppError(403, 'install_mismatch', 'Install id mismatch');
+    }
+    if (body.package_name !== config.googlePlayPackageName) {
+      throw new AppError(400, 'package_mismatch', 'Unexpected package name');
+    }
+
+    let bestEntitlement = await store.getEntitlement(installId);
+    for (const purchase of body.purchases) {
+      const verified = await billingVerifier.verifySubscription({
+        productId: purchase.product_id,
+        basePlanId: purchase.base_plan_id ?? null,
+        purchaseToken: purchase.purchase_token,
+        packageName: body.package_name,
+      });
+      const normalized = {
+        ...verified,
+        purchaseTokenHash: sha256(purchase.purchase_token),
+      };
+      const nextEntitlement = {
+        installId,
+        isPremium: normalized.isPremium,
+        productId: normalized.productId,
+        planId: normalized.planId,
+        billingProvider: normalized.billingProvider,
+        status: normalized.status,
+        validUntil: normalized.validUntil,
+        autoRenewing: normalized.autoRenewing,
+        lastVerifiedAt: normalized.lastVerifiedAt,
+        purchaseTokenHash: normalized.purchaseTokenHash,
+        originalExternalId: normalized.originalExternalId,
+        features: normalized.features,
+      };
+      await store.upsertEntitlement(nextEntitlement);
+      await store.savePurchaseHistory({
+        recordId: makeId(),
+        installId,
+        productId: normalized.productId ?? purchase.product_id,
+        planId: normalized.planId,
+        billingProvider: normalized.billingProvider,
+        status: normalized.status,
+        purchaseTokenHash: normalized.purchaseTokenHash,
+        originalExternalId: normalized.originalExternalId,
+        validUntil: normalized.validUntil,
+        autoRenewing: normalized.autoRenewing,
+        payload: normalized.rawProviderPayload,
+      });
+      if (
+        nextEntitlement.isPremium &&
+        (bestEntitlement.validUntil == null ||
+          (nextEntitlement.validUntil?.getTime() ?? 0) >
+            (bestEntitlement.validUntil?.getTime() ?? 0))
+      ) {
+        bestEntitlement = nextEntitlement;
+      }
+    }
+
+    return reply.send(
+      entitlementResponseSchema.parse({
+        entitlement: serializeEntitlement(bestEntitlement),
+      }),
+    );
   });
 
   app.post('/v1/ai/extractions', async (request, reply) => {
@@ -434,4 +587,19 @@ function quotaReservationTtlSeconds(config: AppConfig) {
 function nextMonthReset() {
   const now = new Date();
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+}
+
+function serializeEntitlement(entitlement: EntitlementRecord) {
+  return {
+    is_premium: entitlement.isPremium,
+    product_id: entitlement.productId,
+    plan_id: entitlement.planId,
+    billing_provider: entitlement.billingProvider,
+    status: entitlement.status,
+    valid_until: entitlement.validUntil?.toISOString() ?? null,
+    auto_renewing: entitlement.autoRenewing,
+    last_verified_at: entitlement.lastVerifiedAt?.toISOString() ?? null,
+    original_external_id: entitlement.originalExternalId,
+    features: entitlement.features,
+  };
 }

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/widgets/app_widgets.dart';
 import '../../../shared/enums/app_enums.dart';
+import '../../../shared/models/billing_models.dart';
 import '../../../shared/models/subscription_state.dart';
 import '../../../shared/models/user_preferences.dart';
 import '../../../shared/providers/app_providers.dart';
@@ -13,6 +14,7 @@ class SettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(entitlementRefreshProvider);
     final preferences =
         ref.watch(userPreferencesProvider).valueOrNull ??
         UserPreferences.defaults();
@@ -29,7 +31,9 @@ class SettingsScreen extends ConsumerWidget {
               contentPadding: EdgeInsets.zero,
               title: const Text('Premium status'),
               subtitle: Text(
-                subscription.isPremium ? 'Premium active' : 'Free plan',
+                subscription.isActive
+                    ? 'Premium ${subscription.planId ?? ''}'.trim()
+                    : 'Free plan',
               ),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => context.push('/premium'),
@@ -266,13 +270,21 @@ class PremiumScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(entitlementRefreshProvider);
     final subscription =
         ref.watch(subscriptionStateProvider).valueOrNull ??
         SubscriptionState.free();
+    final billingState = ref.watch(billingControllerProvider);
     final unlocked = PremiumFeature.values
         .where((feature) => subscription.hasFeature(feature))
         .map((feature) => feature.name)
         .join(', ');
+    final yearly = billingState.catalog?.yearlyPlan;
+    final monthly = billingState.catalog?.monthlyPlan;
+    final actionBusy =
+        billingState.status == BillingStatus.purchasing ||
+        billingState.status == BillingStatus.pending ||
+        billingState.status == BillingStatus.restoring;
     return AppPage(
       title: 'Premium',
       child: ListView(
@@ -287,33 +299,48 @@ class PremiumScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  'Premium unlocks PDF parsing, advanced reports, scenario saving, and export.',
+                  'Premium unlocks PDF parsing, advanced reports, scenario saving, export, and unlimited secure scans.',
                 ),
                 const SizedBox(height: 16),
-                FilledButton(
-                  onPressed: () async {
-                    await ref
-                        .read(subscriptionRepositoryProvider)
-                        .saveSubscription(
-                          const SubscriptionState(
-                            isPremium: true,
-                            expiresAt: null,
-                            unlockedFeatures: {
-                              PremiumFeature.unlimitedScans,
-                              PremiumFeature.pdfImport,
-                              PremiumFeature.advancedReports,
-                              PremiumFeature.csvExport,
-                              PremiumFeature.scenarioSaving,
-                              PremiumFeature.advancedStrategyComparison,
-                            },
-                          ),
-                        );
-                  },
-                  child: Text(
-                    subscription.isPremium
-                        ? 'Premium active'
-                        : 'Enable local premium demo',
+                if (billingState.message != null) ...[
+                  Text(billingState.message!),
+                  const SizedBox(height: 12),
+                ],
+                if (yearly != null)
+                  _PlanTile(
+                    title: 'Yearly',
+                    subtitle: '${yearly.priceLabel} / ${yearly.billingPeriod}',
+                    highlighted: true,
+                    enabled: !actionBusy,
+                    onPressed: subscription.isActive
+                        ? null
+                        : () => ref
+                              .read(billingControllerProvider.notifier)
+                              .purchase(yearly),
                   ),
+                if (monthly != null) ...[
+                  const SizedBox(height: 12),
+                  _PlanTile(
+                    title: 'Monthly',
+                    subtitle:
+                        '${monthly.priceLabel} / ${monthly.billingPeriod}',
+                    highlighted: false,
+                    enabled: !actionBusy,
+                    onPressed: subscription.isActive
+                        ? null
+                        : () => ref
+                              .read(billingControllerProvider.notifier)
+                              .purchase(monthly),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                OutlinedButton(
+                  onPressed: actionBusy
+                      ? null
+                      : () => ref
+                            .read(billingControllerProvider.notifier)
+                            .restore(),
+                  child: const Text('Restore purchases'),
                 ),
               ],
             ),
@@ -326,8 +353,79 @@ class PremiumScreen extends ConsumerWidget {
                 const Text('Current unlocks'),
                 const SizedBox(height: 8),
                 Text(unlocked.isEmpty ? 'None yet' : unlocked),
+                if (subscription.validUntil != null) ...[
+                  const SizedBox(height: 8),
+                  Text('Valid until ${subscription.validUntil}'),
+                ],
+                if (subscription.status != null) ...[
+                  const SizedBox(height: 8),
+                  Text('Status: ${subscription.status}'),
+                ],
               ],
             ),
+          ),
+          const SizedBox(height: 16),
+          AppCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Text('Subscriptions are managed by Google Play.'),
+                SizedBox(height: 8),
+                Text(
+                  'New purchases and restores require backend verification before premium access is granted.',
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PlanTile extends StatelessWidget {
+  const _PlanTile({
+    required this.title,
+    required this.subtitle,
+    required this.highlighted,
+    required this.enabled,
+    required this.onPressed,
+  });
+
+  final String title;
+  final String subtitle;
+  final bool highlighted;
+  final bool enabled;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: highlighted
+              ? Theme.of(context).colorScheme.primary
+              : Theme.of(context).dividerColor,
+          width: highlighted ? 1.5 : 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 4),
+                Text(subtitle),
+              ],
+            ),
+          ),
+          FilledButton(
+            onPressed: enabled ? onPressed : null,
+            child: Text(highlighted ? 'Best value' : 'Choose'),
           ),
         ],
       ),
@@ -528,7 +626,7 @@ class HelpAboutScreen extends StatelessWidget {
               ),
               SizedBox(height: 12),
               Text(
-                'Roadmap: billing integration, encrypted backups, household mode, and richer statement parsing.',
+                'Roadmap: encrypted backups, household mode, and richer statement parsing.',
               ),
             ],
           ),

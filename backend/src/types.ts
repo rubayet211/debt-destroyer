@@ -51,6 +51,19 @@ export const quotaSnapshotSchema = z.object({
   reset_at: z.string(),
 });
 
+export const entitlementSnapshotSchema = z.object({
+  is_premium: z.boolean(),
+  product_id: z.string().nullable(),
+  plan_id: z.string().nullable(),
+  billing_provider: z.string().nullable(),
+  status: z.string(),
+  valid_until: z.string().nullable(),
+  auto_renewing: z.boolean(),
+  last_verified_at: z.string().nullable(),
+  original_external_id: z.string().nullable(),
+  features: z.array(z.string()),
+});
+
 export const extractionResponseSchema = z.object({
   extraction: extractionSchema,
   warnings: z.array(z.string()),
@@ -95,6 +108,36 @@ export const extractionRequestSchema = z.object({
   consented_at: z.string().min(1),
 });
 
+export const billingVerifyRequestSchema = z.object({
+  install_id: z.string().min(1),
+  product_id: z.string().min(1),
+  base_plan_id: z.string().nullable().optional(),
+  purchase_token: z.string().min(1),
+  package_name: z.string().min(1),
+  purchase_state: z.string().min(1),
+  purchase_time: z.string().nullable().optional(),
+  app_version: z.string().min(1),
+});
+
+export const billingRestoreRequestSchema = z.object({
+  install_id: z.string().min(1),
+  package_name: z.string().min(1),
+  app_version: z.string().min(1),
+  purchases: z.array(
+    z.object({
+      product_id: z.string().min(1),
+      base_plan_id: z.string().nullable().optional(),
+      purchase_token: z.string().min(1),
+      purchase_state: z.string().min(1),
+      purchase_time: z.string().nullable().optional(),
+    }),
+  ),
+});
+
+export const entitlementResponseSchema = z.object({
+  entitlement: entitlementSnapshotSchema,
+});
+
 export type DocumentClassification = z.infer<
   typeof documentClassificationSchema
 >;
@@ -108,3 +151,6 @@ export type BootstrapVerifyRequest = z.infer<
 >;
 export type TokenRefreshRequest = z.infer<typeof tokenRefreshRequestSchema>;
 export type ExtractionRequest = z.infer<typeof extractionRequestSchema>;
+export type BillingVerifyRequest = z.infer<typeof billingVerifyRequestSchema>;
+export type BillingRestoreRequest = z.infer<typeof billingRestoreRequestSchema>;
+export type EntitlementSnapshot = z.infer<typeof entitlementSnapshotSchema>;

@@ -41,7 +41,30 @@ export type QuotaReservationResult = {
 export type EntitlementRecord = {
   installId: string;
   isPremium: boolean;
+  productId: string | null;
+  planId: string | null;
+  billingProvider: string | null;
+  status: string;
+  validUntil: Date | null;
+  autoRenewing: boolean;
+  lastVerifiedAt: Date | null;
+  purchaseTokenHash: string | null;
+  originalExternalId: string | null;
   features: string[];
+};
+
+export type PurchaseHistoryRecord = {
+  recordId: string;
+  installId: string;
+  productId: string;
+  planId: string | null;
+  billingProvider: string;
+  status: string;
+  purchaseTokenHash: string;
+  originalExternalId: string | null;
+  validUntil: Date | null;
+  autoRenewing: boolean;
+  payload: Record<string, unknown>;
 };
 
 export type ExtractionAuditRecord = {
@@ -76,6 +99,8 @@ export interface AppStore {
   commitQuotaSlot(reservationId: string): Promise<void>;
   releaseQuotaSlot(reservationId: string): Promise<void>;
   getEntitlement(installId: string): Promise<EntitlementRecord>;
+  upsertEntitlement(record: EntitlementRecord): Promise<void>;
+  savePurchaseHistory(record: PurchaseHistoryRecord): Promise<void>;
   saveExtractionAudit(record: ExtractionAuditRecord): Promise<void>;
   saveAuditEvent(input: {
     installId?: string;
@@ -220,10 +245,25 @@ export class MemoryAppStore implements AppStore {
       this.entitlements.get(installId) ?? {
         installId,
         isPremium: false,
+        productId: null,
+        planId: null,
+        billingProvider: null,
+        status: 'free',
+        validUntil: null,
+        autoRenewing: false,
+        lastVerifiedAt: null,
+        purchaseTokenHash: null,
+        originalExternalId: null,
         features: [],
       }
     );
   }
+
+  async upsertEntitlement(record: EntitlementRecord) {
+    this.entitlements.set(record.installId, record);
+  }
+
+  async savePurchaseHistory(_record: PurchaseHistoryRecord) {}
 
   async saveExtractionAudit(_record: ExtractionAuditRecord) {}
 
@@ -686,7 +726,19 @@ export class PostgresAppStore implements AppStore {
   async getEntitlement(installId: string) {
     const result = await this.pool.query(
       `
-        select install_id, is_premium, features
+        select
+          install_id,
+          is_premium,
+          product_id,
+          plan_id,
+          billing_provider,
+          status,
+          valid_until,
+          auto_renewing,
+          last_verified_at,
+          purchase_token_hash,
+          original_external_id,
+          features
         from premium_entitlements
         where install_id = $1
       `,
@@ -697,9 +749,118 @@ export class PostgresAppStore implements AppStore {
       ? {
           installId: row.install_id,
           isPremium: row.is_premium,
+          productId: row.product_id,
+          planId: row.plan_id,
+          billingProvider: row.billing_provider,
+          status: row.status,
+          validUntil: row.valid_until,
+          autoRenewing: row.auto_renewing,
+          lastVerifiedAt: row.last_verified_at,
+          purchaseTokenHash: row.purchase_token_hash,
+          originalExternalId: row.original_external_id,
           features: row.features,
         }
-      : { installId, isPremium: false, features: [] };
+      : {
+          installId,
+          isPremium: false,
+          productId: null,
+          planId: null,
+          billingProvider: null,
+          status: 'free',
+          validUntil: null,
+          autoRenewing: false,
+          lastVerifiedAt: null,
+          purchaseTokenHash: null,
+          originalExternalId: null,
+          features: [],
+        };
+  }
+
+  async upsertEntitlement(record: EntitlementRecord) {
+    await this.pool.query(
+      `
+        insert into premium_entitlements
+          (
+            install_id,
+            is_premium,
+            product_id,
+            plan_id,
+            billing_provider,
+            status,
+            valid_until,
+            auto_renewing,
+            last_verified_at,
+            purchase_token_hash,
+            original_external_id,
+            features,
+            updated_at
+          )
+        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, now())
+        on conflict (install_id)
+        do update set
+          is_premium = excluded.is_premium,
+          product_id = excluded.product_id,
+          plan_id = excluded.plan_id,
+          billing_provider = excluded.billing_provider,
+          status = excluded.status,
+          valid_until = excluded.valid_until,
+          auto_renewing = excluded.auto_renewing,
+          last_verified_at = excluded.last_verified_at,
+          purchase_token_hash = excluded.purchase_token_hash,
+          original_external_id = excluded.original_external_id,
+          features = excluded.features,
+          updated_at = now()
+      `,
+      [
+        record.installId,
+        record.isPremium,
+        record.productId,
+        record.planId,
+        record.billingProvider,
+        record.status,
+        record.validUntil,
+        record.autoRenewing,
+        record.lastVerifiedAt,
+        record.purchaseTokenHash,
+        record.originalExternalId,
+        JSON.stringify(record.features),
+      ],
+    );
+  }
+
+  async savePurchaseHistory(record: PurchaseHistoryRecord) {
+    await this.pool.query(
+      `
+        insert into billing_purchase_history
+          (
+            record_id,
+            install_id,
+            product_id,
+            plan_id,
+            billing_provider,
+            status,
+            purchase_token_hash,
+            original_external_id,
+            valid_until,
+            auto_renewing,
+            payload
+          )
+        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb)
+      `,
+      [
+        record.recordId,
+        record.installId,
+        record.productId,
+        record.planId,
+        record.billingProvider,
+        record.status,
+        record.purchaseTokenHash,
+        record.originalExternalId,
+        record.validUntil,
+        record.autoRenewing,
+        JSON.stringify(record.payload),
+      ],
+    );
   }
 
   async saveExtractionAudit(record: ExtractionAuditRecord) {

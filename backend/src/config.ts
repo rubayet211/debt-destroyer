@@ -24,6 +24,8 @@ const configSchema = z
     REQUEST_TIMEOUT_MS: z.coerce.number().default(15000),
     ALLOW_DEBUG_ATTESTATION: z.coerce.boolean().default(false),
     DEBUG_ATTESTATION_SECRET: z.string().optional(),
+    GOOGLE_PLAY_PACKAGE_NAME: z.string().default('com.debtdestroyer.app'),
+    GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: z.string().optional(),
   })
   .superRefine((env, ctx) => {
     const isLocalEnvironment =
@@ -85,5 +87,7 @@ export function loadConfig() {
     requestTimeoutMs: env.REQUEST_TIMEOUT_MS,
     allowDebugAttestation: env.ALLOW_DEBUG_ATTESTATION,
     debugAttestationSecret: env.DEBUG_ATTESTATION_SECRET,
+    googlePlayPackageName: env.GOOGLE_PLAY_PACKAGE_NAME,
+    googlePlayServiceAccountJson: env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON,
   };
 }

@@ -405,6 +405,31 @@ class BackendCapabilitiesService {
           .toList(),
       freeScanRemaining: response['free_scan_remaining'] as int? ?? 0,
       rateLimitState: response['rate_limit_state']?.toString() ?? 'unknown',
+      entitlement: _parseEntitlement(
+        response['entitlement'] as Map<String, dynamic>?,
+      ),
+    );
+  }
+
+  BackendEntitlement? _parseEntitlement(Map<String, dynamic>? json) {
+    if (json == null) {
+      return null;
+    }
+    return BackendEntitlement(
+      isPremium: json['is_premium'] as bool? ?? false,
+      planId: json['plan_id']?.toString(),
+      status: json['status']?.toString() ?? 'free',
+      validUntil: json['valid_until'] == null
+          ? null
+          : DateTime.tryParse(json['valid_until'].toString()),
+      features: (json['features'] as List<dynamic>? ?? const [])
+          .map((item) => item.toString())
+          .toList(),
+      lastVerifiedAt: json['last_verified_at'] == null
+          ? null
+          : DateTime.tryParse(json['last_verified_at'].toString()),
+      productId: json['product_id']?.toString(),
+      billingProvider: json['billing_provider']?.toString(),
     );
   }
 }

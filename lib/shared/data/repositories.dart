@@ -683,6 +683,11 @@ class DriftSubscriptionRepository implements SubscriptionRepository {
           SubscriptionStateTableCompanion.insert(
             isPremium: Value(state.isPremium),
             expiresAt: Value(state.expiresAt),
+            productId: Value(state.productId),
+            planId: Value(state.planId),
+            billingProvider: Value(state.billingProvider),
+            status: Value(state.status ?? 'free'),
+            lastVerifiedAt: Value(state.lastVerifiedAt),
             unlockedFeaturesJson: Value(
               jsonEncode(
                 state.unlockedFeatures.map((feature) => feature.name).toList(),
@@ -700,6 +705,11 @@ class DriftSubscriptionRepository implements SubscriptionRepository {
       isPremium: row.isPremium,
       expiresAt: row.expiresAt,
       unlockedFeatures: features,
+      productId: row.productId,
+      planId: row.planId,
+      billingProvider: row.billingProvider,
+      status: row.status,
+      lastVerifiedAt: row.lastVerifiedAt,
     );
   }
 }

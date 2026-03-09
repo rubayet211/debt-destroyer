@@ -54,8 +54,51 @@ create index if not exists quota_reservations_active_idx
 create table if not exists premium_entitlements (
   install_id text primary key references install_sessions(install_id) on delete cascade,
   is_premium boolean not null default false,
+  product_id text null,
+  plan_id text null,
+  billing_provider text null,
+  status text not null default 'free',
+  valid_until timestamptz null,
+  auto_renewing boolean not null default false,
+  last_verified_at timestamptz null,
+  purchase_token_hash text null,
+  original_external_id text null,
   features jsonb not null default '[]'::jsonb,
   updated_at timestamptz not null default now()
+);
+
+alter table premium_entitlements
+  add column if not exists product_id text null;
+alter table premium_entitlements
+  add column if not exists plan_id text null;
+alter table premium_entitlements
+  add column if not exists billing_provider text null;
+alter table premium_entitlements
+  add column if not exists status text not null default 'free';
+alter table premium_entitlements
+  add column if not exists valid_until timestamptz null;
+alter table premium_entitlements
+  add column if not exists auto_renewing boolean not null default false;
+alter table premium_entitlements
+  add column if not exists last_verified_at timestamptz null;
+alter table premium_entitlements
+  add column if not exists purchase_token_hash text null;
+alter table premium_entitlements
+  add column if not exists original_external_id text null;
+
+create table if not exists billing_purchase_history (
+  record_id text primary key,
+  install_id text not null references install_sessions(install_id) on delete cascade,
+  product_id text not null,
+  plan_id text null,
+  billing_provider text not null,
+  status text not null,
+  purchase_token_hash text not null,
+  original_external_id text null,
+  valid_until timestamptz null,
+  auto_renewing boolean not null default false,
+  payload jsonb not null,
+  created_at timestamptz not null default now()
 );
 
 create table if not exists extraction_requests (

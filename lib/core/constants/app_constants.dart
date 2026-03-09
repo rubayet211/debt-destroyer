@@ -1,5 +1,6 @@
 class AppConstants {
   static const appName = 'DEBT DESTROYER';
+  static const androidPackageName = 'com.debtdestroyer.app';
   static const defaultCurrencyCode = 'USD';
   static const freeAiScanLimit = 5;
   static const defaultLocaleCode = 'en_US';

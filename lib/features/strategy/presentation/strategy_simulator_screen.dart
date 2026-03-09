@@ -38,6 +38,7 @@ class _StrategySimulatorScreenState
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(entitlementRefreshProvider);
     final debts = ref.watch(debtsProvider).valueOrNull ?? const <Debt>[];
     final preferences = ref.watch(userPreferencesProvider).valueOrNull;
     final activeDebts = debts.where((debt) => debt.isActive).toList();
