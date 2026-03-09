@@ -29,6 +29,8 @@ class DebtsTable extends Table {
   DateTimeColumn get updatedAt => dateTime()();
   TextColumn get notes => text().withDefault(const Constant(''))();
   TextColumn get tagsJson => text().withDefault(const Constant('[]'))();
+  TextColumn get financialTermsJson =>
+      text().withDefault(const Constant('{}'))();
   TextColumn get status => text()();
   BoolColumn get remindersEnabled =>
       boolean().withDefault(const Constant(false))();
@@ -184,7 +186,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -295,6 +297,14 @@ class AppDatabase extends _$AppDatabase {
           set pending_deletion_at = coalesce(pending_deletion_at, created_at)
           where lifecycle_state = 'pendingDeletion'
             and pending_deletion_at is null
+        ''');
+      }
+      if (from < 6) {
+        await migrator.addColumn(debtsTable, debtsTable.financialTermsJson);
+        await customStatement('''
+          update debts_table
+          set financial_terms_json = '{}'
+          where financial_terms_json is null or financial_terms_json = ''
         ''');
       }
     },

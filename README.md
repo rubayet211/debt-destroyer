@@ -104,6 +104,19 @@ Important behavior:
 - Raw OCR text is not persisted in ordinary backend logs; request audit stores hashes/redacted previews
 - `hideBalances`, `aiConsentEnabled`, and `appLockEnabled` are mirrored into secure storage and treated as protected preferences
 
+## Financial Projection Model
+- Stored `currentBalance` remains the user-recorded truth for each debt
+- Payoff projections now use a shared projection engine across dashboard, strategy, and reports
+- Supported assumptions include:
+  - monthly compound, daily simple, or no-interest accrual
+  - fixed minimums, minimum percent rules, and interest-plus-percent rules
+  - promotional APR windows
+  - monthly recurring fees
+  - late fees and penalty APR for projected overdue cycles
+  - weekly, biweekly, monthly, and quarterly payment frequencies aggregated into monthly schedule output
+- The engine uses integer cents internally and rounds half-up to cents at each accrual, fee, and payment step
+- This remains a planning engine, not a lender-statement or legal amortization engine
+
 ## Setup
 ### Prerequisites
 - Flutter `3.35.x`
@@ -191,6 +204,7 @@ flutter build apk --debug
 - Production still requires live Google credentials and Play Console setup for Play Integrity and Google Play Billing verification
 - Aggregate dashboard totals assume a single display currency when multiple debt currencies exist
 - Import parsing is conservative and still depends on manual review for accuracy
+- Debt balances are still user-recorded values; the app does not fully reconstruct live balances from historical statements or lender-specific ledgers
 - Camera and biometric flows are implemented for Android but are not covered by full device E2E tests in this repo
 - Postgres and Redis adapters are implemented for backend deployment, but local tests use in-memory stores
 

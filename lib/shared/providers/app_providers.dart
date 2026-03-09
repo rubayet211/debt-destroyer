@@ -23,6 +23,7 @@ import '../../core/services/vault_services.dart';
 import '../../features/dashboard/domain/debt_metrics_service.dart';
 import '../../features/scan_import/domain/import_services.dart';
 import '../../features/strategy/domain/strategy_engine.dart';
+import '../../features/strategy/domain/portfolio_projection_service.dart';
 import '../data/local/app_database.dart';
 import '../data/repositories.dart';
 import '../enums/app_enums.dart';
@@ -160,9 +161,14 @@ final dataProtectionBootstrapServiceProvider =
         protectedPreferencesStore: ref.watch(protectedPreferencesStoreProvider),
       ),
     );
-final strategyEngineProvider = Provider((ref) => const StrategyEngine());
+final portfolioProjectionServiceProvider = Provider(
+  (ref) => const PortfolioProjectionService(),
+);
+final strategyEngineProvider = Provider(
+  (ref) => StrategyEngine(ref.watch(portfolioProjectionServiceProvider)),
+);
 final debtMetricsServiceProvider = Provider(
-  (ref) => DebtMetricsService(ref.watch(strategyEngineProvider)),
+  (ref) => DebtMetricsService(ref.watch(portfolioProjectionServiceProvider)),
 );
 
 final debtsRepositoryProvider = Provider<DebtsRepository>(

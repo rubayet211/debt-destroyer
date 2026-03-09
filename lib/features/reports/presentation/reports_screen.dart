@@ -8,7 +8,9 @@ import '../../../core/widgets/app_widgets.dart';
 import '../../../shared/enums/app_enums.dart';
 import '../../../shared/models/debt.dart';
 import '../../../shared/models/payment.dart';
+import '../../../shared/models/strategy_models.dart';
 import '../../../shared/models/subscription_state.dart';
+import '../../../shared/models/user_preferences.dart';
 import '../../../shared/providers/app_providers.dart';
 
 class ReportsScreen extends ConsumerWidget {
@@ -20,8 +22,10 @@ class ReportsScreen extends ConsumerWidget {
     final debts = ref.watch(allDebtsProvider);
     final payments = ref.watch(recentPaymentsProvider);
     final subscription = ref.watch(subscriptionStateProvider).valueOrNull;
-    final currency =
-        ref.watch(userPreferencesProvider).valueOrNull?.currencyCode ?? 'USD';
+    final preferences =
+        ref.watch(userPreferencesProvider).valueOrNull ??
+        UserPreferences.defaults();
+    final currency = preferences.currencyCode;
 
     return AppPage(
       title: 'Reports',
@@ -44,7 +48,13 @@ class ReportsScreen extends ConsumerWidget {
           icon: const Icon(Icons.ios_share_outlined),
         ),
       ],
-      child: _buildBody(debts, payments, currency),
+      child: _buildBody(
+        debts,
+        payments,
+        currency,
+        preferences.defaultStrategy,
+        ref,
+      ),
     );
   }
 
@@ -52,6 +62,8 @@ class ReportsScreen extends ConsumerWidget {
     AsyncValue<List<Debt>> debts,
     AsyncValue<List<Payment>> payments,
     String currency,
+    StrategyType defaultStrategy,
+    WidgetRef ref,
   ) {
     if (debts is AsyncError<List<Debt>>) {
       return AppErrorState(message: debts.error.toString());
@@ -68,6 +80,8 @@ class ReportsScreen extends ConsumerWidget {
       debts: debts.value,
       payments: payments.value,
       currency: currency,
+      defaultStrategy: defaultStrategy,
+      ref: ref,
     );
   }
 }
@@ -77,11 +91,15 @@ class _ReportsBody extends StatelessWidget {
     required this.debts,
     required this.payments,
     required this.currency,
+    required this.defaultStrategy,
+    required this.ref,
   });
 
   final List<Debt> debts;
   final List<Payment> payments;
   final String currency;
+  final StrategyType defaultStrategy;
+  final WidgetRef ref;
 
   @override
   Widget build(BuildContext context) {
@@ -113,8 +131,61 @@ class _ReportsBody extends StatelessWidget {
       );
     }
 
+    final projectionStart = DateTime.now();
+    final minimumBudget = ref
+        .read(portfolioProjectionServiceProvider)
+        .minimumRequiredBudget(debts: activeDebts, asOf: projectionStart);
+    final projection = ref
+        .read(portfolioProjectionServiceProvider)
+        .projectPortfolio(
+          debts: activeDebts,
+          request: StrategyRequest(
+            strategyType: defaultStrategy,
+            monthlyBudget: minimumBudget,
+            extraMonthlyPayment: 0,
+            startDate: projectionStart,
+            lumpSum: 0,
+            includeArchived: false,
+            customPriorities: {
+              for (final debt in activeDebts) debt.id: debt.customPriority,
+            },
+            allowUnderMinimumBudget: false,
+          ),
+        );
+
     return ListView(
       children: [
+        AppCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Projection summary',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 12),
+              _SummaryLine(
+                label: 'Projected debt-free',
+                value: Formatters.date(projection.payoffDate),
+              ),
+              _SummaryLine(
+                label: 'Projected interest',
+                value: Formatters.currency(
+                  projection.totalInterestPaid,
+                  currencyCode: currency,
+                ),
+              ),
+              _SummaryLine(
+                label: 'Baseline savings',
+                value: Formatters.currency(
+                  projection.totalInterestSaved,
+                  currencyCode: currency,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
         AppCard(
           child: SizedBox(
             height: 220,
@@ -147,6 +218,59 @@ class _ReportsBody extends StatelessWidget {
                       ),
                     )
                     .toList(),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        AppCard(
+          child: SizedBox(
+            height: 220,
+            child: LineChart(
+              LineChartData(
+                gridData: const FlGridData(show: false),
+                titlesData: FlTitlesData(
+                  topTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  rightTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  leftTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      getTitlesWidget: (value, _) =>
+                          Text(value.toInt().toString()),
+                    ),
+                  ),
+                ),
+                lineBarsData: [
+                  LineChartBarData(
+                    isCurved: true,
+                    spots: projection.schedule
+                        .map(
+                          (month) => FlSpot(
+                            month.monthIndex.toDouble(),
+                            month.remainingBalance,
+                          ),
+                        )
+                        .toList(),
+                  ),
+                  LineChartBarData(
+                    isCurved: true,
+                    spots: projection.schedule
+                        .map(
+                          (month) => FlSpot(
+                            month.monthIndex.toDouble(),
+                            month.totalInterest,
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ],
               ),
             ),
           ),
@@ -196,6 +320,13 @@ class _ReportsBody extends StatelessWidget {
                     0,
                     (sum, payment) => sum + payment.amount,
                   ),
+                  currencyCode: currency,
+                ),
+              ),
+              _SummaryLine(
+                label: 'Projected monthly minimum',
+                value: Formatters.currency(
+                  projection.minimumRequiredPerCycle,
                   currencyCode: currency,
                 ),
               ),

@@ -168,9 +168,45 @@ class _StrategySimulatorScreenState
                           ),
                         ],
                       ),
+                      const SizedBox(height: 12),
+                      _SummaryMetric(
+                        label: 'Minimum required',
+                        value: Formatters.currency(
+                          result.minimumRequiredPerCycle,
+                          currencyCode: currency,
+                        ),
+                      ),
+                      if (result.budgetShortfall > 0) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          'Budget shortfall this cycle: ${Formatters.currency(result.budgetShortfall, currencyCode: currency)}',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ],
                     ],
                   ),
                 ),
+                if (result.warnings.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  AppCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Projection assumptions',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        ...result.warnings.map(
+                          (warning) => Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: Text(_warningLabel(warning)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 16),
                 AppCard(
                   child: SizedBox(
@@ -295,5 +331,24 @@ class _SummaryMetric extends StatelessWidget {
         Text(value, style: Theme.of(context).textTheme.titleMedium),
       ],
     );
+  }
+}
+
+String _warningLabel(ProjectionWarning warning) {
+  switch (warning) {
+    case ProjectionWarning.underMinimumBudget:
+      return 'Budget is below the projected minimum due for at least one cycle.';
+    case ProjectionWarning.overdueDebt:
+      return 'At least one debt becomes overdue during the projection.';
+    case ProjectionWarning.promoRateApplied:
+      return 'Promotional APR assumptions are included where configured.';
+    case ProjectionWarning.recurringFeesApplied:
+      return 'Recurring monthly fees are included in the payoff model.';
+    case ProjectionWarning.lateFeesApplied:
+      return 'Late fees are included when projected minimums are missed.';
+    case ProjectionWarning.penaltyAprApplied:
+      return 'Penalty APR is used for projected overdue cycles.';
+    case ProjectionWarning.mixedPaymentFrequencies:
+      return 'Mixed payment frequencies are normalized into monthly projection buckets.';
   }
 }

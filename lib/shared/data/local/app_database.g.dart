@@ -166,6 +166,18 @@ class $DebtsTableTable extends DebtsTable
     requiredDuringInsert: false,
     defaultValue: const Constant('[]'),
   );
+  static const VerificationMeta _financialTermsJsonMeta =
+      const VerificationMeta('financialTermsJson');
+  @override
+  late final GeneratedColumn<String> financialTermsJson =
+      GeneratedColumn<String>(
+        'financial_terms_json',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('{}'),
+      );
   static const VerificationMeta _statusMeta = const VerificationMeta('status');
   @override
   late final GeneratedColumn<String> status = GeneratedColumn<String>(
@@ -219,6 +231,7 @@ class $DebtsTableTable extends DebtsTable
     updatedAt,
     notes,
     tagsJson,
+    financialTermsJson,
     status,
     remindersEnabled,
     customPriority,
@@ -361,6 +374,15 @@ class $DebtsTableTable extends DebtsTable
         tagsJson.isAcceptableOrUnknown(data['tags_json']!, _tagsJsonMeta),
       );
     }
+    if (data.containsKey('financial_terms_json')) {
+      context.handle(
+        _financialTermsJsonMeta,
+        financialTermsJson.isAcceptableOrUnknown(
+          data['financial_terms_json']!,
+          _financialTermsJsonMeta,
+        ),
+      );
+    }
     if (data.containsKey('status')) {
       context.handle(
         _statusMeta,
@@ -456,6 +478,10 @@ class $DebtsTableTable extends DebtsTable
         DriftSqlType.string,
         data['${effectivePrefix}tags_json'],
       )!,
+      financialTermsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}financial_terms_json'],
+      )!,
       status: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}status'],
@@ -493,6 +519,7 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
   final DateTime updatedAt;
   final String notes;
   final String tagsJson;
+  final String financialTermsJson;
   final String status;
   final bool remindersEnabled;
   final int customPriority;
@@ -512,6 +539,7 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
     required this.updatedAt,
     required this.notes,
     required this.tagsJson,
+    required this.financialTermsJson,
     required this.status,
     required this.remindersEnabled,
     required this.customPriority,
@@ -536,6 +564,7 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
     map['updated_at'] = Variable<DateTime>(updatedAt);
     map['notes'] = Variable<String>(notes);
     map['tags_json'] = Variable<String>(tagsJson);
+    map['financial_terms_json'] = Variable<String>(financialTermsJson);
     map['status'] = Variable<String>(status);
     map['reminders_enabled'] = Variable<bool>(remindersEnabled);
     map['custom_priority'] = Variable<int>(customPriority);
@@ -561,6 +590,7 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
       updatedAt: Value(updatedAt),
       notes: Value(notes),
       tagsJson: Value(tagsJson),
+      financialTermsJson: Value(financialTermsJson),
       status: Value(status),
       remindersEnabled: Value(remindersEnabled),
       customPriority: Value(customPriority),
@@ -588,6 +618,9 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       notes: serializer.fromJson<String>(json['notes']),
       tagsJson: serializer.fromJson<String>(json['tagsJson']),
+      financialTermsJson: serializer.fromJson<String>(
+        json['financialTermsJson'],
+      ),
       status: serializer.fromJson<String>(json['status']),
       remindersEnabled: serializer.fromJson<bool>(json['remindersEnabled']),
       customPriority: serializer.fromJson<int>(json['customPriority']),
@@ -612,6 +645,7 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'notes': serializer.toJson<String>(notes),
       'tagsJson': serializer.toJson<String>(tagsJson),
+      'financialTermsJson': serializer.toJson<String>(financialTermsJson),
       'status': serializer.toJson<String>(status),
       'remindersEnabled': serializer.toJson<bool>(remindersEnabled),
       'customPriority': serializer.toJson<int>(customPriority),
@@ -634,6 +668,7 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
     DateTime? updatedAt,
     String? notes,
     String? tagsJson,
+    String? financialTermsJson,
     String? status,
     bool? remindersEnabled,
     int? customPriority,
@@ -653,6 +688,7 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
     updatedAt: updatedAt ?? this.updatedAt,
     notes: notes ?? this.notes,
     tagsJson: tagsJson ?? this.tagsJson,
+    financialTermsJson: financialTermsJson ?? this.financialTermsJson,
     status: status ?? this.status,
     remindersEnabled: remindersEnabled ?? this.remindersEnabled,
     customPriority: customPriority ?? this.customPriority,
@@ -684,6 +720,9 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       notes: data.notes.present ? data.notes.value : this.notes,
       tagsJson: data.tagsJson.present ? data.tagsJson.value : this.tagsJson,
+      financialTermsJson: data.financialTermsJson.present
+          ? data.financialTermsJson.value
+          : this.financialTermsJson,
       status: data.status.present ? data.status.value : this.status,
       remindersEnabled: data.remindersEnabled.present
           ? data.remindersEnabled.value
@@ -712,6 +751,7 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
           ..write('updatedAt: $updatedAt, ')
           ..write('notes: $notes, ')
           ..write('tagsJson: $tagsJson, ')
+          ..write('financialTermsJson: $financialTermsJson, ')
           ..write('status: $status, ')
           ..write('remindersEnabled: $remindersEnabled, ')
           ..write('customPriority: $customPriority')
@@ -736,6 +776,7 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
     updatedAt,
     notes,
     tagsJson,
+    financialTermsJson,
     status,
     remindersEnabled,
     customPriority,
@@ -759,6 +800,7 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
           other.updatedAt == this.updatedAt &&
           other.notes == this.notes &&
           other.tagsJson == this.tagsJson &&
+          other.financialTermsJson == this.financialTermsJson &&
           other.status == this.status &&
           other.remindersEnabled == this.remindersEnabled &&
           other.customPriority == this.customPriority);
@@ -780,6 +822,7 @@ class DebtsTableCompanion extends UpdateCompanion<DebtsTableData> {
   final Value<DateTime> updatedAt;
   final Value<String> notes;
   final Value<String> tagsJson;
+  final Value<String> financialTermsJson;
   final Value<String> status;
   final Value<bool> remindersEnabled;
   final Value<int> customPriority;
@@ -800,6 +843,7 @@ class DebtsTableCompanion extends UpdateCompanion<DebtsTableData> {
     this.updatedAt = const Value.absent(),
     this.notes = const Value.absent(),
     this.tagsJson = const Value.absent(),
+    this.financialTermsJson = const Value.absent(),
     this.status = const Value.absent(),
     this.remindersEnabled = const Value.absent(),
     this.customPriority = const Value.absent(),
@@ -821,6 +865,7 @@ class DebtsTableCompanion extends UpdateCompanion<DebtsTableData> {
     required DateTime updatedAt,
     this.notes = const Value.absent(),
     this.tagsJson = const Value.absent(),
+    this.financialTermsJson = const Value.absent(),
     required String status,
     this.remindersEnabled = const Value.absent(),
     this.customPriority = const Value.absent(),
@@ -854,6 +899,7 @@ class DebtsTableCompanion extends UpdateCompanion<DebtsTableData> {
     Expression<DateTime>? updatedAt,
     Expression<String>? notes,
     Expression<String>? tagsJson,
+    Expression<String>? financialTermsJson,
     Expression<String>? status,
     Expression<bool>? remindersEnabled,
     Expression<int>? customPriority,
@@ -875,6 +921,8 @@ class DebtsTableCompanion extends UpdateCompanion<DebtsTableData> {
       if (updatedAt != null) 'updated_at': updatedAt,
       if (notes != null) 'notes': notes,
       if (tagsJson != null) 'tags_json': tagsJson,
+      if (financialTermsJson != null)
+        'financial_terms_json': financialTermsJson,
       if (status != null) 'status': status,
       if (remindersEnabled != null) 'reminders_enabled': remindersEnabled,
       if (customPriority != null) 'custom_priority': customPriority,
@@ -898,6 +946,7 @@ class DebtsTableCompanion extends UpdateCompanion<DebtsTableData> {
     Value<DateTime>? updatedAt,
     Value<String>? notes,
     Value<String>? tagsJson,
+    Value<String>? financialTermsJson,
     Value<String>? status,
     Value<bool>? remindersEnabled,
     Value<int>? customPriority,
@@ -919,6 +968,7 @@ class DebtsTableCompanion extends UpdateCompanion<DebtsTableData> {
       updatedAt: updatedAt ?? this.updatedAt,
       notes: notes ?? this.notes,
       tagsJson: tagsJson ?? this.tagsJson,
+      financialTermsJson: financialTermsJson ?? this.financialTermsJson,
       status: status ?? this.status,
       remindersEnabled: remindersEnabled ?? this.remindersEnabled,
       customPriority: customPriority ?? this.customPriority,
@@ -974,6 +1024,9 @@ class DebtsTableCompanion extends UpdateCompanion<DebtsTableData> {
     if (tagsJson.present) {
       map['tags_json'] = Variable<String>(tagsJson.value);
     }
+    if (financialTermsJson.present) {
+      map['financial_terms_json'] = Variable<String>(financialTermsJson.value);
+    }
     if (status.present) {
       map['status'] = Variable<String>(status.value);
     }
@@ -1007,6 +1060,7 @@ class DebtsTableCompanion extends UpdateCompanion<DebtsTableData> {
           ..write('updatedAt: $updatedAt, ')
           ..write('notes: $notes, ')
           ..write('tagsJson: $tagsJson, ')
+          ..write('financialTermsJson: $financialTermsJson, ')
           ..write('status: $status, ')
           ..write('remindersEnabled: $remindersEnabled, ')
           ..write('customPriority: $customPriority, ')
@@ -5770,6 +5824,7 @@ typedef $$DebtsTableTableCreateCompanionBuilder =
       required DateTime updatedAt,
       Value<String> notes,
       Value<String> tagsJson,
+      Value<String> financialTermsJson,
       required String status,
       Value<bool> remindersEnabled,
       Value<int> customPriority,
@@ -5792,6 +5847,7 @@ typedef $$DebtsTableTableUpdateCompanionBuilder =
       Value<DateTime> updatedAt,
       Value<String> notes,
       Value<String> tagsJson,
+      Value<String> financialTermsJson,
       Value<String> status,
       Value<bool> remindersEnabled,
       Value<int> customPriority,
@@ -5929,6 +5985,11 @@ class $$DebtsTableTableFilterComposer
 
   ColumnFilters<String> get tagsJson => $composableBuilder(
     column: $table.tagsJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get financialTermsJson => $composableBuilder(
+    column: $table.financialTermsJson,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6082,6 +6143,11 @@ class $$DebtsTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get financialTermsJson => $composableBuilder(
+    column: $table.financialTermsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get status => $composableBuilder(
     column: $table.status,
     builder: (column) => ColumnOrderings(column),
@@ -6161,6 +6227,11 @@ class $$DebtsTableTableAnnotationComposer
 
   GeneratedColumn<String> get tagsJson =>
       $composableBuilder(column: $table.tagsJson, builder: (column) => column);
+
+  GeneratedColumn<String> get financialTermsJson => $composableBuilder(
+    column: $table.financialTermsJson,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get status =>
       $composableBuilder(column: $table.status, builder: (column) => column);
@@ -6273,6 +6344,7 @@ class $$DebtsTableTableTableManager
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<String> notes = const Value.absent(),
                 Value<String> tagsJson = const Value.absent(),
+                Value<String> financialTermsJson = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<bool> remindersEnabled = const Value.absent(),
                 Value<int> customPriority = const Value.absent(),
@@ -6293,6 +6365,7 @@ class $$DebtsTableTableTableManager
                 updatedAt: updatedAt,
                 notes: notes,
                 tagsJson: tagsJson,
+                financialTermsJson: financialTermsJson,
                 status: status,
                 remindersEnabled: remindersEnabled,
                 customPriority: customPriority,
@@ -6315,6 +6388,7 @@ class $$DebtsTableTableTableManager
                 required DateTime updatedAt,
                 Value<String> notes = const Value.absent(),
                 Value<String> tagsJson = const Value.absent(),
+                Value<String> financialTermsJson = const Value.absent(),
                 required String status,
                 Value<bool> remindersEnabled = const Value.absent(),
                 Value<int> customPriority = const Value.absent(),
@@ -6335,6 +6409,7 @@ class $$DebtsTableTableTableManager
                 updatedAt: updatedAt,
                 notes: notes,
                 tagsJson: tagsJson,
+                financialTermsJson: financialTermsJson,
                 status: status,
                 remindersEnabled: remindersEnabled,
                 customPriority: customPriority,

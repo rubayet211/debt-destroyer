@@ -1,4 +1,5 @@
 import '../enums/app_enums.dart';
+import 'debt_financial_terms.dart';
 
 class Debt {
   const Debt({
@@ -20,6 +21,7 @@ class Debt {
     required this.status,
     required this.remindersEnabled,
     required this.customPriority,
+    this.financialTerms = const DebtFinancialTerms(),
   });
 
   final String id;
@@ -40,6 +42,7 @@ class Debt {
   final DebtStatus status;
   final bool remindersEnabled;
   final int customPriority;
+  final DebtFinancialTerms financialTerms;
 
   bool get isActive => status == DebtStatus.active;
 
@@ -62,6 +65,7 @@ class Debt {
     DebtStatus? status,
     bool? remindersEnabled,
     int? customPriority,
+    DebtFinancialTerms? financialTerms,
   }) {
     return Debt(
       id: id ?? this.id,
@@ -82,6 +86,7 @@ class Debt {
       status: status ?? this.status,
       remindersEnabled: remindersEnabled ?? this.remindersEnabled,
       customPriority: customPriority ?? this.customPriority,
+      financialTerms: financialTerms ?? this.financialTerms,
     );
   }
 }
