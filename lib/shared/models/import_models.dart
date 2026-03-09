@@ -8,6 +8,7 @@ class ImportedDocument {
     required this.sourceType,
     required this.mimeType,
     required this.createdAt,
+    required this.lifecycleState,
     required this.linkedDebtId,
     required this.rawOcrText,
     required this.parseStatus,
@@ -15,6 +16,9 @@ class ImportedDocument {
     required this.deleted,
     required this.retentionExpiresAt,
     required this.rawOcrExpiresAt,
+    required this.processedAt,
+    required this.linkedAt,
+    required this.pendingDeletionAt,
     required this.purgedAt,
     required this.encryptedAt,
     required this.hasRawOcrText,
@@ -25,6 +29,7 @@ class ImportedDocument {
   final DocumentSourceType sourceType;
   final String mimeType;
   final DateTime createdAt;
+  final DocumentLifecycleState lifecycleState;
   final String? linkedDebtId;
   final String? rawOcrText;
   final ParseStatus parseStatus;
@@ -32,18 +37,25 @@ class ImportedDocument {
   final bool deleted;
   final DateTime? retentionExpiresAt;
   final DateTime? rawOcrExpiresAt;
+  final DateTime? processedAt;
+  final DateTime? linkedAt;
+  final DateTime? pendingDeletionAt;
   final DateTime? purgedAt;
   final DateTime? encryptedAt;
   final bool hasRawOcrText;
 
   ImportedDocument copyWith({
     String? storageRef,
+    DocumentLifecycleState? lifecycleState,
     String? linkedDebtId,
     String? rawOcrText,
     ParseStatus? parseStatus,
     bool? deleted,
     DateTime? retentionExpiresAt,
     DateTime? rawOcrExpiresAt,
+    DateTime? processedAt,
+    DateTime? linkedAt,
+    DateTime? pendingDeletionAt,
     DateTime? purgedAt,
     DateTime? encryptedAt,
     bool? hasRawOcrText,
@@ -54,6 +66,7 @@ class ImportedDocument {
       sourceType: sourceType,
       mimeType: mimeType,
       createdAt: createdAt,
+      lifecycleState: lifecycleState ?? this.lifecycleState,
       linkedDebtId: linkedDebtId ?? this.linkedDebtId,
       rawOcrText: rawOcrText ?? this.rawOcrText,
       parseStatus: parseStatus ?? this.parseStatus,
@@ -61,6 +74,9 @@ class ImportedDocument {
       deleted: deleted ?? this.deleted,
       retentionExpiresAt: retentionExpiresAt ?? this.retentionExpiresAt,
       rawOcrExpiresAt: rawOcrExpiresAt ?? this.rawOcrExpiresAt,
+      processedAt: processedAt ?? this.processedAt,
+      linkedAt: linkedAt ?? this.linkedAt,
+      pendingDeletionAt: pendingDeletionAt ?? this.pendingDeletionAt,
       purgedAt: purgedAt ?? this.purgedAt,
       encryptedAt: encryptedAt ?? this.encryptedAt,
       hasRawOcrText: hasRawOcrText ?? this.hasRawOcrText,

@@ -26,6 +26,13 @@ const configSchema = z
     DEBUG_ATTESTATION_SECRET: z.string().optional(),
     GOOGLE_PLAY_PACKAGE_NAME: z.string().default('com.debtdestroyer.app'),
     GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: z.string().optional(),
+    PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER: z.string().optional(),
+    PLAY_INTEGRITY_PACKAGE_NAME: z
+      .string()
+      .default('com.debtdestroyer.app'),
+    PREMIUM_PRODUCT_ID: z.string().default('premium'),
+    PREMIUM_MONTHLY_BASE_PLAN_ID: z.string().default('monthly'),
+    PREMIUM_YEARLY_BASE_PLAN_ID: z.string().default('yearly'),
   })
   .superRefine((env, ctx) => {
     const isLocalEnvironment =
@@ -66,6 +73,16 @@ const configSchema = z
           'DEBUG_ATTESTATION_SECRET is required when debug attestation is enabled.',
       });
     }
+    if (!isLocalEnvironment) {
+      if (!env.PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER'],
+          message:
+            'PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER must be configured outside development and test.',
+        });
+      }
+    }
   });
 
 export type AppConfig = ReturnType<typeof loadConfig>;
@@ -89,5 +106,10 @@ export function loadConfig() {
     debugAttestationSecret: env.DEBUG_ATTESTATION_SECRET,
     googlePlayPackageName: env.GOOGLE_PLAY_PACKAGE_NAME,
     googlePlayServiceAccountJson: env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON,
+    playIntegrityCloudProjectNumber: env.PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER,
+    playIntegrityPackageName: env.PLAY_INTEGRITY_PACKAGE_NAME,
+    premiumProductId: env.PREMIUM_PRODUCT_ID,
+    premiumMonthlyBasePlanId: env.PREMIUM_MONTHLY_BASE_PLAN_ID,
+    premiumYearlyBasePlanId: env.PREMIUM_YEARLY_BASE_PLAN_ID,
   };
 }

@@ -17,7 +17,10 @@ Future<void> bootstrap() async {
   try {
     await dotenv.load(fileName: '.env');
   } catch (_) {
-    AppLogger.instance.info('No .env file found, using local-only defaults.');
+    AppLogger.instance.info(
+      'dotenv.missing',
+      context: const {'category': 'bootstrap', 'status': 'local_defaults'},
+    );
   }
 
   final cameras = await _loadAvailableCameras();
@@ -34,7 +37,12 @@ Future<List<CameraDescription>> _loadAvailableCameras() async {
   try {
     return await availableCameras();
   } catch (error, stackTrace) {
-    AppLogger.instance.error('Camera discovery failed', error, stackTrace);
+    AppLogger.instance.error(
+      'camera.discovery_failed',
+      error,
+      stackTrace,
+      context: const {'category': 'bootstrap', 'operation': 'cameraDiscovery'},
+    );
     return const [];
   }
 }

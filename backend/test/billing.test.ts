@@ -67,6 +67,11 @@ describe('billing verification endpoints', () => {
       debugAttestationSecret: 'debug-secret',
       googlePlayPackageName: 'com.debtdestroyer.app',
       googlePlayServiceAccountJson: undefined,
+      playIntegrityCloudProjectNumber: '123456789',
+      playIntegrityPackageName: 'com.debtdestroyer.app',
+      premiumProductId: 'premium',
+      premiumMonthlyBasePlanId: 'monthly',
+      premiumYearlyBasePlanId: 'yearly',
     },
     store,
     rateLimiter: new MemoryRateLimiter(),
@@ -189,5 +194,27 @@ describe('billing verification endpoints', () => {
     expect(capabilities.json().premium).toBe(true);
     expect(capabilities.json().entitlement.plan_id).toBe('yearly');
     expect(capabilities.json().entitlement.status).toBe('active');
+  });
+
+  test('rejects unexpected billing product ids', async () => {
+    const accessToken = await bootstrap('install-billing-mismatch');
+    const verify = await app.inject({
+      method: 'POST',
+      url: '/v1/billing/google-play/verify',
+      headers: { authorization: `Bearer ${accessToken}` },
+      payload: {
+        install_id: 'install-billing-mismatch',
+        product_id: 'other-product',
+        base_plan_id: 'yearly',
+        purchase_token: 'token-mismatch',
+        package_name: 'com.debtdestroyer.app',
+        purchase_state: 'purchased',
+        purchase_time: '2026-03-09T00:00:00.000Z',
+        app_version: '1.0.0+1',
+      },
+    });
+
+    expect(verify.statusCode).toBe(400);
+    expect(verify.json().error).toBe('billing_product_mismatch');
   });
 });

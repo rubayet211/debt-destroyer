@@ -54,9 +54,22 @@ final backendConfigProvider = Provider<BackendConfig>((ref) {
   return BackendConfig(
     baseUrl: dotenv.env['BACKEND_BASE_URL'] ?? '',
     environment: dotenv.env['BACKEND_ENV'] ?? 'development',
-    playIntegrityProjectNumber: dotenv.env['PLAY_INTEGRITY_PROJECT_NUMBER'],
+    playIntegrityCloudProjectNumber:
+        dotenv.env['PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER'] ??
+        dotenv.env['PLAY_INTEGRITY_PROJECT_NUMBER'],
+    playIntegrityPackageName:
+        dotenv.env['PLAY_INTEGRITY_PACKAGE_NAME'] ??
+        AppConstants.androidPackageName,
     debugAttestationSecret: dotenv.env['DEBUG_ATTESTATION_SECRET'],
     requestTimeout: const Duration(seconds: 15),
+    premiumProductId:
+        dotenv.env['PREMIUM_PRODUCT_ID'] ?? AppConstants.premiumProductId,
+    premiumMonthlyBasePlanId:
+        dotenv.env['PREMIUM_MONTHLY_BASE_PLAN_ID'] ??
+        AppConstants.premiumMonthlyBasePlanId,
+    premiumYearlyBasePlanId:
+        dotenv.env['PREMIUM_YEARLY_BASE_PLAN_ID'] ??
+        AppConstants.premiumYearlyBasePlanId,
   );
 });
 final appDatabaseProvider = Provider<AppDatabase>((ref) {
@@ -66,6 +79,9 @@ final appDatabaseProvider = Provider<AppDatabase>((ref) {
 });
 final localVaultKeyServiceProvider = Provider(
   (ref) => LocalVaultKeyService(ref.watch(secureStorageProvider)),
+);
+final protectedPreferencesStoreProvider = Provider(
+  (ref) => ProtectedPreferencesStore(ref.watch(secureStorageProvider)),
 );
 final dataRetentionServiceProvider = Provider(
   (ref) => const DataRetentionService(),
@@ -96,7 +112,14 @@ final inAppPurchaseProvider = Provider<InAppPurchase>((ref) {
   return InAppPurchase.instance;
 });
 final billingServiceProvider = Provider<BillingService>(
-  (ref) => GooglePlayBillingService(ref.watch(inAppPurchaseProvider)),
+  (ref) => GooglePlayBillingService(
+    ref.watch(inAppPurchaseProvider),
+    productId: ref.watch(backendConfigProvider).premiumProductId,
+    monthlyBasePlanId: ref
+        .watch(backendConfigProvider)
+        .premiumMonthlyBasePlanId,
+    yearlyBasePlanId: ref.watch(backendConfigProvider).premiumYearlyBasePlanId,
+  ),
 );
 final csvExportServiceProvider = Provider((ref) => CsvExportService());
 final attestationServiceProvider = Provider<AttestationService>(
@@ -134,6 +157,7 @@ final dataProtectionBootstrapServiceProvider =
         keyService: ref.watch(localVaultKeyServiceProvider),
         documentVaultService: ref.watch(secureDocumentVaultServiceProvider),
         retentionService: ref.watch(dataRetentionServiceProvider),
+        protectedPreferencesStore: ref.watch(protectedPreferencesStoreProvider),
       ),
     );
 final strategyEngineProvider = Provider((ref) => const StrategyEngine());
@@ -151,7 +175,10 @@ final paymentsRepositoryProvider = Provider<PaymentsRepository>(
   (ref) => DriftPaymentsRepository(ref.watch(appDatabaseProvider)),
 );
 final preferencesRepositoryProvider = Provider<PreferencesRepository>(
-  (ref) => DriftPreferencesRepository(ref.watch(appDatabaseProvider)),
+  (ref) => DriftPreferencesRepository(
+    ref.watch(appDatabaseProvider),
+    ref.watch(protectedPreferencesStoreProvider),
+  ),
 );
 final documentsRepositoryProvider = Provider<DocumentsRepository>(
   (ref) => DriftDocumentsRepository(

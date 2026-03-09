@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 
@@ -8,7 +9,21 @@ import 'package:debt_destroyer/features/scan_import/domain/import_services.dart'
 import 'package:debt_destroyer/shared/enums/app_enums.dart';
 import 'package:debt_destroyer/shared/models/backend_models.dart';
 
+const _backendConfig = BackendConfig(
+  baseUrl: 'https://api.example.com',
+  environment: 'test',
+  playIntegrityCloudProjectNumber: null,
+  playIntegrityPackageName: 'com.debtdestroyer.app',
+  debugAttestationSecret: null,
+  requestTimeout: Duration(seconds: 1),
+  premiumProductId: 'premium',
+  premiumMonthlyBasePlanId: 'monthly',
+  premiumYearlyBasePlanId: 'yearly',
+);
+
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('BackendApiClient', () {
     test('refreshes once after 401 and retries successfully', () async {
       final sessionManager = _FakeSessionManager();
@@ -17,17 +32,11 @@ void main() {
           http.Response('{"error":"invalid_auth"}', 401),
           http.Response('{"ok":true}', 200),
         ]),
-        config: const BackendConfig(
-          baseUrl: 'https://api.example.com',
-          environment: 'test',
-          playIntegrityProjectNumber: null,
-          debugAttestationSecret: null,
-          requestTimeout: Duration(seconds: 1),
-        ),
+        config: _backendConfig,
         sessionManager: sessionManager,
       );
 
-      final response = await client.postAuthorized('/v1/ai/extractions', {});
+      final response = await client.postAuthorized('/v1/import/extract', {});
       expect(response['ok'], true);
       expect(sessionManager.refreshCount, 1);
     });
@@ -41,23 +50,11 @@ void main() {
         final service = BackendAiExtractionService(
           client: BackendApiClient(
             httpClient: _SequenceClient([]),
-            config: const BackendConfig(
-              baseUrl: '',
-              environment: 'test',
-              playIntegrityProjectNumber: null,
-              debugAttestationSecret: null,
-              requestTimeout: Duration(seconds: 1),
-            ),
+            config: _backendConfig.copyWith(baseUrl: ''),
             sessionManager: _FakeSessionManager(),
           ),
           sessionManager: _FakeSessionManager(),
-          config: const BackendConfig(
-            baseUrl: '',
-            environment: 'test',
-            playIntegrityProjectNumber: null,
-            debugAttestationSecret: null,
-            requestTimeout: Duration(seconds: 1),
-          ),
+          config: _backendConfig.copyWith(baseUrl: ''),
           parser: parser,
         );
 
@@ -95,23 +92,11 @@ void main() {
                 429,
               ),
             ]),
-            config: const BackendConfig(
-              baseUrl: 'https://api.example.com',
-              environment: 'test',
-              playIntegrityProjectNumber: null,
-              debugAttestationSecret: null,
-              requestTimeout: Duration(seconds: 1),
-            ),
+            config: _backendConfig,
             sessionManager: _FakeSessionManager(),
           ),
           sessionManager: _FakeSessionManager(),
-          config: const BackendConfig(
-            baseUrl: 'https://api.example.com',
-            environment: 'test',
-            playIntegrityProjectNumber: null,
-            debugAttestationSecret: null,
-            requestTimeout: Duration(seconds: 1),
-          ),
+          config: _backendConfig,
           parser: HeuristicExtractionParser(),
         );
 
@@ -124,6 +109,43 @@ void main() {
 
         expect(candidate.warnings, contains('quota_exhausted'));
         expect(candidate.quotaSnapshot?.premiumRequired, true);
+      },
+    );
+  });
+
+  group('PlayIntegrityAttestationService', () {
+    const channel = MethodChannel('debt_destroyer/play_integrity');
+
+    tearDown(() async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null);
+    });
+
+    test(
+      'passes cloud project number through method channel payload',
+      () async {
+        MethodCall? capturedCall;
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, (call) async {
+              capturedCall = call;
+              return 'token-1';
+            });
+        final service = PlayIntegrityAttestationService(
+          _backendConfig.copyWith(playIntegrityCloudProjectNumber: '123456789'),
+        );
+
+        final token = await service.requestAttestationToken(
+          installId: 'install-1',
+          nonce: 'nonce-1',
+        );
+
+        expect(token, 'token-1');
+        expect(capturedCall?.arguments, {
+          'installId': 'install-1',
+          'nonce': 'nonce-1',
+          'cloudProjectNumber': '123456789',
+          'debugSecret': null,
+        });
       },
     );
   });

@@ -88,6 +88,7 @@ void main() {
             baseDirectoryLoader: () async => tempDir,
           ),
           retentionService: const DataRetentionService(),
+          protectedPreferencesStore: ProtectedPreferencesStore(),
         );
 
         final state = await service.initialize();
@@ -148,6 +149,7 @@ void main() {
         keyService: keyService,
         documentVaultService: vault,
         retentionService: const DataRetentionService(),
+        protectedPreferencesStore: ProtectedPreferencesStore(),
       );
 
       await service.initialize();
@@ -204,6 +206,7 @@ void main() {
         keyService: keyService,
         documentVaultService: vault,
         retentionService: const DataRetentionService(),
+        protectedPreferencesStore: ProtectedPreferencesStore(),
       );
 
       await service.initialize();
@@ -257,6 +260,7 @@ void main() {
           baseDirectoryLoader: () async => tempDir,
         ),
         retentionService: const DataRetentionService(),
+        protectedPreferencesStore: ProtectedPreferencesStore(),
       );
 
       await service.initialize();
@@ -269,13 +273,73 @@ void main() {
       expect(row.retentionExpiresAt, isNotNull);
       expect(row.rawOcrExpiresAt!.isBefore(row.retentionExpiresAt!), isTrue);
     });
+
+    test(
+      'legacy deleted documents remain non-visible after migration',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp(
+          'protect_deleted',
+        );
+        addTearDown(() async => tempDir.delete(recursive: true));
+        final legacy = File('${tempDir.path}/legacy-deleted.txt')
+          ..writeAsStringSync('legacy payload');
+
+        final database = AppDatabase(NativeDatabase.memory());
+        addTearDown(() async => database.close());
+        await database
+            .into(database.importedDocumentsTable)
+            .insert(
+              ImportedDocumentsTableCompanion.insert(
+                id: 'doc-deleted-legacy',
+                localPath: Value(legacy.path),
+                sourceType: DocumentSourceType.gallery.name,
+                mimeType: 'text/plain',
+                createdAt: DateTime(2026, 3, 9),
+                lifecycleState: Value(
+                  DocumentLifecycleState.pendingDeletion.name,
+                ),
+                parseStatus: ParseStatus.failed.name,
+                parseVersion: 'v1',
+                deleted: const Value(true),
+                pendingDeletionAt: Value(DateTime(2026, 3, 9)),
+              ),
+            );
+
+        final service = DataProtectionBootstrapService(
+          database: database,
+          keyService: _FakeKeyService(),
+          documentVaultService: SecureDocumentVaultService(
+            _FakeKeyService(),
+            baseDirectoryLoader: () async => tempDir,
+          ),
+          retentionService: const DataRetentionService(),
+          protectedPreferencesStore: ProtectedPreferencesStore(),
+        );
+
+        await service.initialize();
+        final row = await database
+            .select(database.importedDocumentsTable)
+            .getSingle();
+        expect(row.lifecycleState, DocumentLifecycleState.pendingDeletion.name);
+        expect(row.pendingDeletionAt, isA<DateTime>());
+      },
+    );
   });
 
-  test('logger redacts sensitive terms', () {
+  test('logger redacts sensitive terms and forbidden keys', () {
     final sanitized = AppLogger.instance.sanitizeForTest(
       'token balance ocr note',
     );
-    expect(sanitized, '[redacted] [redacted] [redacted] [redacted]');
+    final context = AppLogger.instance.sanitizeContextForTest('ocr.capture', {
+      'ocrText': 'statement body',
+      'status': 'failed',
+      'count': 2,
+    });
+    expect(sanitized, '[redacted]');
+    expect(context['event'], '[redacted]');
+    expect(context.containsKey('ocrText'), isFalse);
+    expect(context['redactedFieldCount'], 1);
+    expect(context['count'], 2);
   });
 
   test('retention defaults minimize OCR and expire failed imports quickly', () {
@@ -293,6 +357,25 @@ void main() {
       now.add(const Duration(hours: 24)),
     );
   });
+
+  test(
+    'protected preferences migrate sensitive flags out of legacy values',
+    () async {
+      final store = ProtectedPreferencesStore();
+      final legacy = UserPreferences.defaults().copyWith(
+        hideBalances: true,
+        appLockEnabled: true,
+        aiConsentEnabled: true,
+      );
+
+      await store.migrateFromLegacy(legacy);
+      final merged = await store.mergeInto(UserPreferences.defaults());
+
+      expect(merged.hideBalances, isTrue);
+      expect(merged.appLockEnabled, isTrue);
+      expect(merged.aiConsentEnabled, isTrue);
+    },
+  );
 }
 
 class _FakeKeyService extends LocalVaultKeyService {

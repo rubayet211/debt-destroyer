@@ -60,6 +60,8 @@ class ImportedDocumentsTable extends Table {
   TextColumn get sourceType => text()();
   TextColumn get mimeType => text()();
   DateTimeColumn get createdAt => dateTime()();
+  TextColumn get lifecycleState =>
+      text().withDefault(const Constant('imported'))();
   TextColumn get linkedDebtId => text().nullable()();
   TextColumn get rawOcrText => text().nullable()();
   TextColumn get parseStatus => text()();
@@ -67,6 +69,9 @@ class ImportedDocumentsTable extends Table {
   BoolColumn get deleted => boolean().withDefault(const Constant(false))();
   DateTimeColumn get retentionExpiresAt => dateTime().nullable()();
   DateTimeColumn get rawOcrExpiresAt => dateTime().nullable()();
+  DateTimeColumn get processedAt => dateTime().nullable()();
+  DateTimeColumn get linkedAt => dateTime().nullable()();
+  DateTimeColumn get pendingDeletionAt => dateTime().nullable()();
   DateTimeColumn get purgedAt => dateTime().nullable()();
   DateTimeColumn get encryptedAt => dateTime().nullable()();
   BoolColumn get hasRawOcrText =>
@@ -179,7 +184,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -249,6 +254,48 @@ class AppDatabase extends _$AppDatabase {
         await customStatement(
           'alter table subscription_state_table add column last_verified_at integer null',
         );
+      }
+      if (from < 5) {
+        await customStatement(
+          "alter table imported_documents_table add column lifecycle_state text not null default 'imported'",
+        );
+        await customStatement(
+          'alter table imported_documents_table add column processed_at integer null',
+        );
+        await customStatement(
+          'alter table imported_documents_table add column linked_at integer null',
+        );
+        await customStatement(
+          'alter table imported_documents_table add column pending_deletion_at integer null',
+        );
+        await customStatement('''
+          update imported_documents_table
+          set lifecycle_state = case
+            when purged_at is not null then 'purged'
+            when deleted = 1 then 'pendingDeletion'
+            when linked_debt_id is not null then 'linked'
+            when parse_status = 'success' then 'processed'
+            else 'imported'
+          end
+        ''');
+        await customStatement('''
+          update imported_documents_table
+          set processed_at = created_at
+          where lifecycle_state in ('processed', 'linked')
+            and processed_at is null
+        ''');
+        await customStatement('''
+          update imported_documents_table
+          set linked_at = created_at
+          where lifecycle_state = 'linked'
+            and linked_at is null
+        ''');
+        await customStatement('''
+          update imported_documents_table
+          set pending_deletion_at = coalesce(pending_deletion_at, created_at)
+          where lifecycle_state = 'pendingDeletion'
+            and pending_deletion_at is null
+        ''');
       }
     },
   );

@@ -19,11 +19,19 @@ abstract class BillingService {
 }
 
 class GooglePlayBillingService implements BillingService {
-  GooglePlayBillingService(this._inAppPurchase);
-
-  static const _productId = 'premium';
+  GooglePlayBillingService(
+    this._inAppPurchase, {
+    required String productId,
+    required String monthlyBasePlanId,
+    required String yearlyBasePlanId,
+  }) : _productId = productId,
+       _monthlyBasePlanId = monthlyBasePlanId,
+       _yearlyBasePlanId = yearlyBasePlanId;
 
   final InAppPurchase _inAppPurchase;
+  final String _productId;
+  final String _monthlyBasePlanId;
+  final String _yearlyBasePlanId;
 
   @override
   Stream<List<PurchaseDetails>> get purchaseStream =>
@@ -56,11 +64,12 @@ class GooglePlayBillingService implements BillingService {
             .whereType<BillingPlan>()
             .where(
               (plan) =>
-                  plan.basePlanId == 'monthly' || plan.basePlanId == 'yearly',
+                  plan.basePlanId == _monthlyBasePlanId ||
+                  plan.basePlanId == _yearlyBasePlanId,
             )
             .toList()
           ..sort((left, right) {
-            const order = {'yearly': 0, 'monthly': 1};
+            final order = {_yearlyBasePlanId: 0, _monthlyBasePlanId: 1};
             return (order[left.basePlanId] ?? 9).compareTo(
               order[right.basePlanId] ?? 9,
             );
@@ -69,8 +78,8 @@ class GooglePlayBillingService implements BillingService {
     if (plans.isEmpty) {
       throw StateError(
         invalidPlanErrors.isEmpty
-            ? 'No valid Play Billing plans found for premium/monthly/yearly.'
-            : 'No valid Play Billing plans found for premium/monthly/yearly. '
+            ? 'No valid Play Billing plans found for $_productId.'
+            : 'No valid Play Billing plans found for $_productId. '
                   'Check Play Console offer configuration.',
       );
     }
@@ -162,7 +171,7 @@ class GooglePlayBillingService implements BillingService {
       currencyCode: details.currencyCode,
       rawPrice: details.rawPrice,
       billingPeriod: _formatPeriod(offer.pricingPhases.first.billingPeriod),
-      isHighlighted: offer.basePlanId == 'yearly',
+      isHighlighted: offer.basePlanId == _yearlyBasePlanId,
       productDetails: details,
     );
   }

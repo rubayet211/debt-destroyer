@@ -4,6 +4,7 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -118,6 +119,121 @@ class LocalVaultKeyService {
       info: utf8.encode(context),
     );
     return secretKey.extractBytes();
+  }
+}
+
+class ProtectedPreferenceValues {
+  const ProtectedPreferenceValues({
+    required this.hideBalances,
+    required this.appLockEnabled,
+    required this.aiConsentEnabled,
+  });
+
+  factory ProtectedPreferenceValues.defaults() {
+    return const ProtectedPreferenceValues(
+      hideBalances: false,
+      appLockEnabled: false,
+      aiConsentEnabled: false,
+    );
+  }
+
+  final bool hideBalances;
+  final bool appLockEnabled;
+  final bool aiConsentEnabled;
+
+  ProtectedPreferenceValues copyWith({
+    bool? hideBalances,
+    bool? appLockEnabled,
+    bool? aiConsentEnabled,
+  }) {
+    return ProtectedPreferenceValues(
+      hideBalances: hideBalances ?? this.hideBalances,
+      appLockEnabled: appLockEnabled ?? this.appLockEnabled,
+      aiConsentEnabled: aiConsentEnabled ?? this.aiConsentEnabled,
+    );
+  }
+}
+
+class ProtectedPreferencesStore {
+  ProtectedPreferencesStore([this._storage = _defaultVaultStorage]);
+
+  final FlutterSecureStorage _storage;
+
+  static const _hideBalancesKey = 'protected_pref_hide_balances';
+  static const _appLockEnabledKey = 'protected_pref_app_lock_enabled';
+  static const _aiConsentEnabledKey = 'protected_pref_ai_consent_enabled';
+  static const _migrationKey = 'protected_pref_flags_migrated_v1';
+  final Map<String, String> _memoryFallback = <String, String>{};
+
+  Future<void> migrateFromLegacy(UserPreferences preferences) async {
+    if (await _isMigrated()) {
+      return;
+    }
+    await write(
+      ProtectedPreferenceValues(
+        hideBalances: preferences.hideBalances,
+        appLockEnabled: preferences.appLockEnabled,
+        aiConsentEnabled: preferences.aiConsentEnabled,
+      ),
+    );
+    await _write(_migrationKey, 'true');
+  }
+
+  Future<ProtectedPreferenceValues> read() async {
+    return ProtectedPreferenceValues(
+      hideBalances: await _readBool(_hideBalancesKey) ?? false,
+      appLockEnabled: await _readBool(_appLockEnabledKey) ?? false,
+      aiConsentEnabled: await _readBool(_aiConsentEnabledKey) ?? false,
+    );
+  }
+
+  Future<void> write(ProtectedPreferenceValues values) async {
+    await Future.wait([
+      _writeBool(_hideBalancesKey, values.hideBalances),
+      _writeBool(_appLockEnabledKey, values.appLockEnabled),
+      _writeBool(_aiConsentEnabledKey, values.aiConsentEnabled),
+    ]);
+  }
+
+  Future<UserPreferences> mergeInto(UserPreferences preferences) async {
+    final protected = await read();
+    return preferences.copyWith(
+      hideBalances: protected.hideBalances,
+      appLockEnabled: protected.appLockEnabled,
+      aiConsentEnabled: protected.aiConsentEnabled,
+    );
+  }
+
+  Future<bool> _isMigrated() async {
+    return (await _read(_migrationKey)) == 'true';
+  }
+
+  Future<bool?> _readBool(String key) async {
+    final value = await _read(key);
+    if (value == null) {
+      return null;
+    }
+    return value == 'true';
+  }
+
+  Future<void> _writeBool(String key, bool value) {
+    return _write(key, value ? 'true' : 'false');
+  }
+
+  Future<String?> _read(String key) async {
+    try {
+      return await _storage.read(key: key);
+    } on MissingPluginException {
+      return _memoryFallback[key];
+    }
+  }
+
+  Future<void> _write(String key, String value) async {
+    try {
+      await _storage.write(key: key, value: value);
+    } on MissingPluginException {
+      _memoryFallback[key] = value;
+    }
   }
 }
 

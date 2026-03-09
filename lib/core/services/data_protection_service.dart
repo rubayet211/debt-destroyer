@@ -16,12 +16,14 @@ class DataProtectionBootstrapService {
     required this.keyService,
     required this.documentVaultService,
     required this.retentionService,
+    required this.protectedPreferencesStore,
   });
 
   final AppDatabase database;
   final LocalVaultKeyService keyService;
   final SecureDocumentVaultService documentVaultService;
   final DataRetentionService retentionService;
+  final ProtectedPreferencesStore protectedPreferencesStore;
 
   Future<DataProtectionState> initialize() async {
     try {
@@ -40,9 +42,10 @@ class DataProtectionBootstrapService {
         'Local encryption could not be initialized.',
       );
       AppLogger.instance.error(
-        'Data protection bootstrap failed',
+        'data_protection.bootstrap_failed',
         error,
         stackTrace,
+        context: const {'category': 'dataProtection', 'operation': 'bootstrap'},
       );
       return const DataProtectionState.failed(
         'Secure local storage could not be opened. Retry the migration or restore from a safe backup.',
@@ -114,17 +117,28 @@ class DataProtectionBootstrapService {
       final retainRaw = retentionService.shouldRetainRawOcr(preferences);
       final rawOcrExists =
           row.rawOcrText != null && row.rawOcrText!.trim().isNotEmpty;
+      final parseStatus = ParseStatus.values.byName(row.parseStatus);
+      final lifecycleState = row.purgedAt != null
+          ? DocumentLifecycleState.purged
+          : row.deleted
+          ? DocumentLifecycleState.pendingDeletion
+          : row.linkedDebtId != null
+          ? DocumentLifecycleState.linked
+          : parseStatus == ParseStatus.success
+          ? DocumentLifecycleState.processed
+          : DocumentLifecycleState.imported;
       await (database.update(
         database.importedDocumentsTable,
       )..where((tbl) => tbl.id.equals(row.id))).write(
         ImportedDocumentsTableCompanion(
           localPath: const drift.Value(''),
           storageRef: drift.Value(storageRef),
+          lifecycleState: drift.Value(lifecycleState.name),
           encryptedAt: drift.Value(encryptedAt),
           retentionExpiresAt: drift.Value(
             retentionService.documentExpiry(
               preferences: preferences,
-              parseStatus: ParseStatus.values.byName(row.parseStatus),
+              parseStatus: parseStatus,
               now: DateTime.now(),
             ),
           ),
@@ -134,6 +148,22 @@ class DataProtectionBootstrapService {
                 ? retentionService.rawOcrExpiry(preferences, DateTime.now())
                 : null,
           ),
+          processedAt: drift.Value(
+            lifecycleState == DocumentLifecycleState.imported
+                ? null
+                : row.createdAt,
+          ),
+          linkedAt: drift.Value(
+            lifecycleState == DocumentLifecycleState.linked
+                ? row.createdAt
+                : null,
+          ),
+          pendingDeletionAt: drift.Value(
+            lifecycleState == DocumentLifecycleState.pendingDeletion
+                ? row.pendingDeletionAt ?? row.createdAt
+                : row.pendingDeletionAt,
+          ),
+          purgedAt: drift.Value(row.purgedAt),
           hasRawOcrText: drift.Value(retainRaw && rawOcrExists),
         ),
       );
@@ -208,9 +238,11 @@ class DataProtectionBootstrapService {
         .select(database.appPreferencesTable)
         .getSingleOrNull();
     if (row == null) {
-      return UserPreferences.defaults();
+      final defaults = UserPreferences.defaults();
+      await protectedPreferencesStore.migrateFromLegacy(defaults);
+      return protectedPreferencesStore.mergeInto(defaults);
     }
-    return UserPreferences(
+    final preferences = UserPreferences(
       themeMode: ThemePreference.values.byName(row.themeMode),
       currencyCode: row.currencyCode,
       localeCode: row.localeCode,
@@ -229,10 +261,19 @@ class DataProtectionBootstrapService {
       purgeFailedImportsAfterHours: row.purgeFailedImportsAfterHours,
       dataProtectionExplainerSeen: row.dataProtectionExplainerSeen,
     );
+    await protectedPreferencesStore.migrateFromLegacy(preferences);
+    return protectedPreferencesStore.mergeInto(preferences);
   }
 
-  Future<void> _savePreferences(UserPreferences preferences) {
-    return database
+  Future<void> _savePreferences(UserPreferences preferences) async {
+    await protectedPreferencesStore.write(
+      ProtectedPreferenceValues(
+        hideBalances: preferences.hideBalances,
+        appLockEnabled: preferences.appLockEnabled,
+        aiConsentEnabled: preferences.aiConsentEnabled,
+      ),
+    );
+    await database
         .into(database.appPreferencesTable)
         .insertOnConflictUpdate(
           AppPreferencesTableCompanion.insert(
@@ -240,9 +281,9 @@ class DataProtectionBootstrapService {
             currencyCode: drift.Value(preferences.currencyCode),
             localeCode: drift.Value(preferences.localeCode),
             defaultStrategy: drift.Value(preferences.defaultStrategy.name),
-            hideBalances: drift.Value(preferences.hideBalances),
-            appLockEnabled: drift.Value(preferences.appLockEnabled),
-            aiConsentEnabled: drift.Value(preferences.aiConsentEnabled),
+            hideBalances: const drift.Value(false),
+            appLockEnabled: const drift.Value(false),
+            aiConsentEnabled: const drift.Value(false),
             notificationsEnabled: drift.Value(preferences.notificationsEnabled),
             onboardingCompleted: drift.Value(preferences.onboardingCompleted),
             weeklySummaryEnabled: drift.Value(preferences.weeklySummaryEnabled),

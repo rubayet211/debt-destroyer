@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:mocktail/mocktail.dart';
 
+import 'package:debt_destroyer/core/constants/app_constants.dart';
 import 'package:debt_destroyer/core/services/backend_services.dart';
 import 'package:debt_destroyer/core/services/billing_services.dart';
 import 'package:debt_destroyer/features/settings/presentation/settings_screens.dart';
@@ -17,6 +18,18 @@ import 'package:debt_destroyer/shared/models/backend_models.dart';
 import 'package:debt_destroyer/shared/models/billing_models.dart';
 import 'package:debt_destroyer/shared/models/subscription_state.dart';
 import 'package:debt_destroyer/shared/providers/app_providers.dart';
+
+const _backendConfig = BackendConfig(
+  baseUrl: 'https://example.test',
+  environment: 'test',
+  playIntegrityCloudProjectNumber: null,
+  playIntegrityPackageName: 'com.debtdestroyer.app',
+  debugAttestationSecret: null,
+  requestTimeout: Duration(seconds: 1),
+  premiumProductId: AppConstants.premiumProductId,
+  premiumMonthlyBasePlanId: AppConstants.premiumMonthlyBasePlanId,
+  premiumYearlyBasePlanId: AppConstants.premiumYearlyBasePlanId,
+);
 
 void main() {
   test('expired entitlement disables premium feature access offline', () {
@@ -137,13 +150,7 @@ void main() {
             headers: {'content-type': 'application/json'},
           );
         }),
-        config: const BackendConfig(
-          baseUrl: 'https://example.test',
-          environment: 'test',
-          playIntegrityProjectNumber: null,
-          debugAttestationSecret: null,
-          requestTimeout: Duration(seconds: 1),
-        ),
+        config: _backendConfig,
         sessionManager: sessionManager,
       ),
       sessionManager: sessionManager,
@@ -162,7 +169,10 @@ void main() {
     () async {
       final inAppPurchase = _MockInAppPurchase();
       when(() => inAppPurchase.isAvailable()).thenAnswer((_) async => true);
-      when(() => inAppPurchase.queryProductDetails({'premium'})).thenAnswer(
+      when(
+        () =>
+            inAppPurchase.queryProductDetails({AppConstants.premiumProductId}),
+      ).thenAnswer(
         (_) async => ProductDetailsResponse(
           productDetails: [
             ProductDetails(
@@ -178,7 +188,12 @@ void main() {
         ),
       );
 
-      final service = GooglePlayBillingService(inAppPurchase);
+      final service = GooglePlayBillingService(
+        inAppPurchase,
+        productId: AppConstants.premiumProductId,
+        monthlyBasePlanId: AppConstants.premiumMonthlyBasePlanId,
+        yearlyBasePlanId: AppConstants.premiumYearlyBasePlanId,
+      );
 
       await expectLater(
         service.loadCatalog(),
@@ -192,6 +207,31 @@ void main() {
       );
     },
   );
+
+  test('billing service uses configured Play product ids', () async {
+    final inAppPurchase = _MockInAppPurchase();
+    when(() => inAppPurchase.isAvailable()).thenAnswer((_) async => true);
+    when(
+      () => inAppPurchase.queryProductDetails({'custom-premium'}),
+    ).thenAnswer(
+      (_) async => ProductDetailsResponse(
+        productDetails: const [],
+        notFoundIDs: const [],
+      ),
+    );
+
+    final service = GooglePlayBillingService(
+      inAppPurchase,
+      productId: 'custom-premium',
+      monthlyBasePlanId: 'm-plan',
+      yearlyBasePlanId: 'y-plan',
+    );
+
+    await expectLater(service.loadCatalog(), throwsA(isA<StateError>()));
+    verify(
+      () => inAppPurchase.queryProductDetails({'custom-premium'}),
+    ).called(1);
+  });
 
   test(
     'purchase verification does not use selected plan state as base plan id',
@@ -240,13 +280,7 @@ class _StaticBillingController extends BillingController {
         entitlementSyncService: EntitlementSyncService(
           client: BackendApiClient(
             httpClient: _NoopHttpClient(),
-            config: const BackendConfig(
-              baseUrl: '',
-              environment: 'test',
-              playIntegrityProjectNumber: null,
-              debugAttestationSecret: null,
-              requestTimeout: Duration(seconds: 1),
-            ),
+            config: _backendConfig.copyWith(baseUrl: ''),
             sessionManager: _FakeSessionManager(),
           ),
           sessionManager: _FakeSessionManager(),
@@ -414,13 +448,7 @@ class _CapturingEntitlementSyncService extends EntitlementSyncService {
     : super(
         client: BackendApiClient(
           httpClient: _NoopHttpClient(),
-          config: const BackendConfig(
-            baseUrl: '',
-            environment: 'test',
-            playIntegrityProjectNumber: null,
-            debugAttestationSecret: null,
-            requestTimeout: Duration(seconds: 1),
-          ),
+          config: _backendConfig.copyWith(baseUrl: ''),
           sessionManager: const _FixedSessionManager(),
         ),
         sessionManager: const _FixedSessionManager(),

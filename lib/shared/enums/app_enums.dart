@@ -4,6 +4,14 @@ enum ThemePreference { system, light, dark }
 
 enum DocumentRetentionMode { days7, days30, manual }
 
+enum DocumentLifecycleState {
+  imported,
+  processed,
+  linked,
+  pendingDeletion,
+  purged,
+}
+
 extension ThemePreferenceX on ThemePreference {
   ThemeMode toThemeMode() {
     switch (this) {

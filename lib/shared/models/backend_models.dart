@@ -2,18 +2,56 @@ class BackendConfig {
   const BackendConfig({
     required this.baseUrl,
     required this.environment,
-    required this.playIntegrityProjectNumber,
+    required this.playIntegrityCloudProjectNumber,
+    required this.playIntegrityPackageName,
     required this.debugAttestationSecret,
     required this.requestTimeout,
+    required this.premiumProductId,
+    required this.premiumMonthlyBasePlanId,
+    required this.premiumYearlyBasePlanId,
   });
 
   final String baseUrl;
   final String environment;
-  final String? playIntegrityProjectNumber;
+  final String? playIntegrityCloudProjectNumber;
+  final String playIntegrityPackageName;
   final String? debugAttestationSecret;
   final Duration requestTimeout;
+  final String premiumProductId;
+  final String premiumMonthlyBasePlanId;
+  final String premiumYearlyBasePlanId;
 
   bool get isConfigured => baseUrl.isNotEmpty;
+
+  BackendConfig copyWith({
+    String? baseUrl,
+    String? environment,
+    String? playIntegrityCloudProjectNumber,
+    String? playIntegrityPackageName,
+    String? debugAttestationSecret,
+    Duration? requestTimeout,
+    String? premiumProductId,
+    String? premiumMonthlyBasePlanId,
+    String? premiumYearlyBasePlanId,
+  }) {
+    return BackendConfig(
+      baseUrl: baseUrl ?? this.baseUrl,
+      environment: environment ?? this.environment,
+      playIntegrityCloudProjectNumber:
+          playIntegrityCloudProjectNumber ??
+          this.playIntegrityCloudProjectNumber,
+      playIntegrityPackageName:
+          playIntegrityPackageName ?? this.playIntegrityPackageName,
+      debugAttestationSecret:
+          debugAttestationSecret ?? this.debugAttestationSecret,
+      requestTimeout: requestTimeout ?? this.requestTimeout,
+      premiumProductId: premiumProductId ?? this.premiumProductId,
+      premiumMonthlyBasePlanId:
+          premiumMonthlyBasePlanId ?? this.premiumMonthlyBasePlanId,
+      premiumYearlyBasePlanId:
+          premiumYearlyBasePlanId ?? this.premiumYearlyBasePlanId,
+    );
+  }
 }
 
 class InstallSession {

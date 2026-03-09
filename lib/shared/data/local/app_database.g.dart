@@ -1640,6 +1640,18 @@ class $ImportedDocumentsTableTable extends ImportedDocumentsTable
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _lifecycleStateMeta = const VerificationMeta(
+    'lifecycleState',
+  );
+  @override
+  late final GeneratedColumn<String> lifecycleState = GeneratedColumn<String>(
+    'lifecycle_state',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('imported'),
+  );
   static const VerificationMeta _linkedDebtIdMeta = const VerificationMeta(
     'linkedDebtId',
   );
@@ -1722,6 +1734,40 @@ class $ImportedDocumentsTableTable extends ImportedDocumentsTable
         type: DriftSqlType.dateTime,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _processedAtMeta = const VerificationMeta(
+    'processedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> processedAt = GeneratedColumn<DateTime>(
+    'processed_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _linkedAtMeta = const VerificationMeta(
+    'linkedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> linkedAt = GeneratedColumn<DateTime>(
+    'linked_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _pendingDeletionAtMeta = const VerificationMeta(
+    'pendingDeletionAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> pendingDeletionAt =
+      GeneratedColumn<DateTime>(
+        'pending_deletion_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _purgedAtMeta = const VerificationMeta(
     'purgedAt',
   );
@@ -1767,6 +1813,7 @@ class $ImportedDocumentsTableTable extends ImportedDocumentsTable
     sourceType,
     mimeType,
     createdAt,
+    lifecycleState,
     linkedDebtId,
     rawOcrText,
     parseStatus,
@@ -1774,6 +1821,9 @@ class $ImportedDocumentsTableTable extends ImportedDocumentsTable
     deleted,
     retentionExpiresAt,
     rawOcrExpiresAt,
+    processedAt,
+    linkedAt,
+    pendingDeletionAt,
     purgedAt,
     encryptedAt,
     hasRawOcrText,
@@ -1830,6 +1880,15 @@ class $ImportedDocumentsTableTable extends ImportedDocumentsTable
       );
     } else if (isInserting) {
       context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('lifecycle_state')) {
+      context.handle(
+        _lifecycleStateMeta,
+        lifecycleState.isAcceptableOrUnknown(
+          data['lifecycle_state']!,
+          _lifecycleStateMeta,
+        ),
+      );
     }
     if (data.containsKey('linked_debt_id')) {
       context.handle(
@@ -1895,6 +1954,30 @@ class $ImportedDocumentsTableTable extends ImportedDocumentsTable
         ),
       );
     }
+    if (data.containsKey('processed_at')) {
+      context.handle(
+        _processedAtMeta,
+        processedAt.isAcceptableOrUnknown(
+          data['processed_at']!,
+          _processedAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('linked_at')) {
+      context.handle(
+        _linkedAtMeta,
+        linkedAt.isAcceptableOrUnknown(data['linked_at']!, _linkedAtMeta),
+      );
+    }
+    if (data.containsKey('pending_deletion_at')) {
+      context.handle(
+        _pendingDeletionAtMeta,
+        pendingDeletionAt.isAcceptableOrUnknown(
+          data['pending_deletion_at']!,
+          _pendingDeletionAtMeta,
+        ),
+      );
+    }
     if (data.containsKey('purged_at')) {
       context.handle(
         _purgedAtMeta,
@@ -1955,6 +2038,10 @@ class $ImportedDocumentsTableTable extends ImportedDocumentsTable
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
       )!,
+      lifecycleState: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}lifecycle_state'],
+      )!,
       linkedDebtId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}linked_debt_id'],
@@ -1982,6 +2069,18 @@ class $ImportedDocumentsTableTable extends ImportedDocumentsTable
       rawOcrExpiresAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}raw_ocr_expires_at'],
+      ),
+      processedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}processed_at'],
+      ),
+      linkedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}linked_at'],
+      ),
+      pendingDeletionAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}pending_deletion_at'],
       ),
       purgedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
@@ -2012,6 +2111,7 @@ class ImportedDocumentsTableData extends DataClass
   final String sourceType;
   final String mimeType;
   final DateTime createdAt;
+  final String lifecycleState;
   final String? linkedDebtId;
   final String? rawOcrText;
   final String parseStatus;
@@ -2019,6 +2119,9 @@ class ImportedDocumentsTableData extends DataClass
   final bool deleted;
   final DateTime? retentionExpiresAt;
   final DateTime? rawOcrExpiresAt;
+  final DateTime? processedAt;
+  final DateTime? linkedAt;
+  final DateTime? pendingDeletionAt;
   final DateTime? purgedAt;
   final DateTime? encryptedAt;
   final bool hasRawOcrText;
@@ -2029,6 +2132,7 @@ class ImportedDocumentsTableData extends DataClass
     required this.sourceType,
     required this.mimeType,
     required this.createdAt,
+    required this.lifecycleState,
     this.linkedDebtId,
     this.rawOcrText,
     required this.parseStatus,
@@ -2036,6 +2140,9 @@ class ImportedDocumentsTableData extends DataClass
     required this.deleted,
     this.retentionExpiresAt,
     this.rawOcrExpiresAt,
+    this.processedAt,
+    this.linkedAt,
+    this.pendingDeletionAt,
     this.purgedAt,
     this.encryptedAt,
     required this.hasRawOcrText,
@@ -2051,6 +2158,7 @@ class ImportedDocumentsTableData extends DataClass
     map['source_type'] = Variable<String>(sourceType);
     map['mime_type'] = Variable<String>(mimeType);
     map['created_at'] = Variable<DateTime>(createdAt);
+    map['lifecycle_state'] = Variable<String>(lifecycleState);
     if (!nullToAbsent || linkedDebtId != null) {
       map['linked_debt_id'] = Variable<String>(linkedDebtId);
     }
@@ -2065,6 +2173,15 @@ class ImportedDocumentsTableData extends DataClass
     }
     if (!nullToAbsent || rawOcrExpiresAt != null) {
       map['raw_ocr_expires_at'] = Variable<DateTime>(rawOcrExpiresAt);
+    }
+    if (!nullToAbsent || processedAt != null) {
+      map['processed_at'] = Variable<DateTime>(processedAt);
+    }
+    if (!nullToAbsent || linkedAt != null) {
+      map['linked_at'] = Variable<DateTime>(linkedAt);
+    }
+    if (!nullToAbsent || pendingDeletionAt != null) {
+      map['pending_deletion_at'] = Variable<DateTime>(pendingDeletionAt);
     }
     if (!nullToAbsent || purgedAt != null) {
       map['purged_at'] = Variable<DateTime>(purgedAt);
@@ -2086,6 +2203,7 @@ class ImportedDocumentsTableData extends DataClass
       sourceType: Value(sourceType),
       mimeType: Value(mimeType),
       createdAt: Value(createdAt),
+      lifecycleState: Value(lifecycleState),
       linkedDebtId: linkedDebtId == null && nullToAbsent
           ? const Value.absent()
           : Value(linkedDebtId),
@@ -2101,6 +2219,15 @@ class ImportedDocumentsTableData extends DataClass
       rawOcrExpiresAt: rawOcrExpiresAt == null && nullToAbsent
           ? const Value.absent()
           : Value(rawOcrExpiresAt),
+      processedAt: processedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(processedAt),
+      linkedAt: linkedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(linkedAt),
+      pendingDeletionAt: pendingDeletionAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pendingDeletionAt),
       purgedAt: purgedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(purgedAt),
@@ -2123,6 +2250,7 @@ class ImportedDocumentsTableData extends DataClass
       sourceType: serializer.fromJson<String>(json['sourceType']),
       mimeType: serializer.fromJson<String>(json['mimeType']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      lifecycleState: serializer.fromJson<String>(json['lifecycleState']),
       linkedDebtId: serializer.fromJson<String?>(json['linkedDebtId']),
       rawOcrText: serializer.fromJson<String?>(json['rawOcrText']),
       parseStatus: serializer.fromJson<String>(json['parseStatus']),
@@ -2132,6 +2260,11 @@ class ImportedDocumentsTableData extends DataClass
         json['retentionExpiresAt'],
       ),
       rawOcrExpiresAt: serializer.fromJson<DateTime?>(json['rawOcrExpiresAt']),
+      processedAt: serializer.fromJson<DateTime?>(json['processedAt']),
+      linkedAt: serializer.fromJson<DateTime?>(json['linkedAt']),
+      pendingDeletionAt: serializer.fromJson<DateTime?>(
+        json['pendingDeletionAt'],
+      ),
       purgedAt: serializer.fromJson<DateTime?>(json['purgedAt']),
       encryptedAt: serializer.fromJson<DateTime?>(json['encryptedAt']),
       hasRawOcrText: serializer.fromJson<bool>(json['hasRawOcrText']),
@@ -2147,6 +2280,7 @@ class ImportedDocumentsTableData extends DataClass
       'sourceType': serializer.toJson<String>(sourceType),
       'mimeType': serializer.toJson<String>(mimeType),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'lifecycleState': serializer.toJson<String>(lifecycleState),
       'linkedDebtId': serializer.toJson<String?>(linkedDebtId),
       'rawOcrText': serializer.toJson<String?>(rawOcrText),
       'parseStatus': serializer.toJson<String>(parseStatus),
@@ -2154,6 +2288,9 @@ class ImportedDocumentsTableData extends DataClass
       'deleted': serializer.toJson<bool>(deleted),
       'retentionExpiresAt': serializer.toJson<DateTime?>(retentionExpiresAt),
       'rawOcrExpiresAt': serializer.toJson<DateTime?>(rawOcrExpiresAt),
+      'processedAt': serializer.toJson<DateTime?>(processedAt),
+      'linkedAt': serializer.toJson<DateTime?>(linkedAt),
+      'pendingDeletionAt': serializer.toJson<DateTime?>(pendingDeletionAt),
       'purgedAt': serializer.toJson<DateTime?>(purgedAt),
       'encryptedAt': serializer.toJson<DateTime?>(encryptedAt),
       'hasRawOcrText': serializer.toJson<bool>(hasRawOcrText),
@@ -2167,6 +2304,7 @@ class ImportedDocumentsTableData extends DataClass
     String? sourceType,
     String? mimeType,
     DateTime? createdAt,
+    String? lifecycleState,
     Value<String?> linkedDebtId = const Value.absent(),
     Value<String?> rawOcrText = const Value.absent(),
     String? parseStatus,
@@ -2174,6 +2312,9 @@ class ImportedDocumentsTableData extends DataClass
     bool? deleted,
     Value<DateTime?> retentionExpiresAt = const Value.absent(),
     Value<DateTime?> rawOcrExpiresAt = const Value.absent(),
+    Value<DateTime?> processedAt = const Value.absent(),
+    Value<DateTime?> linkedAt = const Value.absent(),
+    Value<DateTime?> pendingDeletionAt = const Value.absent(),
     Value<DateTime?> purgedAt = const Value.absent(),
     Value<DateTime?> encryptedAt = const Value.absent(),
     bool? hasRawOcrText,
@@ -2184,6 +2325,7 @@ class ImportedDocumentsTableData extends DataClass
     sourceType: sourceType ?? this.sourceType,
     mimeType: mimeType ?? this.mimeType,
     createdAt: createdAt ?? this.createdAt,
+    lifecycleState: lifecycleState ?? this.lifecycleState,
     linkedDebtId: linkedDebtId.present ? linkedDebtId.value : this.linkedDebtId,
     rawOcrText: rawOcrText.present ? rawOcrText.value : this.rawOcrText,
     parseStatus: parseStatus ?? this.parseStatus,
@@ -2195,6 +2337,11 @@ class ImportedDocumentsTableData extends DataClass
     rawOcrExpiresAt: rawOcrExpiresAt.present
         ? rawOcrExpiresAt.value
         : this.rawOcrExpiresAt,
+    processedAt: processedAt.present ? processedAt.value : this.processedAt,
+    linkedAt: linkedAt.present ? linkedAt.value : this.linkedAt,
+    pendingDeletionAt: pendingDeletionAt.present
+        ? pendingDeletionAt.value
+        : this.pendingDeletionAt,
     purgedAt: purgedAt.present ? purgedAt.value : this.purgedAt,
     encryptedAt: encryptedAt.present ? encryptedAt.value : this.encryptedAt,
     hasRawOcrText: hasRawOcrText ?? this.hasRawOcrText,
@@ -2213,6 +2360,9 @@ class ImportedDocumentsTableData extends DataClass
           : this.sourceType,
       mimeType: data.mimeType.present ? data.mimeType.value : this.mimeType,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      lifecycleState: data.lifecycleState.present
+          ? data.lifecycleState.value
+          : this.lifecycleState,
       linkedDebtId: data.linkedDebtId.present
           ? data.linkedDebtId.value
           : this.linkedDebtId,
@@ -2232,6 +2382,13 @@ class ImportedDocumentsTableData extends DataClass
       rawOcrExpiresAt: data.rawOcrExpiresAt.present
           ? data.rawOcrExpiresAt.value
           : this.rawOcrExpiresAt,
+      processedAt: data.processedAt.present
+          ? data.processedAt.value
+          : this.processedAt,
+      linkedAt: data.linkedAt.present ? data.linkedAt.value : this.linkedAt,
+      pendingDeletionAt: data.pendingDeletionAt.present
+          ? data.pendingDeletionAt.value
+          : this.pendingDeletionAt,
       purgedAt: data.purgedAt.present ? data.purgedAt.value : this.purgedAt,
       encryptedAt: data.encryptedAt.present
           ? data.encryptedAt.value
@@ -2251,6 +2408,7 @@ class ImportedDocumentsTableData extends DataClass
           ..write('sourceType: $sourceType, ')
           ..write('mimeType: $mimeType, ')
           ..write('createdAt: $createdAt, ')
+          ..write('lifecycleState: $lifecycleState, ')
           ..write('linkedDebtId: $linkedDebtId, ')
           ..write('rawOcrText: $rawOcrText, ')
           ..write('parseStatus: $parseStatus, ')
@@ -2258,6 +2416,9 @@ class ImportedDocumentsTableData extends DataClass
           ..write('deleted: $deleted, ')
           ..write('retentionExpiresAt: $retentionExpiresAt, ')
           ..write('rawOcrExpiresAt: $rawOcrExpiresAt, ')
+          ..write('processedAt: $processedAt, ')
+          ..write('linkedAt: $linkedAt, ')
+          ..write('pendingDeletionAt: $pendingDeletionAt, ')
           ..write('purgedAt: $purgedAt, ')
           ..write('encryptedAt: $encryptedAt, ')
           ..write('hasRawOcrText: $hasRawOcrText')
@@ -2273,6 +2434,7 @@ class ImportedDocumentsTableData extends DataClass
     sourceType,
     mimeType,
     createdAt,
+    lifecycleState,
     linkedDebtId,
     rawOcrText,
     parseStatus,
@@ -2280,6 +2442,9 @@ class ImportedDocumentsTableData extends DataClass
     deleted,
     retentionExpiresAt,
     rawOcrExpiresAt,
+    processedAt,
+    linkedAt,
+    pendingDeletionAt,
     purgedAt,
     encryptedAt,
     hasRawOcrText,
@@ -2294,6 +2459,7 @@ class ImportedDocumentsTableData extends DataClass
           other.sourceType == this.sourceType &&
           other.mimeType == this.mimeType &&
           other.createdAt == this.createdAt &&
+          other.lifecycleState == this.lifecycleState &&
           other.linkedDebtId == this.linkedDebtId &&
           other.rawOcrText == this.rawOcrText &&
           other.parseStatus == this.parseStatus &&
@@ -2301,6 +2467,9 @@ class ImportedDocumentsTableData extends DataClass
           other.deleted == this.deleted &&
           other.retentionExpiresAt == this.retentionExpiresAt &&
           other.rawOcrExpiresAt == this.rawOcrExpiresAt &&
+          other.processedAt == this.processedAt &&
+          other.linkedAt == this.linkedAt &&
+          other.pendingDeletionAt == this.pendingDeletionAt &&
           other.purgedAt == this.purgedAt &&
           other.encryptedAt == this.encryptedAt &&
           other.hasRawOcrText == this.hasRawOcrText);
@@ -2314,6 +2483,7 @@ class ImportedDocumentsTableCompanion
   final Value<String> sourceType;
   final Value<String> mimeType;
   final Value<DateTime> createdAt;
+  final Value<String> lifecycleState;
   final Value<String?> linkedDebtId;
   final Value<String?> rawOcrText;
   final Value<String> parseStatus;
@@ -2321,6 +2491,9 @@ class ImportedDocumentsTableCompanion
   final Value<bool> deleted;
   final Value<DateTime?> retentionExpiresAt;
   final Value<DateTime?> rawOcrExpiresAt;
+  final Value<DateTime?> processedAt;
+  final Value<DateTime?> linkedAt;
+  final Value<DateTime?> pendingDeletionAt;
   final Value<DateTime?> purgedAt;
   final Value<DateTime?> encryptedAt;
   final Value<bool> hasRawOcrText;
@@ -2332,6 +2505,7 @@ class ImportedDocumentsTableCompanion
     this.sourceType = const Value.absent(),
     this.mimeType = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.lifecycleState = const Value.absent(),
     this.linkedDebtId = const Value.absent(),
     this.rawOcrText = const Value.absent(),
     this.parseStatus = const Value.absent(),
@@ -2339,6 +2513,9 @@ class ImportedDocumentsTableCompanion
     this.deleted = const Value.absent(),
     this.retentionExpiresAt = const Value.absent(),
     this.rawOcrExpiresAt = const Value.absent(),
+    this.processedAt = const Value.absent(),
+    this.linkedAt = const Value.absent(),
+    this.pendingDeletionAt = const Value.absent(),
     this.purgedAt = const Value.absent(),
     this.encryptedAt = const Value.absent(),
     this.hasRawOcrText = const Value.absent(),
@@ -2351,6 +2528,7 @@ class ImportedDocumentsTableCompanion
     required String sourceType,
     required String mimeType,
     required DateTime createdAt,
+    this.lifecycleState = const Value.absent(),
     this.linkedDebtId = const Value.absent(),
     this.rawOcrText = const Value.absent(),
     required String parseStatus,
@@ -2358,6 +2536,9 @@ class ImportedDocumentsTableCompanion
     this.deleted = const Value.absent(),
     this.retentionExpiresAt = const Value.absent(),
     this.rawOcrExpiresAt = const Value.absent(),
+    this.processedAt = const Value.absent(),
+    this.linkedAt = const Value.absent(),
+    this.pendingDeletionAt = const Value.absent(),
     this.purgedAt = const Value.absent(),
     this.encryptedAt = const Value.absent(),
     this.hasRawOcrText = const Value.absent(),
@@ -2375,6 +2556,7 @@ class ImportedDocumentsTableCompanion
     Expression<String>? sourceType,
     Expression<String>? mimeType,
     Expression<DateTime>? createdAt,
+    Expression<String>? lifecycleState,
     Expression<String>? linkedDebtId,
     Expression<String>? rawOcrText,
     Expression<String>? parseStatus,
@@ -2382,6 +2564,9 @@ class ImportedDocumentsTableCompanion
     Expression<bool>? deleted,
     Expression<DateTime>? retentionExpiresAt,
     Expression<DateTime>? rawOcrExpiresAt,
+    Expression<DateTime>? processedAt,
+    Expression<DateTime>? linkedAt,
+    Expression<DateTime>? pendingDeletionAt,
     Expression<DateTime>? purgedAt,
     Expression<DateTime>? encryptedAt,
     Expression<bool>? hasRawOcrText,
@@ -2394,6 +2579,7 @@ class ImportedDocumentsTableCompanion
       if (sourceType != null) 'source_type': sourceType,
       if (mimeType != null) 'mime_type': mimeType,
       if (createdAt != null) 'created_at': createdAt,
+      if (lifecycleState != null) 'lifecycle_state': lifecycleState,
       if (linkedDebtId != null) 'linked_debt_id': linkedDebtId,
       if (rawOcrText != null) 'raw_ocr_text': rawOcrText,
       if (parseStatus != null) 'parse_status': parseStatus,
@@ -2402,6 +2588,9 @@ class ImportedDocumentsTableCompanion
       if (retentionExpiresAt != null)
         'retention_expires_at': retentionExpiresAt,
       if (rawOcrExpiresAt != null) 'raw_ocr_expires_at': rawOcrExpiresAt,
+      if (processedAt != null) 'processed_at': processedAt,
+      if (linkedAt != null) 'linked_at': linkedAt,
+      if (pendingDeletionAt != null) 'pending_deletion_at': pendingDeletionAt,
       if (purgedAt != null) 'purged_at': purgedAt,
       if (encryptedAt != null) 'encrypted_at': encryptedAt,
       if (hasRawOcrText != null) 'has_raw_ocr_text': hasRawOcrText,
@@ -2416,6 +2605,7 @@ class ImportedDocumentsTableCompanion
     Value<String>? sourceType,
     Value<String>? mimeType,
     Value<DateTime>? createdAt,
+    Value<String>? lifecycleState,
     Value<String?>? linkedDebtId,
     Value<String?>? rawOcrText,
     Value<String>? parseStatus,
@@ -2423,6 +2613,9 @@ class ImportedDocumentsTableCompanion
     Value<bool>? deleted,
     Value<DateTime?>? retentionExpiresAt,
     Value<DateTime?>? rawOcrExpiresAt,
+    Value<DateTime?>? processedAt,
+    Value<DateTime?>? linkedAt,
+    Value<DateTime?>? pendingDeletionAt,
     Value<DateTime?>? purgedAt,
     Value<DateTime?>? encryptedAt,
     Value<bool>? hasRawOcrText,
@@ -2435,6 +2628,7 @@ class ImportedDocumentsTableCompanion
       sourceType: sourceType ?? this.sourceType,
       mimeType: mimeType ?? this.mimeType,
       createdAt: createdAt ?? this.createdAt,
+      lifecycleState: lifecycleState ?? this.lifecycleState,
       linkedDebtId: linkedDebtId ?? this.linkedDebtId,
       rawOcrText: rawOcrText ?? this.rawOcrText,
       parseStatus: parseStatus ?? this.parseStatus,
@@ -2442,6 +2636,9 @@ class ImportedDocumentsTableCompanion
       deleted: deleted ?? this.deleted,
       retentionExpiresAt: retentionExpiresAt ?? this.retentionExpiresAt,
       rawOcrExpiresAt: rawOcrExpiresAt ?? this.rawOcrExpiresAt,
+      processedAt: processedAt ?? this.processedAt,
+      linkedAt: linkedAt ?? this.linkedAt,
+      pendingDeletionAt: pendingDeletionAt ?? this.pendingDeletionAt,
       purgedAt: purgedAt ?? this.purgedAt,
       encryptedAt: encryptedAt ?? this.encryptedAt,
       hasRawOcrText: hasRawOcrText ?? this.hasRawOcrText,
@@ -2470,6 +2667,9 @@ class ImportedDocumentsTableCompanion
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (lifecycleState.present) {
+      map['lifecycle_state'] = Variable<String>(lifecycleState.value);
+    }
     if (linkedDebtId.present) {
       map['linked_debt_id'] = Variable<String>(linkedDebtId.value);
     }
@@ -2492,6 +2692,15 @@ class ImportedDocumentsTableCompanion
     }
     if (rawOcrExpiresAt.present) {
       map['raw_ocr_expires_at'] = Variable<DateTime>(rawOcrExpiresAt.value);
+    }
+    if (processedAt.present) {
+      map['processed_at'] = Variable<DateTime>(processedAt.value);
+    }
+    if (linkedAt.present) {
+      map['linked_at'] = Variable<DateTime>(linkedAt.value);
+    }
+    if (pendingDeletionAt.present) {
+      map['pending_deletion_at'] = Variable<DateTime>(pendingDeletionAt.value);
     }
     if (purgedAt.present) {
       map['purged_at'] = Variable<DateTime>(purgedAt.value);
@@ -2517,6 +2726,7 @@ class ImportedDocumentsTableCompanion
           ..write('sourceType: $sourceType, ')
           ..write('mimeType: $mimeType, ')
           ..write('createdAt: $createdAt, ')
+          ..write('lifecycleState: $lifecycleState, ')
           ..write('linkedDebtId: $linkedDebtId, ')
           ..write('rawOcrText: $rawOcrText, ')
           ..write('parseStatus: $parseStatus, ')
@@ -2524,6 +2734,9 @@ class ImportedDocumentsTableCompanion
           ..write('deleted: $deleted, ')
           ..write('retentionExpiresAt: $retentionExpiresAt, ')
           ..write('rawOcrExpiresAt: $rawOcrExpiresAt, ')
+          ..write('processedAt: $processedAt, ')
+          ..write('linkedAt: $linkedAt, ')
+          ..write('pendingDeletionAt: $pendingDeletionAt, ')
           ..write('purgedAt: $purgedAt, ')
           ..write('encryptedAt: $encryptedAt, ')
           ..write('hasRawOcrText: $hasRawOcrText, ')
@@ -6623,6 +6836,7 @@ typedef $$ImportedDocumentsTableTableCreateCompanionBuilder =
       required String sourceType,
       required String mimeType,
       required DateTime createdAt,
+      Value<String> lifecycleState,
       Value<String?> linkedDebtId,
       Value<String?> rawOcrText,
       required String parseStatus,
@@ -6630,6 +6844,9 @@ typedef $$ImportedDocumentsTableTableCreateCompanionBuilder =
       Value<bool> deleted,
       Value<DateTime?> retentionExpiresAt,
       Value<DateTime?> rawOcrExpiresAt,
+      Value<DateTime?> processedAt,
+      Value<DateTime?> linkedAt,
+      Value<DateTime?> pendingDeletionAt,
       Value<DateTime?> purgedAt,
       Value<DateTime?> encryptedAt,
       Value<bool> hasRawOcrText,
@@ -6643,6 +6860,7 @@ typedef $$ImportedDocumentsTableTableUpdateCompanionBuilder =
       Value<String> sourceType,
       Value<String> mimeType,
       Value<DateTime> createdAt,
+      Value<String> lifecycleState,
       Value<String?> linkedDebtId,
       Value<String?> rawOcrText,
       Value<String> parseStatus,
@@ -6650,6 +6868,9 @@ typedef $$ImportedDocumentsTableTableUpdateCompanionBuilder =
       Value<bool> deleted,
       Value<DateTime?> retentionExpiresAt,
       Value<DateTime?> rawOcrExpiresAt,
+      Value<DateTime?> processedAt,
+      Value<DateTime?> linkedAt,
+      Value<DateTime?> pendingDeletionAt,
       Value<DateTime?> purgedAt,
       Value<DateTime?> encryptedAt,
       Value<bool> hasRawOcrText,
@@ -6737,6 +6958,11 @@ class $$ImportedDocumentsTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get lifecycleState => $composableBuilder(
+    column: $table.lifecycleState,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get linkedDebtId => $composableBuilder(
     column: $table.linkedDebtId,
     builder: (column) => ColumnFilters(column),
@@ -6769,6 +6995,21 @@ class $$ImportedDocumentsTableTableFilterComposer
 
   ColumnFilters<DateTime> get rawOcrExpiresAt => $composableBuilder(
     column: $table.rawOcrExpiresAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get processedAt => $composableBuilder(
+    column: $table.processedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get linkedAt => $composableBuilder(
+    column: $table.linkedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get pendingDeletionAt => $composableBuilder(
+    column: $table.pendingDeletionAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6853,6 +7094,11 @@ class $$ImportedDocumentsTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get lifecycleState => $composableBuilder(
+    column: $table.lifecycleState,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get linkedDebtId => $composableBuilder(
     column: $table.linkedDebtId,
     builder: (column) => ColumnOrderings(column),
@@ -6885,6 +7131,21 @@ class $$ImportedDocumentsTableTableOrderingComposer
 
   ColumnOrderings<DateTime> get rawOcrExpiresAt => $composableBuilder(
     column: $table.rawOcrExpiresAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get processedAt => $composableBuilder(
+    column: $table.processedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get linkedAt => $composableBuilder(
+    column: $table.linkedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get pendingDeletionAt => $composableBuilder(
+    column: $table.pendingDeletionAt,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -6935,6 +7196,11 @@ class $$ImportedDocumentsTableTableAnnotationComposer
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
+  GeneratedColumn<String> get lifecycleState => $composableBuilder(
+    column: $table.lifecycleState,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get linkedDebtId => $composableBuilder(
     column: $table.linkedDebtId,
     builder: (column) => column,
@@ -6965,6 +7231,19 @@ class $$ImportedDocumentsTableTableAnnotationComposer
 
   GeneratedColumn<DateTime> get rawOcrExpiresAt => $composableBuilder(
     column: $table.rawOcrExpiresAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get processedAt => $composableBuilder(
+    column: $table.processedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get linkedAt =>
+      $composableBuilder(column: $table.linkedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get pendingDeletionAt => $composableBuilder(
+    column: $table.pendingDeletionAt,
     builder: (column) => column,
   );
 
@@ -7053,6 +7332,7 @@ class $$ImportedDocumentsTableTableTableManager
                 Value<String> sourceType = const Value.absent(),
                 Value<String> mimeType = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<String> lifecycleState = const Value.absent(),
                 Value<String?> linkedDebtId = const Value.absent(),
                 Value<String?> rawOcrText = const Value.absent(),
                 Value<String> parseStatus = const Value.absent(),
@@ -7060,6 +7340,9 @@ class $$ImportedDocumentsTableTableTableManager
                 Value<bool> deleted = const Value.absent(),
                 Value<DateTime?> retentionExpiresAt = const Value.absent(),
                 Value<DateTime?> rawOcrExpiresAt = const Value.absent(),
+                Value<DateTime?> processedAt = const Value.absent(),
+                Value<DateTime?> linkedAt = const Value.absent(),
+                Value<DateTime?> pendingDeletionAt = const Value.absent(),
                 Value<DateTime?> purgedAt = const Value.absent(),
                 Value<DateTime?> encryptedAt = const Value.absent(),
                 Value<bool> hasRawOcrText = const Value.absent(),
@@ -7071,6 +7354,7 @@ class $$ImportedDocumentsTableTableTableManager
                 sourceType: sourceType,
                 mimeType: mimeType,
                 createdAt: createdAt,
+                lifecycleState: lifecycleState,
                 linkedDebtId: linkedDebtId,
                 rawOcrText: rawOcrText,
                 parseStatus: parseStatus,
@@ -7078,6 +7362,9 @@ class $$ImportedDocumentsTableTableTableManager
                 deleted: deleted,
                 retentionExpiresAt: retentionExpiresAt,
                 rawOcrExpiresAt: rawOcrExpiresAt,
+                processedAt: processedAt,
+                linkedAt: linkedAt,
+                pendingDeletionAt: pendingDeletionAt,
                 purgedAt: purgedAt,
                 encryptedAt: encryptedAt,
                 hasRawOcrText: hasRawOcrText,
@@ -7091,6 +7378,7 @@ class $$ImportedDocumentsTableTableTableManager
                 required String sourceType,
                 required String mimeType,
                 required DateTime createdAt,
+                Value<String> lifecycleState = const Value.absent(),
                 Value<String?> linkedDebtId = const Value.absent(),
                 Value<String?> rawOcrText = const Value.absent(),
                 required String parseStatus,
@@ -7098,6 +7386,9 @@ class $$ImportedDocumentsTableTableTableManager
                 Value<bool> deleted = const Value.absent(),
                 Value<DateTime?> retentionExpiresAt = const Value.absent(),
                 Value<DateTime?> rawOcrExpiresAt = const Value.absent(),
+                Value<DateTime?> processedAt = const Value.absent(),
+                Value<DateTime?> linkedAt = const Value.absent(),
+                Value<DateTime?> pendingDeletionAt = const Value.absent(),
                 Value<DateTime?> purgedAt = const Value.absent(),
                 Value<DateTime?> encryptedAt = const Value.absent(),
                 Value<bool> hasRawOcrText = const Value.absent(),
@@ -7109,6 +7400,7 @@ class $$ImportedDocumentsTableTableTableManager
                 sourceType: sourceType,
                 mimeType: mimeType,
                 createdAt: createdAt,
+                lifecycleState: lifecycleState,
                 linkedDebtId: linkedDebtId,
                 rawOcrText: rawOcrText,
                 parseStatus: parseStatus,
@@ -7116,6 +7408,9 @@ class $$ImportedDocumentsTableTableTableManager
                 deleted: deleted,
                 retentionExpiresAt: retentionExpiresAt,
                 rawOcrExpiresAt: rawOcrExpiresAt,
+                processedAt: processedAt,
+                linkedAt: linkedAt,
+                pendingDeletionAt: pendingDeletionAt,
                 purgedAt: purgedAt,
                 encryptedAt: encryptedAt,
                 hasRawOcrText: hasRawOcrText,

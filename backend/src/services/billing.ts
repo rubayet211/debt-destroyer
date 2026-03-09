@@ -64,6 +64,7 @@ export class GooglePlayBillingVerifier implements BillingVerifier {
   async verifySubscription(
     input: BillingVerificationInput,
   ): Promise<VerifiedEntitlement> {
+    validateConfiguredProductIds(this.config, input);
     const auth = new google.auth.GoogleAuth({
       credentials: JSON.parse(this.config.googlePlayServiceAccountJson!),
       scopes: ['https://www.googleapis.com/auth/androidpublisher'],
@@ -85,17 +86,20 @@ export class GooglePlayBillingVerifier implements BillingVerifier {
         'autoRenewEnabled'
       ],
     );
+    const resolvedProductId =
+      (lineItem?.productId as string | undefined) ?? input.productId ?? null;
+    const resolvedPlanId =
+      ((lineItem?.offerDetails as Record<string, unknown> | undefined)?.[
+        'basePlanId'
+      ] as
+        string | undefined) ??
+      input.basePlanId;
+    validateResolvedProductIds(this.config, resolvedProductId, resolvedPlanId);
 
     return {
       isPremium: status === 'active' || status === 'grace',
-      productId:
-        (lineItem?.productId as string | undefined) ?? input.productId ?? null,
-      planId:
-        ((lineItem?.offerDetails as Record<string, unknown> | undefined)?.[
-          'basePlanId'
-        ] as
-          string | undefined) ??
-        input.basePlanId,
+      productId: resolvedProductId,
+      planId: resolvedPlanId,
       billingProvider: 'google_play',
       status,
       validUntil,
@@ -108,6 +112,55 @@ export class GooglePlayBillingVerifier implements BillingVerifier {
         status === 'active' || status === 'grace' ? premiumFeatures : [],
       rawProviderPayload: payload,
     };
+  }
+}
+
+function validateResolvedProductIds(
+  config: AppConfig,
+  productId: string | null,
+  planId: string | null,
+) {
+  if (productId != null && productId !== config.premiumProductId) {
+    throw new AppError(
+      400,
+      'billing_product_mismatch',
+      'Verified Google Play product id is not allowed.',
+    );
+  }
+  if (
+    planId != null &&
+    planId !== config.premiumMonthlyBasePlanId &&
+    planId !== config.premiumYearlyBasePlanId
+  ) {
+    throw new AppError(
+      400,
+      'billing_plan_mismatch',
+      'Verified Google Play base plan id is not allowed.',
+    );
+  }
+}
+
+function validateConfiguredProductIds(
+  config: AppConfig,
+  input: BillingVerificationInput,
+) {
+  if (input.productId !== config.premiumProductId) {
+    throw new AppError(
+      400,
+      'billing_product_mismatch',
+      'Unexpected Google Play product id.',
+    );
+  }
+  if (
+    input.basePlanId != null &&
+    input.basePlanId != config.premiumMonthlyBasePlanId &&
+    input.basePlanId != config.premiumYearlyBasePlanId
+  ) {
+    throw new AppError(
+      400,
+      'billing_plan_mismatch',
+      'Unexpected Google Play base plan id.',
+    );
   }
 }
 
