@@ -1,9 +1,14 @@
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../core/widgets/app_widgets.dart';
 import '../../../shared/enums/app_enums.dart';
+import '../../../shared/models/backup_models.dart';
 import '../../../shared/models/billing_models.dart';
 import '../../../shared/models/subscription_state.dart';
 import '../../../shared/models/user_preferences.dart';
@@ -78,6 +83,11 @@ class SettingsScreen extends ConsumerWidget {
                   onTap: () => context.push('/security'),
                 ),
                 _SettingsRow(
+                  label: 'Data & backups',
+                  value: 'CSV export, encrypted backup, replace restore',
+                  onTap: () => context.push('/backups'),
+                ),
+                _SettingsRow(
                   label: 'Reports',
                   value: 'Charts and export',
                   onTap: () => context.push('/reports'),
@@ -111,15 +121,6 @@ class SettingsScreen extends ConsumerWidget {
                     },
                     child: const Text('Seed'),
                   ),
-                ),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Export CSV'),
-                  subtitle: const Text(
-                    'Premium-gated export for payments and debts.',
-                  ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.push('/reports'),
                 ),
               ],
             ),
@@ -212,6 +213,295 @@ class SettingsScreen extends ConsumerWidget {
           }).toList(),
         ),
       ),
+    );
+  }
+}
+
+class DataBackupsScreen extends ConsumerStatefulWidget {
+  const DataBackupsScreen({super.key});
+
+  @override
+  ConsumerState<DataBackupsScreen> createState() => _DataBackupsScreenState();
+}
+
+class _DataBackupsScreenState extends ConsumerState<DataBackupsScreen> {
+  bool _isBusy = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppPage(
+      title: 'Data & backups',
+      child: ListView(
+        children: [
+          const AppCard(
+            child: Text(
+              'Full backups are encrypted with your passphrase and include source documents. Restoring a backup replaces current local app data, but does not restore premium entitlement or backend sessions.',
+            ),
+          ),
+          const SizedBox(height: 12),
+          AppCard(
+            child: Column(
+              children: [
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Export CSV'),
+                  subtitle: const Text(
+                    'Premium-gated payments and debts export for spreadsheets.',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _isBusy ? null : _exportCsv,
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Export full backup'),
+                  subtitle: const Text(
+                    'Encrypted `.ddbackup` snapshot of debts, payments, settings, reminders, parsed docs, and source documents.',
+                  ),
+                  trailing: _isBusy
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.ios_share_outlined),
+                  onTap: _isBusy ? null : _exportFullBackup,
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Restore backup'),
+                  subtitle: const Text(
+                    'Preview and replace current local data from a supported encrypted backup.',
+                  ),
+                  trailing: _isBusy
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.upload_file_outlined),
+                  onTap: _isBusy ? null : _restoreBackup,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          const AppCard(
+            child: Text(
+              'Important: If you forget the backup passphrase, the app cannot recover it. Backups are replace-only in this version, so restoring does not merge with existing local data.',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _exportCsv() async {
+    final premium =
+        ref.read(subscriptionStateProvider).valueOrNull ??
+        SubscriptionState.free();
+    final allowed = ref
+        .read(premiumServiceProvider)
+        .guard(premium, PremiumFeature.csvExport);
+    if (!allowed) {
+      if (mounted) {
+        context.push('/premium');
+      }
+      return;
+    }
+    final file = await ref.read(exportCsvProvider)();
+    await ref.read(csvExportServiceProvider).shareCsv(file.path);
+  }
+
+  Future<void> _exportFullBackup() async {
+    final passphrase = await _promptForPassphrase(confirm: true);
+    if (passphrase == null) {
+      return;
+    }
+    await _runBusy(() async {
+      final file = await ref
+          .read(dataPortabilityServiceProvider)
+          .createFullBackup(passphrase);
+      await SharePlus.instance.share(ShareParams(files: [XFile(file.path)]));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Encrypted backup created')),
+        );
+      }
+    });
+  }
+
+  Future<void> _restoreBackup() async {
+    final picked = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['ddbackup'],
+    );
+    final path = picked?.files.single.path;
+    if (path == null || path.isEmpty) {
+      return;
+    }
+    final passphrase = await _promptForPassphrase();
+    if (passphrase == null) {
+      return;
+    }
+    await _runBusy(() async {
+      final service = ref.read(dataPortabilityServiceProvider);
+      final file = File(path);
+      final validation = await service.inspectBackup(file, passphrase);
+      if (!validation.isValid || validation.preview == null) {
+        throw StateError(validation.errors.join('\n'));
+      }
+      final confirmed = await _confirmRestore(validation.preview!);
+      if (confirmed != true) {
+        return;
+      }
+      final preview = await service.restoreBackup(file, passphrase);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Backup restored: ${preview.debtCount} debts, ${preview.paymentCount} payments, ${preview.documentCount} documents.',
+            ),
+          ),
+        );
+      }
+    });
+  }
+
+  Future<void> _runBusy(Future<void> Function() action) async {
+    setState(() => _isBusy = true);
+    try {
+      await action();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error.toString().replaceFirst('Bad state: ', '')),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isBusy = false);
+      }
+    }
+  }
+
+  Future<String?> _promptForPassphrase({bool confirm = false}) async {
+    final primaryController = TextEditingController();
+    final confirmController = TextEditingController();
+    String? errorText;
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return AlertDialog(
+              title: Text(
+                confirm
+                    ? 'Create backup passphrase'
+                    : 'Enter backup passphrase',
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: primaryController,
+                    obscureText: true,
+                    autofocus: true,
+                    decoration: const InputDecoration(labelText: 'Passphrase'),
+                  ),
+                  if (confirm) ...[
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: confirmController,
+                      obscureText: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Confirm passphrase',
+                      ),
+                    ),
+                  ],
+                  if (errorText != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      errorText!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    final value = primaryController.text.trim();
+                    final confirmation = confirmController.text.trim();
+                    if (value.isEmpty) {
+                      setModalState(
+                        () => errorText = 'Passphrase cannot be empty.',
+                      );
+                      return;
+                    }
+                    if (confirm && value != confirmation) {
+                      setModalState(
+                        () => errorText = 'Passphrases do not match.',
+                      );
+                      return;
+                    }
+                    Navigator.of(dialogContext).pop(value);
+                  },
+                  child: const Text('Continue'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    primaryController.dispose();
+    confirmController.dispose();
+    return result;
+  }
+
+  Future<bool?> _confirmRestore(BackupPreview preview) {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Replace local data?'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'This replaces current local debts, payments, documents, scenarios, reminder history, and preferences with the backup contents.',
+              ),
+              const SizedBox(height: 16),
+              Text('Created: ${preview.manifest.createdAt.toLocal()}'),
+              Text('App version: ${preview.manifest.createdByAppVersion}'),
+              Text('Debts: ${preview.debtCount}'),
+              Text('Payments: ${preview.paymentCount}'),
+              Text('Documents: ${preview.documentCount}'),
+              Text('Scenarios: ${preview.scenarioCount}'),
+              Text('Reminder events: ${preview.reminderEventCount}'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Replace data'),
+            ),
+          ],
+        );
+      },
     );
   }
 }

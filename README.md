@@ -13,6 +13,7 @@ Privacy-first debt tracking, payoff planning, and document-assisted import built
 - Review-and-confirm import flow before any data is saved
 - Google Play subscription billing with backend-verified premium entitlement
 - Local reminder scheduling, app-lock flow, privacy settings, and CSV export
+- Versioned encrypted full backup and replace-restore with source documents
 - Seeded demo data action for local development
 - Node/Fastify backend for attestation bootstrap, token rotation, quotas, audit logs, and provider isolation
 
@@ -106,6 +107,7 @@ Important behavior:
 
 ## Privacy Model
 - Local-first storage for debts, payments, preferences, scenarios, and imported documents
+- Full backups are exported as encrypted passphrase-protected archives
 - No forced account creation
 - Backend is used only for attested cloud extraction and quota/auth decisions
 - No silent screenshot or statement upload
@@ -118,6 +120,30 @@ Important behavior:
 - Imported documents use explicit lifecycle states: imported, processed, linked, pending deletion, purged
 - Raw OCR text is not persisted in ordinary backend logs; request audit stores hashes/redacted previews
 - `hideBalances`, `aiConsentEnabled`, and `appLockEnabled` are mirrored into secure storage and treated as protected preferences
+
+## Backup And Restore
+- Full backups are exported as encrypted `.ddbackup` files.
+- The backup container is versioned independently from the Drift schema.
+- Backups include:
+  - debts
+  - payments
+  - scenarios
+  - imported document metadata
+  - parsed extractions
+  - reminder milestone history
+  - portable user preferences, including protected preference values
+  - imported source document bytes
+- Backups do not include:
+  - backend sessions or attestation state
+  - local vault root keys
+  - notification schedules
+  - premium entitlement cache
+- Restore flow:
+  - pick a `.ddbackup` file
+  - enter the passphrase
+  - inspect counts and backup version
+  - confirm destructive replace restore
+- Restore is replace-only in this version. It does not merge into existing local data.
 
 ## Financial Projection Model
 - Stored `currentBalance` remains the user-recorded truth for each debt
@@ -216,6 +242,7 @@ flutter build apk --debug
 - Android can request real Play Integrity tokens when `PLAY_INTEGRITY_PROJECT_NUMBER` is configured; debug attestation remains development-only.
 - App lock currently uses biometrics or device credentials only; no separate in-app PIN is implemented.
 - Reminder orchestration now reconciles from live debts, recent payments, and preferences on app startup plus data changes instead of scheduling only from debt edit flows.
+- Settings now expose a dedicated `Data & backups` screen for CSV export, encrypted full backup export, and replace restore.
 - Implemented reminder types:
   - due lead reminders (1, 2, or 3 days before)
   - due-today reminders
@@ -234,11 +261,12 @@ flutter build apk --debug
 - Screenshot blocking and recents-thumbnail masking are Android-first; exact system-recents behavior may vary by OEM/device version
 - Weekly summary content is privacy-conscious and regenerated on app reconciliation, but it can become stale if the app is not reopened before the next scheduled delivery
 - Automatic rehydration after device reboot is not implemented with a boot receiver in this repo; reminders are restored on next app launch
+- Restore is replace-only in this version; it does not merge duplicate local records
+- Backup passphrases are not recoverable by the app
 - Postgres and Redis adapters are implemented for backend deployment, but local tests use in-memory stores
 
 ## Roadmap
 - Multiple saved strategy comparisons with deeper scenario analysis
 - Richer statement line-item extraction
-- Encrypted local backups and restore
 - Household/shared debt mode
 - Vendor-backed analytics and crash reporting adapters

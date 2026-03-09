@@ -491,6 +491,10 @@ class SecureDocumentVaultService {
   Future<StoredVaultDocument> sealImport(FileReference input) async {
     final sourceFile = File(input.path);
     final bytes = await sourceFile.readAsBytes();
+    return sealBytes(bytes);
+  }
+
+  Future<StoredVaultDocument> sealBytes(Uint8List bytes) async {
     final secretKey = await _keyService.documentSecretKey();
     final secretBox = await _cipher.encrypt(
       bytes,

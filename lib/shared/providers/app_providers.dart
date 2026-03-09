@@ -19,6 +19,7 @@ import '../../core/services/app_services.dart';
 import '../../core/services/backend_services.dart';
 import '../../core/services/billing_services.dart';
 import '../../core/services/data_protection_service.dart';
+import '../../core/services/portability_services.dart';
 import '../../core/services/security_services.dart';
 import '../../core/services/vault_services.dart';
 import '../../features/dashboard/domain/debt_metrics_service.dart';
@@ -151,6 +152,15 @@ final billingServiceProvider = Provider<BillingService>(
   ),
 );
 final csvExportServiceProvider = Provider((ref) => CsvExportService());
+final dataPortabilityServiceProvider = Provider<DataPortabilityService>(
+  (ref) => DataPortabilityService(
+    database: ref.watch(appDatabaseProvider),
+    preferencesRepository: ref.watch(preferencesRepositoryProvider),
+    documentsRepository: ref.watch(documentsRepositoryProvider),
+    vaultService: ref.watch(secureDocumentVaultServiceProvider),
+    protectedPreferencesStore: ref.watch(protectedPreferencesStoreProvider),
+  ),
+);
 final attestationServiceProvider = Provider<AttestationService>(
   (ref) => PlayIntegrityAttestationService(ref.watch(backendConfigProvider)),
 );
