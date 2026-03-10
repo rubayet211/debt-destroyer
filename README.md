@@ -196,7 +196,7 @@ FIREBASE_STORAGE_BUCKET=
 If the backend URL is missing, the app still runs with local OCR and manual review fallback.
 
 ### Configure The Backend
-Copy [backend/.env.example](/J:/codex/backend/.env.example) into `backend/.env` and set at minimum:
+Copy [`backend/.env.example`](./backend/.env.example) into `backend/.env` and set at minimum:
 
 ```env
 POSTGRES_URL=postgres://postgres:postgres@localhost:5432/debt_destroyer
@@ -234,7 +234,7 @@ flutter build apk --flavor staging --release --dart-define=APP_ENV=staging --dar
 flutter build appbundle --flavor prod --release --dart-define=APP_ENV=prod --dart-define=APP_FLAVOR=prod
 ```
 
-Release signing is externalized. Copy [android/key.properties.example](/J:/codex/android/key.properties.example) to `android/key.properties` or provide the matching `ANDROID_KEYSTORE_*` environment variables in CI/local release builds.
+Release signing is externalized. Copy [`android/key.properties.example`](./android/key.properties.example) to `android/key.properties` or provide the matching `ANDROID_KEYSTORE_*` environment variables in CI/local release builds.
 
 ## Run
 Backend:
@@ -277,13 +277,13 @@ flutter test test/biometric_unlock_screen_test.dart
 flutter test test/ocr_processing_screen_test.dart
 ```
 
-Manual device QA and release sanity steps are documented in [docs/qa/release_checklist.md](/J:/codex/docs/qa/release_checklist.md).
+Manual device QA and release sanity steps are documented in [`docs/qa/release_checklist.md`](./docs/qa/release_checklist.md).
 
 ## CI
-- [ci.yml](/J:/codex/.github/workflows/ci.yml)
+- [`ci.yml`](./.github/workflows/ci.yml)
   - Flutter format check, analyze, tests
   - backend install, tests, and build
-- [android-verify.yml](/J:/codex/.github/workflows/android-verify.yml)
+- [`android-verify.yml`](./.github/workflows/android-verify.yml)
   - verifies `dev` debug APK
   - verifies `staging` release APK
   - verifies `prod` release AAB without requiring committed signing secrets
@@ -328,9 +328,9 @@ Manual device QA and release sanity steps are documented in [docs/qa/release_che
 - Production Firebase native config and symbol-upload completion
 
 ## Release Docs
-- [Build and signing guide](/J:/codex/docs/release/build_and_signing.md)
-- [Telemetry setup](/J:/codex/docs/release/telemetry_setup.md)
-- [Privacy and data safety checklist](/J:/codex/docs/release/privacy_and_data_safety.md)
-- [Permissions and disclosures checklist](/J:/codex/docs/release/permissions_and_disclosures.md)
-- [Store listing checklist](/J:/codex/docs/release/store_listing_checklist.md)
-- [Rollout and monitoring checklist](/J:/codex/docs/release/rollout_and_monitoring.md)
+- [`Build and signing guide`](./docs/release/build_and_signing.md)
+- [`Telemetry setup`](./docs/release/telemetry_setup.md)
+- [`Privacy and data safety checklist`](./docs/release/privacy_and_data_safety.md)
+- [`Permissions and disclosures checklist`](./docs/release/permissions_and_disclosures.md)
+- [`Store listing checklist`](./docs/release/store_listing_checklist.md)
+- [`Rollout and monitoring checklist`](./docs/release/rollout_and_monitoring.md)

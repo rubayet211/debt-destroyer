@@ -53,7 +53,7 @@ jobs:
 
       - name: Create CI env file
         run: |
-          cat <<'EOF' > .env
+          cat <<EOF > .env
           APP_ENV=${APP_ENV}
           APP_FLAVOR=${APP_FLAVOR}
           BACKEND_BASE_URL=${BACKEND_BASE_URL}

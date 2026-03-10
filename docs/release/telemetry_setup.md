@@ -18,7 +18,8 @@ These can be supplied through `.env` for local work or `--dart-define` for CI/re
 
 ## External setup still required
 - Create the Firebase project.
-- Register the Android app with package `com.debtdestroyer.app`.
+- Register the production Android app with package `com.debtdestroyer.app`.
+- If telemetry is enabled for `dev` or `staging`, register `com.debtdestroyer.app.dev` and `com.debtdestroyer.app.staging` as separate Android apps and supply matching Firebase app IDs for those flavors.
 - Decide whether to add `google-services.json` and native Crashlytics symbol upload as a production follow-up.
 - Define the production analytics event allowlist and retention policy.
 

@@ -15,7 +15,7 @@
 
 ## Signing
 - Release signing is intentionally external to the repo.
-- Copy [android/key.properties.example](/J:/codex/android/key.properties.example) to `android/key.properties`.
+- Copy [`android/key.properties.example`](../../android/key.properties.example) to `android/key.properties`.
 - Set:
   - `storeFile`
   - `storePassword`

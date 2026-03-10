@@ -194,7 +194,7 @@ class FirebaseCrashReporter implements CrashReporter {
 
   @override
   Future<void> recordError(Object error, StackTrace stackTrace) {
-    return _crashlytics.recordError(error, stackTrace, fatal: true);
+    return _crashlytics.recordError(error, stackTrace, fatal: false);
   }
 }
 
