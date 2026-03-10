@@ -14,6 +14,9 @@ Privacy-first debt tracking, payoff planning, and document-assisted import built
 - Google Play subscription billing with backend-verified premium entitlement
 - Local reminder scheduling, app-lock flow, privacy settings, and CSV export
 - Versioned encrypted full backup and replace-restore with source documents
+- Android `dev`, `staging`, and `prod` flavors with release-oriented signing hooks
+- Firebase-first telemetry adapters with noop fallback when config is absent
+- GitHub Actions CI for Flutter checks, backend checks, and Android build verification
 - Seeded demo data action for local development
 - Node/Fastify backend for attestation bootstrap, token rotation, quotas, audit logs, and provider isolation
 
@@ -170,6 +173,8 @@ Important behavior:
 Copy `.env.example` to `.env` and set:
 
 ```env
+APP_ENV=development
+APP_FLAVOR=dev
 BACKEND_BASE_URL=http://10.0.2.2:8787
 BACKEND_ENV=development
 PLAY_INTEGRITY_PROJECT_NUMBER=
@@ -179,6 +184,13 @@ DEBUG_ATTESTATION_SECRET=
 PREMIUM_PRODUCT_ID=premium
 PREMIUM_MONTHLY_BASE_PLAN_ID=monthly
 PREMIUM_YEARLY_BASE_PLAN_ID=yearly
+ENABLE_ANALYTICS=false
+ENABLE_CRASH_REPORTING=false
+FIREBASE_ANDROID_API_KEY=
+FIREBASE_ANDROID_APP_ID=
+FIREBASE_MESSAGING_SENDER_ID=
+FIREBASE_PROJECT_ID=
+FIREBASE_STORAGE_BUCKET=
 ```
 
 If the backend URL is missing, the app still runs with local OCR and manual review fallback.
@@ -203,6 +215,26 @@ PREMIUM_YEARLY_BASE_PLAN_ID=yearly
 ```
 
 For local development, debug attestation can be enabled explicitly. Production should use a real Play Integrity verdict plus matching package and cloud project configuration.
+
+## Release Build Matrix
+- `dev`
+  - package suffix: `.dev.debug` or `.dev`
+  - purpose: local development and internal debugging
+- `staging`
+  - package suffix: `.staging`
+  - purpose: closed testing and pre-release validation
+- `prod`
+  - no package suffix
+  - purpose: store-ready artifacts
+
+Release commands:
+```bash
+flutter build apk --flavor dev --debug --dart-define=APP_ENV=development --dart-define=APP_FLAVOR=dev
+flutter build apk --flavor staging --release --dart-define=APP_ENV=staging --dart-define=APP_FLAVOR=staging
+flutter build appbundle --flavor prod --release --dart-define=APP_ENV=prod --dart-define=APP_FLAVOR=prod
+```
+
+Release signing is externalized. Copy [android/key.properties.example](/J:/codex/android/key.properties.example) to `android/key.properties` or provide the matching `ANDROID_KEYSTORE_*` environment variables in CI/local release builds.
 
 ## Run
 Backend:
@@ -247,12 +279,22 @@ flutter test test/ocr_processing_screen_test.dart
 
 Manual device QA and release sanity steps are documented in [docs/qa/release_checklist.md](/J:/codex/docs/qa/release_checklist.md).
 
+## CI
+- [ci.yml](/J:/codex/.github/workflows/ci.yml)
+  - Flutter format check, analyze, tests
+  - backend install, tests, and build
+- [android-verify.yml](/J:/codex/.github/workflows/android-verify.yml)
+  - verifies `dev` debug APK
+  - verifies `staging` release APK
+  - verifies `prod` release AAB without requiring committed signing secrets
+
 ## Development Notes
 - Use the `Seed demo data` action in Settings to populate local sample debts and payments.
 - Premium entitlement is verified through the backend after Google Play purchase or restore.
 - CSV export, PDF import, and scenario saving are premium-gated in both the UI and the verified entitlement snapshot.
 - Android Gradle desugaring is enabled for local notifications support.
 - Android can request real Play Integrity tokens when `PLAY_INTEGRITY_PROJECT_NUMBER` is configured; debug attestation remains development-only.
+- Firebase-backed telemetry can be enabled through env or `--dart-define` values; builds still run with noop telemetry when Firebase config is absent.
 - App lock currently uses biometrics or device credentials only; no separate in-app PIN is implemented.
 - Reminder orchestration now reconciles from live debts, recent payments, and preferences on app startup plus data changes instead of scheduling only from debt edit flows.
 - Settings now expose a dedicated `Data & backups` screen for CSV export, encrypted full backup export, and replace restore.
@@ -277,9 +319,18 @@ Manual device QA and release sanity steps are documented in [docs/qa/release_che
 - Restore is replace-only in this version; it does not merge duplicate local records
 - Backup passphrases are not recoverable by the app
 - Postgres and Redis adapters are implemented for backend deployment, but local tests use in-memory stores
+- Firebase projects, Play Console products, Google credentials, and release signing materials still require external setup outside the repo
 
 ## Roadmap
 - Multiple saved strategy comparisons with deeper scenario analysis
 - Richer statement line-item extraction
 - Household/shared debt mode
-- Vendor-backed analytics and crash reporting adapters
+- Production Firebase native config and symbol-upload completion
+
+## Release Docs
+- [Build and signing guide](/J:/codex/docs/release/build_and_signing.md)
+- [Telemetry setup](/J:/codex/docs/release/telemetry_setup.md)
+- [Privacy and data safety checklist](/J:/codex/docs/release/privacy_and_data_safety.md)
+- [Permissions and disclosures checklist](/J:/codex/docs/release/permissions_and_disclosures.md)
+- [Store listing checklist](/J:/codex/docs/release/store_listing_checklist.md)
+- [Rollout and monitoring checklist](/J:/codex/docs/release/rollout_and_monitoring.md)
