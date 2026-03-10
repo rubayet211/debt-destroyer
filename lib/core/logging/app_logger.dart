@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
 
+import 'package:flutter/foundation.dart';
+
 class AppLogger {
   AppLogger._();
 
@@ -35,6 +37,9 @@ class AppLogger {
   };
 
   void info(String event, {Map<String, Object?> context = const {}}) {
+    if (kReleaseMode) {
+      return;
+    }
     final sanitized = _sanitizeContext(event, context);
     developer.log(jsonEncode(sanitized), name: _loggerName);
   }

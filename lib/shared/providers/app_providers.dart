@@ -23,6 +23,7 @@ import '../../core/services/billing_services.dart';
 import '../../core/services/data_protection_service.dart';
 import '../../core/services/portability_services.dart';
 import '../../core/services/security_services.dart';
+import '../../core/services/telemetry_services.dart';
 import '../../core/services/vault_services.dart';
 import '../../features/dashboard/domain/debt_metrics_service.dart';
 import '../../features/scan_import/domain/import_services.dart';
@@ -57,9 +58,15 @@ final httpClientProvider = Provider<http.Client>((ref) {
   return client;
 });
 final backendConfigProvider = Provider<BackendConfig>((ref) {
+  const appEnvironmentDefine = String.fromEnvironment(
+    'APP_ENV',
+    defaultValue: '',
+  );
   return BackendConfig(
     baseUrl: dotenv.env['BACKEND_BASE_URL'] ?? '',
-    environment: dotenv.env['BACKEND_ENV'] ?? 'development',
+    environment: appEnvironmentDefine.isNotEmpty
+        ? appEnvironmentDefine
+        : (dotenv.env['APP_ENV'] ?? dotenv.env['BACKEND_ENV'] ?? 'development'),
     playIntegrityCloudProjectNumber:
         dotenv.env['PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER'] ??
         dotenv.env['PLAY_INTEGRITY_PROJECT_NUMBER'],
@@ -107,10 +114,10 @@ final notificationGatewayProvider = Provider<NotificationGateway>(
       FlutterLocalNotificationsGateway(ref.watch(localNotificationsProvider)),
 );
 final analyticsServiceProvider = Provider<AnalyticsService>(
-  (ref) => NoopAnalyticsService(),
+  (ref) => TelemetryRuntime.instance.analyticsService,
 );
 final crashReporterProvider = Provider<CrashReporter>(
-  (ref) => NoopCrashReporter(),
+  (ref) => TelemetryRuntime.instance.crashReporter,
 );
 final biometricAuthServiceProvider = Provider(
   (ref) => BiometricAuthService(ref.watch(localAuthProvider)),

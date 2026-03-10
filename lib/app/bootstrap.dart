@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 
 import '../core/logging/app_logger.dart';
+import '../core/services/telemetry_services.dart';
 import '../shared/providers/app_providers.dart';
 import 'app.dart';
 
@@ -24,12 +25,57 @@ Future<void> bootstrap() async {
   }
 
   final cameras = await _loadAvailableCameras();
+  final telemetryConfig = TelemetryConfig.fromEnvironment();
+  await TelemetryRuntime.instance.initialize(telemetryConfig);
 
-  runApp(
-    ProviderScope(
-      overrides: [availableCamerasProvider.overrideWithValue(cameras)],
-      child: const DebtDestroyerApp(),
-    ),
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    AppLogger.instance.error(
+      'flutter.framework_error',
+      details.exception,
+      details.stack ?? StackTrace.current,
+      context: const {'category': 'telemetry', 'status': 'captured'},
+    );
+    unawaited(
+      TelemetryRuntime.instance.crashReporter.recordError(
+        details.exception,
+        details.stack ?? StackTrace.current,
+      ),
+    );
+  };
+  WidgetsBinding.instance.platformDispatcher.onError = (error, stackTrace) {
+    AppLogger.instance.error(
+      'flutter.platform_error',
+      error,
+      stackTrace,
+      context: const {'category': 'telemetry', 'status': 'captured'},
+    );
+    unawaited(
+      TelemetryRuntime.instance.crashReporter.recordError(error, stackTrace),
+    );
+    return true;
+  };
+
+  runZonedGuarded(
+    () {
+      runApp(
+        ProviderScope(
+          overrides: [availableCamerasProvider.overrideWithValue(cameras)],
+          child: const DebtDestroyerApp(),
+        ),
+      );
+    },
+    (error, stackTrace) {
+      AppLogger.instance.error(
+        'flutter.uncaught_zone_error',
+        error,
+        stackTrace,
+        context: const {'category': 'telemetry', 'status': 'captured'},
+      );
+      unawaited(
+        TelemetryRuntime.instance.crashReporter.recordError(error, stackTrace),
+      );
+    },
   );
 }
 
