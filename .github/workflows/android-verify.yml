@@ -1,0 +1,77 @@
+name: Android Verify
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'android/**'
+      - 'lib/**'
+      - 'pubspec.yaml'
+      - '.github/workflows/android-verify.yml'
+  push:
+    branches:
+      - main
+      - 'codex/**'
+    paths:
+      - 'android/**'
+      - 'lib/**'
+      - 'pubspec.yaml'
+      - '.github/workflows/android-verify.yml'
+
+jobs:
+  verify-android:
+    name: Verify Android Builds
+    runs-on: ubuntu-latest
+    env:
+      APP_ENV: staging
+      APP_FLAVOR: staging
+      BACKEND_BASE_URL: https://staging.example.invalid
+      BACKEND_ENV: staging
+      PLAY_INTEGRITY_PACKAGE_NAME: com.debtdestroyer.app
+      PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER: 123456789
+      PREMIUM_PRODUCT_ID: premium
+      PREMIUM_MONTHLY_BASE_PLAN_ID: monthly
+      PREMIUM_YEARLY_BASE_PLAN_ID: yearly
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Create CI env file
+        run: |
+          cat <<EOF > .env
+          APP_ENV=${APP_ENV}
+          APP_FLAVOR=${APP_FLAVOR}
+          BACKEND_BASE_URL=${BACKEND_BASE_URL}
+          BACKEND_ENV=${BACKEND_ENV}
+          PLAY_INTEGRITY_PACKAGE_NAME=${PLAY_INTEGRITY_PACKAGE_NAME}
+          PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER=${PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER}
+          PREMIUM_PRODUCT_ID=${PREMIUM_PRODUCT_ID}
+          PREMIUM_MONTHLY_BASE_PLAN_ID=${PREMIUM_MONTHLY_BASE_PLAN_ID}
+          PREMIUM_YEARLY_BASE_PLAN_ID=${PREMIUM_YEARLY_BASE_PLAN_ID}
+          ENABLE_ANALYTICS=false
+          ENABLE_CRASH_REPORTING=false
+          EOF
+
+      - name: Build dev debug APK
+        run: flutter build apk --flavor dev --debug --dart-define=APP_ENV=development --dart-define=APP_FLAVOR=dev
+
+      - name: Build staging release APK
+        run: flutter build apk --flavor staging --release --dart-define=APP_ENV=staging --dart-define=APP_FLAVOR=staging
+
+      - name: Build prod release app bundle
+        run: flutter build appbundle --flavor prod --release --dart-define=APP_ENV=prod --dart-define=APP_FLAVOR=prod

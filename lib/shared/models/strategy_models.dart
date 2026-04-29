@@ -34,6 +34,9 @@ class StrategyRequest {
     required this.lumpSum,
     required this.includeArchived,
     required this.customPriorities,
+    this.projectionAsOf,
+    this.comparisonStrategy,
+    this.allowUnderMinimumBudget = true,
   });
 
   final StrategyType strategyType;
@@ -43,24 +46,46 @@ class StrategyRequest {
   final double lumpSum;
   final bool includeArchived;
   final Map<String, int> customPriorities;
+  final DateTime? projectionAsOf;
+  final StrategyType? comparisonStrategy;
+  final bool allowUnderMinimumBudget;
 }
 
 class StrategyDebtSnapshot {
   const StrategyDebtSnapshot({
     required this.debtId,
     required this.title,
-    required this.balanceBeforePayment,
+    required this.openingBalance,
     required this.interestAccrued,
-    required this.paymentApplied,
-    required this.balanceAfterPayment,
+    required this.feesAccrued,
+    required this.minimumDue,
+    required this.minimumPaymentApplied,
+    required this.extraPaymentApplied,
+    required this.endingBalance,
+    required this.activeApr,
+    required this.overdue,
+    required this.shortfall,
   });
 
   final String debtId;
   final String title;
-  final double balanceBeforePayment;
+  final double openingBalance;
   final double interestAccrued;
-  final double paymentApplied;
-  final double balanceAfterPayment;
+  final double feesAccrued;
+  final double minimumDue;
+  final double minimumPaymentApplied;
+  final double extraPaymentApplied;
+  final double endingBalance;
+  final double activeApr;
+  final bool overdue;
+  final double shortfall;
+
+  double get balanceBeforePayment =>
+      openingBalance + interestAccrued + feesAccrued;
+
+  double get paymentApplied => minimumPaymentApplied + extraPaymentApplied;
+
+  double get balanceAfterPayment => endingBalance;
 }
 
 class StrategyMonthResult {
@@ -69,7 +94,10 @@ class StrategyMonthResult {
     required this.date,
     required this.totalPaid,
     required this.totalInterest,
+    required this.totalFees,
     required this.remainingBalance,
+    required this.minimumRequired,
+    required this.budgetShortfall,
     required this.debts,
   });
 
@@ -77,8 +105,25 @@ class StrategyMonthResult {
   final DateTime date;
   final double totalPaid;
   final double totalInterest;
+  final double totalFees;
   final double remainingBalance;
+  final double minimumRequired;
+  final double budgetShortfall;
   final List<StrategyDebtSnapshot> debts;
+}
+
+class StrategySummary {
+  const StrategySummary({
+    required this.strategyType,
+    required this.payoffDate,
+    required this.totalInterestPaid,
+    required this.monthsToPayoff,
+  });
+
+  final StrategyType strategyType;
+  final DateTime payoffDate;
+  final double totalInterestPaid;
+  final int monthsToPayoff;
 }
 
 class StrategyResult {
@@ -91,6 +136,10 @@ class StrategyResult {
     required this.payoffOrder,
     required this.schedule,
     required this.baselineInterest,
+    this.minimumRequiredPerCycle = 0,
+    this.budgetShortfall = 0,
+    this.warnings = const [],
+    this.baselineResult,
   });
 
   final StrategyType strategyType;
@@ -101,4 +150,8 @@ class StrategyResult {
   final List<Debt> payoffOrder;
   final List<StrategyMonthResult> schedule;
   final double baselineInterest;
+  final double minimumRequiredPerCycle;
+  final double budgetShortfall;
+  final List<ProjectionWarning> warnings;
+  final StrategySummary? baselineResult;
 }

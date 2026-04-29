@@ -27,9 +27,24 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   }
 
   Future<void> _resolve() async {
+    final protection = await ref.read(dataProtectionBootstrapProvider.future);
+    if (!mounted) {
+      return;
+    }
+    if (!protection.ready) {
+      context.go('/data-protection-recovery');
+      return;
+    }
+    if (protection.showUpgradeExplainer) {
+      context.go('/privacy-upgrade');
+      return;
+    }
     final prefs = await ref
         .read(preferencesRepositoryProvider)
         .loadPreferences();
+    await ref
+        .read(appSecurityCoordinatorProvider.notifier)
+        .syncPreferences(prefs);
     if (!mounted) {
       return;
     }
@@ -37,7 +52,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       context.go('/onboarding');
       return;
     }
-    if (prefs.appLockEnabled && !ref.read(appLockSessionProvider)) {
+    final security = ref.read(appSecurityCoordinatorProvider);
+    if (prefs.appLockEnabled && security.isLockRequired) {
       context.go('/unlock');
       return;
     }

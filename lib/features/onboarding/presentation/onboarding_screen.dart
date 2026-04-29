@@ -17,6 +17,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   String _currency = 'USD';
   String _locale = 'en_US';
   bool _enableLock = false;
+  bool _saving = false;
 
   @override
   void dispose() {
@@ -108,9 +109,17 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     ),
                   const Spacer(),
                   FilledButton(
-                    onPressed: _page == slides.length + 1 ? _finish : _next,
+                    onPressed: _saving
+                        ? null
+                        : _page == slides.length + 1
+                        ? _finish
+                        : _next,
                     child: Text(
-                      _page == slides.length + 1 ? 'Enter app' : 'Next',
+                      _saving
+                          ? 'Saving...'
+                          : _page == slides.length + 1
+                          ? 'Enter app'
+                          : 'Next',
                     ),
                   ),
                 ],
@@ -130,8 +139,28 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   Future<void> _finish() async {
+    setState(() => _saving = true);
     final repository = ref.read(preferencesRepositoryProvider);
     final current = await repository.loadPreferences();
+    if (_enableLock) {
+      final authResult = await ref
+          .read(appSecurityCoordinatorProvider.notifier)
+          .unlock();
+      if (!authResult.isSuccess) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                authResult.message ??
+                    'Authentication is required before app lock can be enabled.',
+              ),
+            ),
+          );
+          setState(() => _saving = false);
+        }
+        return;
+      }
+    }
     await repository.savePreferences(
       current.copyWith(
         onboardingCompleted: true,
@@ -141,7 +170,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       ),
     );
     if (mounted) {
-      context.go(_enableLock ? '/unlock' : '/dashboard');
+      setState(() => _saving = false);
+      context.go('/dashboard');
     }
   }
 }

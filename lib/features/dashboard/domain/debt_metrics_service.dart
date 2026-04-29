@@ -3,12 +3,12 @@ import '../../../shared/models/dashboard_snapshot.dart';
 import '../../../shared/models/debt.dart';
 import '../../../shared/models/payment.dart';
 import '../../../shared/models/strategy_models.dart';
-import '../../strategy/domain/strategy_engine.dart';
+import '../../strategy/domain/portfolio_projection_service.dart';
 
 class DebtMetricsService {
-  const DebtMetricsService(this._strategyEngine);
+  const DebtMetricsService(this._projectionService);
 
-  final StrategyEngine _strategyEngine;
+  final PortfolioProjectionService _projectionService;
 
   DashboardSnapshot buildDashboard({
     required List<Debt> debts,
@@ -30,7 +30,7 @@ class DebtMetricsService {
     );
     final currencies = activeDebts.map((debt) => debt.currency).toSet();
 
-    final result = _strategyEngine.simulate(
+    final result = _projectionService.projectPortfolio(
       debts: activeDebts,
       request: StrategyRequest(
         strategyType: strategyType,

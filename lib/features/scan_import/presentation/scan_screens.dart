@@ -8,7 +8,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:uuid/uuid.dart';
 
-import '../../../core/constants/app_constants.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/utils/parsers.dart';
 import '../../../core/widgets/app_widgets.dart';
@@ -25,6 +24,7 @@ class ScanImportHubScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(entitlementRefreshProvider);
     final docs = ref.watch(documentsByDebtProvider(null));
     return AppPage(
       title: 'Scan & import',
@@ -92,7 +92,16 @@ class ScanImportHubScreen extends ConsumerWidget {
                                   contentPadding: EdgeInsets.zero,
                                   title: Text(doc.mimeType),
                                   subtitle: Text(
-                                    '${doc.sourceType.name} • ${doc.parseStatus.name}',
+                                    '${doc.sourceType.name} • ${doc.parseStatus.name}'
+                                    '${doc.retentionExpiresAt == null ? ' • manual retention' : ' • auto purge ${Formatters.date(doc.retentionExpiresAt)}'}',
+                                  ),
+                                  trailing: IconButton(
+                                    onPressed: () async {
+                                      await ref
+                                          .read(documentsRepositoryProvider)
+                                          .purgeDocument(doc.id);
+                                    },
+                                    icon: const Icon(Icons.delete_outline),
                                   ),
                                 ),
                               ),
@@ -188,20 +197,24 @@ class ScanImportHubScreen extends ConsumerWidget {
   }
 
   Future<bool> _askConsent(BuildContext context, WidgetRef ref) async {
-    final count = await ref
-        .read(documentsRepositoryProvider)
-        .countSuccessfulScansInMonth(DateTime.now());
-    if (!context.mounted) {
-      return false;
-    }
-    final premium =
-        ref.read(subscriptionStateProvider).valueOrNull ??
-        SubscriptionState.free();
-    if (!premium.isPremium && count >= AppConstants.freeAiScanLimit) {
-      if (context.mounted) {
-        context.push('/premium');
+    try {
+      final config = ref.read(backendConfigProvider);
+      if (config.isConfigured) {
+        final capabilities = await ref
+            .read(backendCapabilitiesServiceProvider)
+            .loadCapabilities();
+        if (!context.mounted) {
+          return false;
+        }
+        if (!capabilities.premium && capabilities.freeScanRemaining <= 0) {
+          context.push('/premium');
+          return false;
+        }
       }
-      return false;
+    } catch (_) {
+      if (!context.mounted) {
+        return false;
+      }
     }
 
     final choice = await showModalBottomSheet<bool>(
@@ -219,12 +232,12 @@ class ScanImportHubScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
               const Text(
-                'Local OCR runs on-device. Cloud AI parsing only runs if you allow it for this import.',
+                'Local OCR runs on-device. Cloud extraction is processed by DEBT DESTROYER secure servers only if you allow it for this import.',
               ),
               const SizedBox(height: 16),
               FilledButton(
                 onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Use local OCR + cloud AI'),
+                child: const Text('Use local OCR + secure cloud extraction'),
               ),
               const SizedBox(height: 8),
               OutlinedButton(
@@ -354,9 +367,9 @@ class _CameraCaptureScreenState extends ConsumerState<CameraCaptureScreen> {
     final choice = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Use cloud AI?'),
+        title: const Text('Use secure cloud extraction?'),
         content: const Text(
-          'Local OCR always runs first. Allow cloud AI for this capture?',
+          'Local OCR always runs first. Allow DEBT DESTROYER secure servers to structure this capture?',
         ),
         actions: [
           TextButton(
@@ -450,6 +463,7 @@ class _ParsedReviewConfirmScreenState
   late final TextEditingController _minimum;
   late final TextEditingController _paymentAmount;
   late final TextEditingController _notes;
+  late List<StatementLineItemCandidate> _lineItems;
   DebtType _type = DebtType.other;
   ImportActionType _action = ImportActionType.createDebt;
   String? _selectedDebtId;
@@ -474,6 +488,12 @@ class _ParsedReviewConfirmScreenState
     );
     _notes = TextEditingController(text: candidate.notes ?? '');
     _type = candidate.debtType ?? DebtType.other;
+    _lineItems = widget.bundle.statementLineItems;
+    if (_lineItems.isNotEmpty) {
+      _action = ImportActionType.importStatementItems;
+    } else if ((candidate.paymentAmount ?? 0) > 0) {
+      _action = ImportActionType.addPayment;
+    }
   }
 
   @override
@@ -491,6 +511,11 @@ class _ParsedReviewConfirmScreenState
   @override
   Widget build(BuildContext context) {
     final debts = ref.watch(debtsProvider).valueOrNull ?? const <Debt>[];
+    final selectedDebtPayments = _selectedDebtId == null
+        ? const <Payment>[]
+        : (ref.watch(paymentsByDebtProvider(_selectedDebtId!)).valueOrNull ??
+              const <Payment>[]);
+    final selectedCount = _lineItems.where((item) => item.isSelected).length;
     return AppPage(
       title: 'Review import',
       child: ListView(
@@ -499,6 +524,27 @@ class _ParsedReviewConfirmScreenState
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: AppCard(child: Text(widget.bundle.errorMessage!)),
+            ),
+          if (widget.bundle.issues.isNotEmpty ||
+              widget.bundle.candidate.quotaSnapshot != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: AppCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Import notes'),
+                    const SizedBox(height: 8),
+                    ...widget.bundle.issues.map((issue) => Text(issue.message)),
+                    if (widget.bundle.candidate.quotaSnapshot != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'Free scans remaining: ${widget.bundle.candidate.quotaSnapshot!.remainingFreeScans}',
+                      ),
+                    ],
+                  ],
+                ),
+              ),
             ),
           AppCard(
             child: Column(
@@ -513,6 +559,15 @@ class _ParsedReviewConfirmScreenState
                 Text(
                   'Confidence: ${(widget.bundle.candidate.confidence * 100).toStringAsFixed(0)}%',
                 ),
+                const SizedBox(height: 8),
+                Text('Review mode: ${widget.bundle.reviewMode.name}'),
+                if (widget.bundle.summary.statementStartDate != null ||
+                    widget.bundle.summary.statementEndDate != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Statement period: ${_periodLabel(widget.bundle.summary)}',
+                  ),
+                ],
               ],
             ),
           ),
@@ -520,7 +575,7 @@ class _ParsedReviewConfirmScreenState
           DropdownButtonFormField<ImportActionType>(
             initialValue: _action,
             decoration: const InputDecoration(labelText: 'Save as'),
-            items: const [
+            items: [
               DropdownMenuItem(
                 value: ImportActionType.createDebt,
                 child: Text('Create new debt'),
@@ -529,10 +584,16 @@ class _ParsedReviewConfirmScreenState
                 value: ImportActionType.addPayment,
                 child: Text('Add payment'),
               ),
+              if (_lineItems.isNotEmpty)
+                const DropdownMenuItem(
+                  value: ImportActionType.importStatementItems,
+                  child: Text('Import statement payments'),
+                ),
             ],
             onChanged: (value) => setState(() => _action = value ?? _action),
           ),
-          if (_action == ImportActionType.addPayment) ...[
+          if (_action == ImportActionType.addPayment ||
+              _action == ImportActionType.importStatementItems) ...[
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               initialValue: _selectedDebtId,
@@ -604,6 +665,61 @@ class _ParsedReviewConfirmScreenState
             maxLines: 3,
             decoration: const InputDecoration(labelText: 'Notes'),
           ),
+          if (_lineItems.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            AppCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Statement line items ($selectedCount/${_lineItems.length} selected)',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Select payment-like rows to import. Other rows stay review-only for context.',
+                  ),
+                  const SizedBox(height: 12),
+                  ..._lineItems.map((item) {
+                    final duplicateWarning = _duplicateWarningFor(
+                      item,
+                      selectedDebtPayments,
+                    );
+                    return CheckboxListTile(
+                      value: item.isSelected,
+                      contentPadding: EdgeInsets.zero,
+                      onChanged: (value) {
+                        setState(() {
+                          _lineItems = [
+                            for (final current in _lineItems)
+                              if (current.id == item.id)
+                                current.copyWith(isSelected: value ?? false)
+                              else
+                                current,
+                          ];
+                        });
+                      },
+                      title: Text(item.description),
+                      subtitle: Text(
+                        [
+                          item.type.name,
+                          if (item.date != null) Formatters.date(item.date),
+                          ...item.warnings,
+                          if (duplicateWarning != null) duplicateWarning,
+                        ].join(' • '),
+                      ),
+                      secondary: Text(
+                        Formatters.currency(
+                          item.amount.abs(),
+                          currencyCode: widget.bundle.summary.currency ?? 'USD',
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           ExpansionTile(
             title: const Text('Raw OCR text'),
@@ -626,7 +742,7 @@ class _ParsedReviewConfirmScreenState
                   onPressed: () async {
                     await ref
                         .read(documentsRepositoryProvider)
-                        .markDeleted(widget.bundle.document.id);
+                        .purgeDocument(widget.bundle.document.id);
                     if (context.mounted) {
                       context.go('/scan');
                     }
@@ -650,26 +766,7 @@ class _ParsedReviewConfirmScreenState
 
   Future<void> _save(BuildContext context) async {
     final prefs = ref.read(userPreferencesProvider).valueOrNull;
-    final documentsRepository = ref.read(documentsRepositoryProvider);
-    await documentsRepository.saveDocument(widget.bundle.document);
-    await documentsRepository.saveParsedExtraction(
-      ParsedExtraction(
-        id: const Uuid().v4(),
-        documentId: widget.bundle.document.id,
-        classification: widget.bundle.classification,
-        confidence: widget.bundle.candidate.confidence,
-        payloadJson: jsonEncode({
-          'title': _title.text,
-          'creditorName': _creditor.text,
-          'balance': _balance.text,
-          'apr': _apr.text,
-          'minimum': _minimum.text,
-          'paymentAmount': _paymentAmount.text,
-        }),
-        ambiguityNotes: widget.bundle.errorMessage ?? '',
-        createdAt: DateTime.now(),
-      ),
-    );
+    final finalizationService = ref.read(importFinalizationServiceProvider);
 
     if (_action == ImportActionType.createDebt) {
       final debtId = const Uuid().v4();
@@ -698,9 +795,14 @@ class _ParsedReviewConfirmScreenState
         remindersEnabled: true,
         customPriority: 99,
       );
-      await ref.read(debtsRepositoryProvider).saveDebt(debt);
-      await documentsRepository.linkDocument(widget.bundle.document.id, debtId);
-    } else {
+      await finalizationService.finalize(
+        document: widget.bundle.document,
+        extraction: _buildParsedExtraction(),
+        linkedDebtId: debtId,
+        sourcePath: widget.bundle.sourcePath,
+        debtToCreate: debt,
+      );
+    } else if (_action == ImportActionType.addPayment) {
       final debtId = _selectedDebtId;
       if (debtId == null) {
         if (!context.mounted) {
@@ -713,28 +815,187 @@ class _ParsedReviewConfirmScreenState
         );
         return;
       }
-      await ref
-          .read(paymentsRepositoryProvider)
-          .savePayment(
-            Payment(
-              id: const Uuid().v4(),
-              debtId: debtId,
-              amount: Parsers.parseMoney(_paymentAmount.text),
-              date: widget.bundle.candidate.paymentDate ?? DateTime.now(),
-              method: 'Imported',
-              sourceType: PaymentSourceType.scan,
-              notes: _notes.text.trim(),
-              tags: const ['scan'],
-              createdAt: DateTime.now(),
+      final selectedPaymentItem = _lineItems.firstWhere(
+        (item) => item.isSelected && item.isPaymentLike,
+        orElse: () => StatementLineItemCandidate(
+          id: '',
+          description: '',
+          amount: 0,
+          type: StatementLineItemType.other,
+          confidence: 0,
+        ),
+      );
+      final amount = Parsers.parseMoney(_paymentAmount.text) > 0
+          ? Parsers.parseMoney(_paymentAmount.text)
+          : selectedPaymentItem.amount.abs();
+      if (amount <= 0) {
+        if (!context.mounted) {
+          return;
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Enter a payment amount or select a payment-like line item.',
             ),
-          );
-      await documentsRepository.linkDocument(widget.bundle.document.id, debtId);
+          ),
+        );
+        return;
+      }
+      final payment = Payment(
+        id: const Uuid().v4(),
+        debtId: debtId,
+        amount: amount,
+        date:
+            selectedPaymentItem.date ??
+            widget.bundle.candidate.paymentDate ??
+            DateTime.now(),
+        method: 'Imported',
+        sourceType: PaymentSourceType.scan,
+        notes: _notes.text.trim(),
+        tags: const ['scan'],
+        createdAt: DateTime.now(),
+      );
+      await finalizationService.finalize(
+        document: widget.bundle.document,
+        extraction: _buildParsedExtraction(),
+        linkedDebtId: debtId,
+        sourcePath: widget.bundle.sourcePath,
+        payments: [payment],
+      );
+    } else {
+      final debtId = _selectedDebtId;
+      if (debtId == null) {
+        if (!context.mounted) {
+          return;
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Choose a debt before importing statement payments.'),
+          ),
+        );
+        return;
+      }
+      final selectedItems = _lineItems
+          .where((item) => item.isSelected && item.isPaymentLike)
+          .toList();
+      if (selectedItems.isEmpty) {
+        if (!context.mounted) {
+          return;
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Select at least one payment-like line item.'),
+          ),
+        );
+        return;
+      }
+      if (selectedItems.any((item) => item.date == null)) {
+        if (!context.mounted) {
+          return;
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Some selected line items do not have reliable dates. Deselect them or use single-payment import.',
+            ),
+          ),
+        );
+        return;
+      }
+      final paymentsRepository = ref.read(paymentsRepositoryProvider);
+      final existingPayments = await paymentsRepository.loadPaymentsForDebt(
+        debtId,
+      );
+      final payments = <Payment>[];
+      for (final item in selectedItems) {
+        payments.add(
+          Payment(
+            id: const Uuid().v4(),
+            debtId: debtId,
+            amount: item.amount.abs(),
+            date: item.date!,
+            method: 'Statement import',
+            sourceType: PaymentSourceType.scan,
+            notes: [
+              _notes.text.trim(),
+              if (_duplicateWarningFor(item, existingPayments) != null)
+                'Potential duplicate flagged during review',
+            ].where((part) => part.isNotEmpty).join(' • '),
+            tags: const ['scan', 'statement'],
+            createdAt: DateTime.now(),
+          ),
+        );
+      }
+      await finalizationService.finalize(
+        document: widget.bundle.document,
+        extraction: _buildParsedExtraction(),
+        linkedDebtId: debtId,
+        sourcePath: widget.bundle.sourcePath,
+        payments: payments,
+      );
     }
 
     ref.read(scanImportStateProvider.notifier).clear();
     if (context.mounted) {
       context.go('/dashboard');
     }
+  }
+
+  ParsedExtraction _buildParsedExtraction() {
+    return ParsedExtraction(
+      id: const Uuid().v4(),
+      documentId: widget.bundle.document.id,
+      classification: widget.bundle.classification,
+      confidence: widget.bundle.candidate.confidence,
+      payloadJson: jsonEncode({
+        'title': _title.text,
+        'creditorName': _creditor.text,
+        'balance': _balance.text,
+        'apr': _apr.text,
+        'minimum': _minimum.text,
+        'paymentAmount': _paymentAmount.text,
+        'statementLineItems': _lineItems
+            .map(
+              (item) => {
+                'description': item.description,
+                'amount': item.amount,
+                'date': item.date?.toIso8601String(),
+                'type': item.type.name,
+                'selected': item.isSelected,
+              },
+            )
+            .toList(),
+      }),
+      ambiguityNotes: widget.bundle.errorMessage ?? '',
+      createdAt: DateTime.now(),
+    );
+  }
+
+  String _periodLabel(StatementSummaryCandidate summary) {
+    final start = summary.statementStartDate;
+    final end = summary.statementEndDate;
+    if (start == null && end == null) {
+      return 'Not set';
+    }
+    return '${start == null ? 'Not set' : Formatters.date(start)} - ${end == null ? 'Not set' : Formatters.date(end)}';
+  }
+
+  String? _duplicateWarningFor(
+    StatementLineItemCandidate item,
+    List<Payment> existingPayments,
+  ) {
+    if (!item.isPaymentLike || item.date == null) {
+      return null;
+    }
+    for (final payment in existingPayments) {
+      final sameAmount = (payment.amount - item.amount.abs()).abs() < 0.01;
+      final sameDateWindow =
+          (payment.date.difference(item.date!).inDays).abs() <= 3;
+      if (sameAmount && sameDateWindow) {
+        return 'Possible duplicate payment';
+      }
+    }
+    return null;
   }
 }
 

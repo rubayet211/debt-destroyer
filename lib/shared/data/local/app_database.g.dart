@@ -166,6 +166,18 @@ class $DebtsTableTable extends DebtsTable
     requiredDuringInsert: false,
     defaultValue: const Constant('[]'),
   );
+  static const VerificationMeta _financialTermsJsonMeta =
+      const VerificationMeta('financialTermsJson');
+  @override
+  late final GeneratedColumn<String> financialTermsJson =
+      GeneratedColumn<String>(
+        'financial_terms_json',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('{}'),
+      );
   static const VerificationMeta _statusMeta = const VerificationMeta('status');
   @override
   late final GeneratedColumn<String> status = GeneratedColumn<String>(
@@ -219,6 +231,7 @@ class $DebtsTableTable extends DebtsTable
     updatedAt,
     notes,
     tagsJson,
+    financialTermsJson,
     status,
     remindersEnabled,
     customPriority,
@@ -361,6 +374,15 @@ class $DebtsTableTable extends DebtsTable
         tagsJson.isAcceptableOrUnknown(data['tags_json']!, _tagsJsonMeta),
       );
     }
+    if (data.containsKey('financial_terms_json')) {
+      context.handle(
+        _financialTermsJsonMeta,
+        financialTermsJson.isAcceptableOrUnknown(
+          data['financial_terms_json']!,
+          _financialTermsJsonMeta,
+        ),
+      );
+    }
     if (data.containsKey('status')) {
       context.handle(
         _statusMeta,
@@ -456,6 +478,10 @@ class $DebtsTableTable extends DebtsTable
         DriftSqlType.string,
         data['${effectivePrefix}tags_json'],
       )!,
+      financialTermsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}financial_terms_json'],
+      )!,
       status: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}status'],
@@ -493,6 +519,7 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
   final DateTime updatedAt;
   final String notes;
   final String tagsJson;
+  final String financialTermsJson;
   final String status;
   final bool remindersEnabled;
   final int customPriority;
@@ -512,6 +539,7 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
     required this.updatedAt,
     required this.notes,
     required this.tagsJson,
+    required this.financialTermsJson,
     required this.status,
     required this.remindersEnabled,
     required this.customPriority,
@@ -536,6 +564,7 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
     map['updated_at'] = Variable<DateTime>(updatedAt);
     map['notes'] = Variable<String>(notes);
     map['tags_json'] = Variable<String>(tagsJson);
+    map['financial_terms_json'] = Variable<String>(financialTermsJson);
     map['status'] = Variable<String>(status);
     map['reminders_enabled'] = Variable<bool>(remindersEnabled);
     map['custom_priority'] = Variable<int>(customPriority);
@@ -561,6 +590,7 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
       updatedAt: Value(updatedAt),
       notes: Value(notes),
       tagsJson: Value(tagsJson),
+      financialTermsJson: Value(financialTermsJson),
       status: Value(status),
       remindersEnabled: Value(remindersEnabled),
       customPriority: Value(customPriority),
@@ -588,6 +618,9 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       notes: serializer.fromJson<String>(json['notes']),
       tagsJson: serializer.fromJson<String>(json['tagsJson']),
+      financialTermsJson: serializer.fromJson<String>(
+        json['financialTermsJson'],
+      ),
       status: serializer.fromJson<String>(json['status']),
       remindersEnabled: serializer.fromJson<bool>(json['remindersEnabled']),
       customPriority: serializer.fromJson<int>(json['customPriority']),
@@ -612,6 +645,7 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'notes': serializer.toJson<String>(notes),
       'tagsJson': serializer.toJson<String>(tagsJson),
+      'financialTermsJson': serializer.toJson<String>(financialTermsJson),
       'status': serializer.toJson<String>(status),
       'remindersEnabled': serializer.toJson<bool>(remindersEnabled),
       'customPriority': serializer.toJson<int>(customPriority),
@@ -634,6 +668,7 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
     DateTime? updatedAt,
     String? notes,
     String? tagsJson,
+    String? financialTermsJson,
     String? status,
     bool? remindersEnabled,
     int? customPriority,
@@ -653,6 +688,7 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
     updatedAt: updatedAt ?? this.updatedAt,
     notes: notes ?? this.notes,
     tagsJson: tagsJson ?? this.tagsJson,
+    financialTermsJson: financialTermsJson ?? this.financialTermsJson,
     status: status ?? this.status,
     remindersEnabled: remindersEnabled ?? this.remindersEnabled,
     customPriority: customPriority ?? this.customPriority,
@@ -684,6 +720,9 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       notes: data.notes.present ? data.notes.value : this.notes,
       tagsJson: data.tagsJson.present ? data.tagsJson.value : this.tagsJson,
+      financialTermsJson: data.financialTermsJson.present
+          ? data.financialTermsJson.value
+          : this.financialTermsJson,
       status: data.status.present ? data.status.value : this.status,
       remindersEnabled: data.remindersEnabled.present
           ? data.remindersEnabled.value
@@ -712,6 +751,7 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
           ..write('updatedAt: $updatedAt, ')
           ..write('notes: $notes, ')
           ..write('tagsJson: $tagsJson, ')
+          ..write('financialTermsJson: $financialTermsJson, ')
           ..write('status: $status, ')
           ..write('remindersEnabled: $remindersEnabled, ')
           ..write('customPriority: $customPriority')
@@ -736,6 +776,7 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
     updatedAt,
     notes,
     tagsJson,
+    financialTermsJson,
     status,
     remindersEnabled,
     customPriority,
@@ -759,6 +800,7 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
           other.updatedAt == this.updatedAt &&
           other.notes == this.notes &&
           other.tagsJson == this.tagsJson &&
+          other.financialTermsJson == this.financialTermsJson &&
           other.status == this.status &&
           other.remindersEnabled == this.remindersEnabled &&
           other.customPriority == this.customPriority);
@@ -780,6 +822,7 @@ class DebtsTableCompanion extends UpdateCompanion<DebtsTableData> {
   final Value<DateTime> updatedAt;
   final Value<String> notes;
   final Value<String> tagsJson;
+  final Value<String> financialTermsJson;
   final Value<String> status;
   final Value<bool> remindersEnabled;
   final Value<int> customPriority;
@@ -800,6 +843,7 @@ class DebtsTableCompanion extends UpdateCompanion<DebtsTableData> {
     this.updatedAt = const Value.absent(),
     this.notes = const Value.absent(),
     this.tagsJson = const Value.absent(),
+    this.financialTermsJson = const Value.absent(),
     this.status = const Value.absent(),
     this.remindersEnabled = const Value.absent(),
     this.customPriority = const Value.absent(),
@@ -821,6 +865,7 @@ class DebtsTableCompanion extends UpdateCompanion<DebtsTableData> {
     required DateTime updatedAt,
     this.notes = const Value.absent(),
     this.tagsJson = const Value.absent(),
+    this.financialTermsJson = const Value.absent(),
     required String status,
     this.remindersEnabled = const Value.absent(),
     this.customPriority = const Value.absent(),
@@ -854,6 +899,7 @@ class DebtsTableCompanion extends UpdateCompanion<DebtsTableData> {
     Expression<DateTime>? updatedAt,
     Expression<String>? notes,
     Expression<String>? tagsJson,
+    Expression<String>? financialTermsJson,
     Expression<String>? status,
     Expression<bool>? remindersEnabled,
     Expression<int>? customPriority,
@@ -875,6 +921,8 @@ class DebtsTableCompanion extends UpdateCompanion<DebtsTableData> {
       if (updatedAt != null) 'updated_at': updatedAt,
       if (notes != null) 'notes': notes,
       if (tagsJson != null) 'tags_json': tagsJson,
+      if (financialTermsJson != null)
+        'financial_terms_json': financialTermsJson,
       if (status != null) 'status': status,
       if (remindersEnabled != null) 'reminders_enabled': remindersEnabled,
       if (customPriority != null) 'custom_priority': customPriority,
@@ -898,6 +946,7 @@ class DebtsTableCompanion extends UpdateCompanion<DebtsTableData> {
     Value<DateTime>? updatedAt,
     Value<String>? notes,
     Value<String>? tagsJson,
+    Value<String>? financialTermsJson,
     Value<String>? status,
     Value<bool>? remindersEnabled,
     Value<int>? customPriority,
@@ -919,6 +968,7 @@ class DebtsTableCompanion extends UpdateCompanion<DebtsTableData> {
       updatedAt: updatedAt ?? this.updatedAt,
       notes: notes ?? this.notes,
       tagsJson: tagsJson ?? this.tagsJson,
+      financialTermsJson: financialTermsJson ?? this.financialTermsJson,
       status: status ?? this.status,
       remindersEnabled: remindersEnabled ?? this.remindersEnabled,
       customPriority: customPriority ?? this.customPriority,
@@ -974,6 +1024,9 @@ class DebtsTableCompanion extends UpdateCompanion<DebtsTableData> {
     if (tagsJson.present) {
       map['tags_json'] = Variable<String>(tagsJson.value);
     }
+    if (financialTermsJson.present) {
+      map['financial_terms_json'] = Variable<String>(financialTermsJson.value);
+    }
     if (status.present) {
       map['status'] = Variable<String>(status.value);
     }
@@ -1007,6 +1060,7 @@ class DebtsTableCompanion extends UpdateCompanion<DebtsTableData> {
           ..write('updatedAt: $updatedAt, ')
           ..write('notes: $notes, ')
           ..write('tagsJson: $tagsJson, ')
+          ..write('financialTermsJson: $financialTermsJson, ')
           ..write('status: $status, ')
           ..write('remindersEnabled: $remindersEnabled, ')
           ..write('customPriority: $customPriority, ')
@@ -1593,7 +1647,19 @@ class $ImportedDocumentsTableTable extends ImportedDocumentsTable
     aliasedName,
     false,
     type: DriftSqlType.string,
-    requiredDuringInsert: true,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _storageRefMeta = const VerificationMeta(
+    'storageRef',
+  );
+  @override
+  late final GeneratedColumn<String> storageRef = GeneratedColumn<String>(
+    'storage_ref',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
   );
   static const VerificationMeta _sourceTypeMeta = const VerificationMeta(
     'sourceType',
@@ -1627,6 +1693,18 @@ class $ImportedDocumentsTableTable extends ImportedDocumentsTable
     false,
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
+  );
+  static const VerificationMeta _lifecycleStateMeta = const VerificationMeta(
+    'lifecycleState',
+  );
+  @override
+  late final GeneratedColumn<String> lifecycleState = GeneratedColumn<String>(
+    'lifecycle_state',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('imported'),
   );
   static const VerificationMeta _linkedDebtIdMeta = const VerificationMeta(
     'linkedDebtId',
@@ -1687,18 +1765,122 @@ class $ImportedDocumentsTableTable extends ImportedDocumentsTable
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _retentionExpiresAtMeta =
+      const VerificationMeta('retentionExpiresAt');
+  @override
+  late final GeneratedColumn<DateTime> retentionExpiresAt =
+      GeneratedColumn<DateTime>(
+        'retention_expires_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _rawOcrExpiresAtMeta = const VerificationMeta(
+    'rawOcrExpiresAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> rawOcrExpiresAt =
+      GeneratedColumn<DateTime>(
+        'raw_ocr_expires_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _processedAtMeta = const VerificationMeta(
+    'processedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> processedAt = GeneratedColumn<DateTime>(
+    'processed_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _linkedAtMeta = const VerificationMeta(
+    'linkedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> linkedAt = GeneratedColumn<DateTime>(
+    'linked_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _pendingDeletionAtMeta = const VerificationMeta(
+    'pendingDeletionAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> pendingDeletionAt =
+      GeneratedColumn<DateTime>(
+        'pending_deletion_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _purgedAtMeta = const VerificationMeta(
+    'purgedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> purgedAt = GeneratedColumn<DateTime>(
+    'purged_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _encryptedAtMeta = const VerificationMeta(
+    'encryptedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> encryptedAt = GeneratedColumn<DateTime>(
+    'encrypted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _hasRawOcrTextMeta = const VerificationMeta(
+    'hasRawOcrText',
+  );
+  @override
+  late final GeneratedColumn<bool> hasRawOcrText = GeneratedColumn<bool>(
+    'has_raw_ocr_text',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("has_raw_ocr_text" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
     localPath,
+    storageRef,
     sourceType,
     mimeType,
     createdAt,
+    lifecycleState,
     linkedDebtId,
     rawOcrText,
     parseStatus,
     parseVersion,
     deleted,
+    retentionExpiresAt,
+    rawOcrExpiresAt,
+    processedAt,
+    linkedAt,
+    pendingDeletionAt,
+    purgedAt,
+    encryptedAt,
+    hasRawOcrText,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1722,8 +1904,12 @@ class $ImportedDocumentsTableTable extends ImportedDocumentsTable
         _localPathMeta,
         localPath.isAcceptableOrUnknown(data['local_path']!, _localPathMeta),
       );
-    } else if (isInserting) {
-      context.missing(_localPathMeta);
+    }
+    if (data.containsKey('storage_ref')) {
+      context.handle(
+        _storageRefMeta,
+        storageRef.isAcceptableOrUnknown(data['storage_ref']!, _storageRefMeta),
+      );
     }
     if (data.containsKey('source_type')) {
       context.handle(
@@ -1748,6 +1934,15 @@ class $ImportedDocumentsTableTable extends ImportedDocumentsTable
       );
     } else if (isInserting) {
       context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('lifecycle_state')) {
+      context.handle(
+        _lifecycleStateMeta,
+        lifecycleState.isAcceptableOrUnknown(
+          data['lifecycle_state']!,
+          _lifecycleStateMeta,
+        ),
+      );
     }
     if (data.containsKey('linked_debt_id')) {
       context.handle(
@@ -1795,6 +1990,72 @@ class $ImportedDocumentsTableTable extends ImportedDocumentsTable
         deleted.isAcceptableOrUnknown(data['deleted']!, _deletedMeta),
       );
     }
+    if (data.containsKey('retention_expires_at')) {
+      context.handle(
+        _retentionExpiresAtMeta,
+        retentionExpiresAt.isAcceptableOrUnknown(
+          data['retention_expires_at']!,
+          _retentionExpiresAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('raw_ocr_expires_at')) {
+      context.handle(
+        _rawOcrExpiresAtMeta,
+        rawOcrExpiresAt.isAcceptableOrUnknown(
+          data['raw_ocr_expires_at']!,
+          _rawOcrExpiresAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('processed_at')) {
+      context.handle(
+        _processedAtMeta,
+        processedAt.isAcceptableOrUnknown(
+          data['processed_at']!,
+          _processedAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('linked_at')) {
+      context.handle(
+        _linkedAtMeta,
+        linkedAt.isAcceptableOrUnknown(data['linked_at']!, _linkedAtMeta),
+      );
+    }
+    if (data.containsKey('pending_deletion_at')) {
+      context.handle(
+        _pendingDeletionAtMeta,
+        pendingDeletionAt.isAcceptableOrUnknown(
+          data['pending_deletion_at']!,
+          _pendingDeletionAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('purged_at')) {
+      context.handle(
+        _purgedAtMeta,
+        purgedAt.isAcceptableOrUnknown(data['purged_at']!, _purgedAtMeta),
+      );
+    }
+    if (data.containsKey('encrypted_at')) {
+      context.handle(
+        _encryptedAtMeta,
+        encryptedAt.isAcceptableOrUnknown(
+          data['encrypted_at']!,
+          _encryptedAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('has_raw_ocr_text')) {
+      context.handle(
+        _hasRawOcrTextMeta,
+        hasRawOcrText.isAcceptableOrUnknown(
+          data['has_raw_ocr_text']!,
+          _hasRawOcrTextMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1815,6 +2076,10 @@ class $ImportedDocumentsTableTable extends ImportedDocumentsTable
         DriftSqlType.string,
         data['${effectivePrefix}local_path'],
       )!,
+      storageRef: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}storage_ref'],
+      ),
       sourceType: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}source_type'],
@@ -1826,6 +2091,10 @@ class $ImportedDocumentsTableTable extends ImportedDocumentsTable
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
+      )!,
+      lifecycleState: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}lifecycle_state'],
       )!,
       linkedDebtId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
@@ -1847,6 +2116,38 @@ class $ImportedDocumentsTableTable extends ImportedDocumentsTable
         DriftSqlType.bool,
         data['${effectivePrefix}deleted'],
       )!,
+      retentionExpiresAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}retention_expires_at'],
+      ),
+      rawOcrExpiresAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}raw_ocr_expires_at'],
+      ),
+      processedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}processed_at'],
+      ),
+      linkedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}linked_at'],
+      ),
+      pendingDeletionAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}pending_deletion_at'],
+      ),
+      purgedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}purged_at'],
+      ),
+      encryptedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}encrypted_at'],
+      ),
+      hasRawOcrText: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}has_raw_ocr_text'],
+      )!,
     );
   }
 
@@ -1860,34 +2161,58 @@ class ImportedDocumentsTableData extends DataClass
     implements Insertable<ImportedDocumentsTableData> {
   final String id;
   final String localPath;
+  final String? storageRef;
   final String sourceType;
   final String mimeType;
   final DateTime createdAt;
+  final String lifecycleState;
   final String? linkedDebtId;
   final String? rawOcrText;
   final String parseStatus;
   final String parseVersion;
   final bool deleted;
+  final DateTime? retentionExpiresAt;
+  final DateTime? rawOcrExpiresAt;
+  final DateTime? processedAt;
+  final DateTime? linkedAt;
+  final DateTime? pendingDeletionAt;
+  final DateTime? purgedAt;
+  final DateTime? encryptedAt;
+  final bool hasRawOcrText;
   const ImportedDocumentsTableData({
     required this.id,
     required this.localPath,
+    this.storageRef,
     required this.sourceType,
     required this.mimeType,
     required this.createdAt,
+    required this.lifecycleState,
     this.linkedDebtId,
     this.rawOcrText,
     required this.parseStatus,
     required this.parseVersion,
     required this.deleted,
+    this.retentionExpiresAt,
+    this.rawOcrExpiresAt,
+    this.processedAt,
+    this.linkedAt,
+    this.pendingDeletionAt,
+    this.purgedAt,
+    this.encryptedAt,
+    required this.hasRawOcrText,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
     map['local_path'] = Variable<String>(localPath);
+    if (!nullToAbsent || storageRef != null) {
+      map['storage_ref'] = Variable<String>(storageRef);
+    }
     map['source_type'] = Variable<String>(sourceType);
     map['mime_type'] = Variable<String>(mimeType);
     map['created_at'] = Variable<DateTime>(createdAt);
+    map['lifecycle_state'] = Variable<String>(lifecycleState);
     if (!nullToAbsent || linkedDebtId != null) {
       map['linked_debt_id'] = Variable<String>(linkedDebtId);
     }
@@ -1897,6 +2222,28 @@ class ImportedDocumentsTableData extends DataClass
     map['parse_status'] = Variable<String>(parseStatus);
     map['parse_version'] = Variable<String>(parseVersion);
     map['deleted'] = Variable<bool>(deleted);
+    if (!nullToAbsent || retentionExpiresAt != null) {
+      map['retention_expires_at'] = Variable<DateTime>(retentionExpiresAt);
+    }
+    if (!nullToAbsent || rawOcrExpiresAt != null) {
+      map['raw_ocr_expires_at'] = Variable<DateTime>(rawOcrExpiresAt);
+    }
+    if (!nullToAbsent || processedAt != null) {
+      map['processed_at'] = Variable<DateTime>(processedAt);
+    }
+    if (!nullToAbsent || linkedAt != null) {
+      map['linked_at'] = Variable<DateTime>(linkedAt);
+    }
+    if (!nullToAbsent || pendingDeletionAt != null) {
+      map['pending_deletion_at'] = Variable<DateTime>(pendingDeletionAt);
+    }
+    if (!nullToAbsent || purgedAt != null) {
+      map['purged_at'] = Variable<DateTime>(purgedAt);
+    }
+    if (!nullToAbsent || encryptedAt != null) {
+      map['encrypted_at'] = Variable<DateTime>(encryptedAt);
+    }
+    map['has_raw_ocr_text'] = Variable<bool>(hasRawOcrText);
     return map;
   }
 
@@ -1904,9 +2251,13 @@ class ImportedDocumentsTableData extends DataClass
     return ImportedDocumentsTableCompanion(
       id: Value(id),
       localPath: Value(localPath),
+      storageRef: storageRef == null && nullToAbsent
+          ? const Value.absent()
+          : Value(storageRef),
       sourceType: Value(sourceType),
       mimeType: Value(mimeType),
       createdAt: Value(createdAt),
+      lifecycleState: Value(lifecycleState),
       linkedDebtId: linkedDebtId == null && nullToAbsent
           ? const Value.absent()
           : Value(linkedDebtId),
@@ -1916,6 +2267,28 @@ class ImportedDocumentsTableData extends DataClass
       parseStatus: Value(parseStatus),
       parseVersion: Value(parseVersion),
       deleted: Value(deleted),
+      retentionExpiresAt: retentionExpiresAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(retentionExpiresAt),
+      rawOcrExpiresAt: rawOcrExpiresAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(rawOcrExpiresAt),
+      processedAt: processedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(processedAt),
+      linkedAt: linkedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(linkedAt),
+      pendingDeletionAt: pendingDeletionAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pendingDeletionAt),
+      purgedAt: purgedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(purgedAt),
+      encryptedAt: encryptedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(encryptedAt),
+      hasRawOcrText: Value(hasRawOcrText),
     );
   }
 
@@ -1927,14 +2300,28 @@ class ImportedDocumentsTableData extends DataClass
     return ImportedDocumentsTableData(
       id: serializer.fromJson<String>(json['id']),
       localPath: serializer.fromJson<String>(json['localPath']),
+      storageRef: serializer.fromJson<String?>(json['storageRef']),
       sourceType: serializer.fromJson<String>(json['sourceType']),
       mimeType: serializer.fromJson<String>(json['mimeType']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      lifecycleState: serializer.fromJson<String>(json['lifecycleState']),
       linkedDebtId: serializer.fromJson<String?>(json['linkedDebtId']),
       rawOcrText: serializer.fromJson<String?>(json['rawOcrText']),
       parseStatus: serializer.fromJson<String>(json['parseStatus']),
       parseVersion: serializer.fromJson<String>(json['parseVersion']),
       deleted: serializer.fromJson<bool>(json['deleted']),
+      retentionExpiresAt: serializer.fromJson<DateTime?>(
+        json['retentionExpiresAt'],
+      ),
+      rawOcrExpiresAt: serializer.fromJson<DateTime?>(json['rawOcrExpiresAt']),
+      processedAt: serializer.fromJson<DateTime?>(json['processedAt']),
+      linkedAt: serializer.fromJson<DateTime?>(json['linkedAt']),
+      pendingDeletionAt: serializer.fromJson<DateTime?>(
+        json['pendingDeletionAt'],
+      ),
+      purgedAt: serializer.fromJson<DateTime?>(json['purgedAt']),
+      encryptedAt: serializer.fromJson<DateTime?>(json['encryptedAt']),
+      hasRawOcrText: serializer.fromJson<bool>(json['hasRawOcrText']),
     );
   }
   @override
@@ -1943,39 +2330,75 @@ class ImportedDocumentsTableData extends DataClass
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
       'localPath': serializer.toJson<String>(localPath),
+      'storageRef': serializer.toJson<String?>(storageRef),
       'sourceType': serializer.toJson<String>(sourceType),
       'mimeType': serializer.toJson<String>(mimeType),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'lifecycleState': serializer.toJson<String>(lifecycleState),
       'linkedDebtId': serializer.toJson<String?>(linkedDebtId),
       'rawOcrText': serializer.toJson<String?>(rawOcrText),
       'parseStatus': serializer.toJson<String>(parseStatus),
       'parseVersion': serializer.toJson<String>(parseVersion),
       'deleted': serializer.toJson<bool>(deleted),
+      'retentionExpiresAt': serializer.toJson<DateTime?>(retentionExpiresAt),
+      'rawOcrExpiresAt': serializer.toJson<DateTime?>(rawOcrExpiresAt),
+      'processedAt': serializer.toJson<DateTime?>(processedAt),
+      'linkedAt': serializer.toJson<DateTime?>(linkedAt),
+      'pendingDeletionAt': serializer.toJson<DateTime?>(pendingDeletionAt),
+      'purgedAt': serializer.toJson<DateTime?>(purgedAt),
+      'encryptedAt': serializer.toJson<DateTime?>(encryptedAt),
+      'hasRawOcrText': serializer.toJson<bool>(hasRawOcrText),
     };
   }
 
   ImportedDocumentsTableData copyWith({
     String? id,
     String? localPath,
+    Value<String?> storageRef = const Value.absent(),
     String? sourceType,
     String? mimeType,
     DateTime? createdAt,
+    String? lifecycleState,
     Value<String?> linkedDebtId = const Value.absent(),
     Value<String?> rawOcrText = const Value.absent(),
     String? parseStatus,
     String? parseVersion,
     bool? deleted,
+    Value<DateTime?> retentionExpiresAt = const Value.absent(),
+    Value<DateTime?> rawOcrExpiresAt = const Value.absent(),
+    Value<DateTime?> processedAt = const Value.absent(),
+    Value<DateTime?> linkedAt = const Value.absent(),
+    Value<DateTime?> pendingDeletionAt = const Value.absent(),
+    Value<DateTime?> purgedAt = const Value.absent(),
+    Value<DateTime?> encryptedAt = const Value.absent(),
+    bool? hasRawOcrText,
   }) => ImportedDocumentsTableData(
     id: id ?? this.id,
     localPath: localPath ?? this.localPath,
+    storageRef: storageRef.present ? storageRef.value : this.storageRef,
     sourceType: sourceType ?? this.sourceType,
     mimeType: mimeType ?? this.mimeType,
     createdAt: createdAt ?? this.createdAt,
+    lifecycleState: lifecycleState ?? this.lifecycleState,
     linkedDebtId: linkedDebtId.present ? linkedDebtId.value : this.linkedDebtId,
     rawOcrText: rawOcrText.present ? rawOcrText.value : this.rawOcrText,
     parseStatus: parseStatus ?? this.parseStatus,
     parseVersion: parseVersion ?? this.parseVersion,
     deleted: deleted ?? this.deleted,
+    retentionExpiresAt: retentionExpiresAt.present
+        ? retentionExpiresAt.value
+        : this.retentionExpiresAt,
+    rawOcrExpiresAt: rawOcrExpiresAt.present
+        ? rawOcrExpiresAt.value
+        : this.rawOcrExpiresAt,
+    processedAt: processedAt.present ? processedAt.value : this.processedAt,
+    linkedAt: linkedAt.present ? linkedAt.value : this.linkedAt,
+    pendingDeletionAt: pendingDeletionAt.present
+        ? pendingDeletionAt.value
+        : this.pendingDeletionAt,
+    purgedAt: purgedAt.present ? purgedAt.value : this.purgedAt,
+    encryptedAt: encryptedAt.present ? encryptedAt.value : this.encryptedAt,
+    hasRawOcrText: hasRawOcrText ?? this.hasRawOcrText,
   );
   ImportedDocumentsTableData copyWithCompanion(
     ImportedDocumentsTableCompanion data,
@@ -1983,11 +2406,17 @@ class ImportedDocumentsTableData extends DataClass
     return ImportedDocumentsTableData(
       id: data.id.present ? data.id.value : this.id,
       localPath: data.localPath.present ? data.localPath.value : this.localPath,
+      storageRef: data.storageRef.present
+          ? data.storageRef.value
+          : this.storageRef,
       sourceType: data.sourceType.present
           ? data.sourceType.value
           : this.sourceType,
       mimeType: data.mimeType.present ? data.mimeType.value : this.mimeType,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      lifecycleState: data.lifecycleState.present
+          ? data.lifecycleState.value
+          : this.lifecycleState,
       linkedDebtId: data.linkedDebtId.present
           ? data.linkedDebtId.value
           : this.linkedDebtId,
@@ -2001,6 +2430,26 @@ class ImportedDocumentsTableData extends DataClass
           ? data.parseVersion.value
           : this.parseVersion,
       deleted: data.deleted.present ? data.deleted.value : this.deleted,
+      retentionExpiresAt: data.retentionExpiresAt.present
+          ? data.retentionExpiresAt.value
+          : this.retentionExpiresAt,
+      rawOcrExpiresAt: data.rawOcrExpiresAt.present
+          ? data.rawOcrExpiresAt.value
+          : this.rawOcrExpiresAt,
+      processedAt: data.processedAt.present
+          ? data.processedAt.value
+          : this.processedAt,
+      linkedAt: data.linkedAt.present ? data.linkedAt.value : this.linkedAt,
+      pendingDeletionAt: data.pendingDeletionAt.present
+          ? data.pendingDeletionAt.value
+          : this.pendingDeletionAt,
+      purgedAt: data.purgedAt.present ? data.purgedAt.value : this.purgedAt,
+      encryptedAt: data.encryptedAt.present
+          ? data.encryptedAt.value
+          : this.encryptedAt,
+      hasRawOcrText: data.hasRawOcrText.present
+          ? data.hasRawOcrText.value
+          : this.hasRawOcrText,
     );
   }
 
@@ -2009,14 +2458,24 @@ class ImportedDocumentsTableData extends DataClass
     return (StringBuffer('ImportedDocumentsTableData(')
           ..write('id: $id, ')
           ..write('localPath: $localPath, ')
+          ..write('storageRef: $storageRef, ')
           ..write('sourceType: $sourceType, ')
           ..write('mimeType: $mimeType, ')
           ..write('createdAt: $createdAt, ')
+          ..write('lifecycleState: $lifecycleState, ')
           ..write('linkedDebtId: $linkedDebtId, ')
           ..write('rawOcrText: $rawOcrText, ')
           ..write('parseStatus: $parseStatus, ')
           ..write('parseVersion: $parseVersion, ')
-          ..write('deleted: $deleted')
+          ..write('deleted: $deleted, ')
+          ..write('retentionExpiresAt: $retentionExpiresAt, ')
+          ..write('rawOcrExpiresAt: $rawOcrExpiresAt, ')
+          ..write('processedAt: $processedAt, ')
+          ..write('linkedAt: $linkedAt, ')
+          ..write('pendingDeletionAt: $pendingDeletionAt, ')
+          ..write('purgedAt: $purgedAt, ')
+          ..write('encryptedAt: $encryptedAt, ')
+          ..write('hasRawOcrText: $hasRawOcrText')
           ..write(')'))
         .toString();
   }
@@ -2025,14 +2484,24 @@ class ImportedDocumentsTableData extends DataClass
   int get hashCode => Object.hash(
     id,
     localPath,
+    storageRef,
     sourceType,
     mimeType,
     createdAt,
+    lifecycleState,
     linkedDebtId,
     rawOcrText,
     parseStatus,
     parseVersion,
     deleted,
+    retentionExpiresAt,
+    rawOcrExpiresAt,
+    processedAt,
+    linkedAt,
+    pendingDeletionAt,
+    purgedAt,
+    encryptedAt,
+    hasRawOcrText,
   );
   @override
   bool operator ==(Object other) =>
@@ -2040,56 +2509,95 @@ class ImportedDocumentsTableData extends DataClass
       (other is ImportedDocumentsTableData &&
           other.id == this.id &&
           other.localPath == this.localPath &&
+          other.storageRef == this.storageRef &&
           other.sourceType == this.sourceType &&
           other.mimeType == this.mimeType &&
           other.createdAt == this.createdAt &&
+          other.lifecycleState == this.lifecycleState &&
           other.linkedDebtId == this.linkedDebtId &&
           other.rawOcrText == this.rawOcrText &&
           other.parseStatus == this.parseStatus &&
           other.parseVersion == this.parseVersion &&
-          other.deleted == this.deleted);
+          other.deleted == this.deleted &&
+          other.retentionExpiresAt == this.retentionExpiresAt &&
+          other.rawOcrExpiresAt == this.rawOcrExpiresAt &&
+          other.processedAt == this.processedAt &&
+          other.linkedAt == this.linkedAt &&
+          other.pendingDeletionAt == this.pendingDeletionAt &&
+          other.purgedAt == this.purgedAt &&
+          other.encryptedAt == this.encryptedAt &&
+          other.hasRawOcrText == this.hasRawOcrText);
 }
 
 class ImportedDocumentsTableCompanion
     extends UpdateCompanion<ImportedDocumentsTableData> {
   final Value<String> id;
   final Value<String> localPath;
+  final Value<String?> storageRef;
   final Value<String> sourceType;
   final Value<String> mimeType;
   final Value<DateTime> createdAt;
+  final Value<String> lifecycleState;
   final Value<String?> linkedDebtId;
   final Value<String?> rawOcrText;
   final Value<String> parseStatus;
   final Value<String> parseVersion;
   final Value<bool> deleted;
+  final Value<DateTime?> retentionExpiresAt;
+  final Value<DateTime?> rawOcrExpiresAt;
+  final Value<DateTime?> processedAt;
+  final Value<DateTime?> linkedAt;
+  final Value<DateTime?> pendingDeletionAt;
+  final Value<DateTime?> purgedAt;
+  final Value<DateTime?> encryptedAt;
+  final Value<bool> hasRawOcrText;
   final Value<int> rowid;
   const ImportedDocumentsTableCompanion({
     this.id = const Value.absent(),
     this.localPath = const Value.absent(),
+    this.storageRef = const Value.absent(),
     this.sourceType = const Value.absent(),
     this.mimeType = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.lifecycleState = const Value.absent(),
     this.linkedDebtId = const Value.absent(),
     this.rawOcrText = const Value.absent(),
     this.parseStatus = const Value.absent(),
     this.parseVersion = const Value.absent(),
     this.deleted = const Value.absent(),
+    this.retentionExpiresAt = const Value.absent(),
+    this.rawOcrExpiresAt = const Value.absent(),
+    this.processedAt = const Value.absent(),
+    this.linkedAt = const Value.absent(),
+    this.pendingDeletionAt = const Value.absent(),
+    this.purgedAt = const Value.absent(),
+    this.encryptedAt = const Value.absent(),
+    this.hasRawOcrText = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ImportedDocumentsTableCompanion.insert({
     required String id,
-    required String localPath,
+    this.localPath = const Value.absent(),
+    this.storageRef = const Value.absent(),
     required String sourceType,
     required String mimeType,
     required DateTime createdAt,
+    this.lifecycleState = const Value.absent(),
     this.linkedDebtId = const Value.absent(),
     this.rawOcrText = const Value.absent(),
     required String parseStatus,
     required String parseVersion,
     this.deleted = const Value.absent(),
+    this.retentionExpiresAt = const Value.absent(),
+    this.rawOcrExpiresAt = const Value.absent(),
+    this.processedAt = const Value.absent(),
+    this.linkedAt = const Value.absent(),
+    this.pendingDeletionAt = const Value.absent(),
+    this.purgedAt = const Value.absent(),
+    this.encryptedAt = const Value.absent(),
+    this.hasRawOcrText = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
-       localPath = Value(localPath),
        sourceType = Value(sourceType),
        mimeType = Value(mimeType),
        createdAt = Value(createdAt),
@@ -2098,27 +2606,48 @@ class ImportedDocumentsTableCompanion
   static Insertable<ImportedDocumentsTableData> custom({
     Expression<String>? id,
     Expression<String>? localPath,
+    Expression<String>? storageRef,
     Expression<String>? sourceType,
     Expression<String>? mimeType,
     Expression<DateTime>? createdAt,
+    Expression<String>? lifecycleState,
     Expression<String>? linkedDebtId,
     Expression<String>? rawOcrText,
     Expression<String>? parseStatus,
     Expression<String>? parseVersion,
     Expression<bool>? deleted,
+    Expression<DateTime>? retentionExpiresAt,
+    Expression<DateTime>? rawOcrExpiresAt,
+    Expression<DateTime>? processedAt,
+    Expression<DateTime>? linkedAt,
+    Expression<DateTime>? pendingDeletionAt,
+    Expression<DateTime>? purgedAt,
+    Expression<DateTime>? encryptedAt,
+    Expression<bool>? hasRawOcrText,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (localPath != null) 'local_path': localPath,
+      if (storageRef != null) 'storage_ref': storageRef,
       if (sourceType != null) 'source_type': sourceType,
       if (mimeType != null) 'mime_type': mimeType,
       if (createdAt != null) 'created_at': createdAt,
+      if (lifecycleState != null) 'lifecycle_state': lifecycleState,
       if (linkedDebtId != null) 'linked_debt_id': linkedDebtId,
       if (rawOcrText != null) 'raw_ocr_text': rawOcrText,
       if (parseStatus != null) 'parse_status': parseStatus,
       if (parseVersion != null) 'parse_version': parseVersion,
       if (deleted != null) 'deleted': deleted,
+      if (retentionExpiresAt != null)
+        'retention_expires_at': retentionExpiresAt,
+      if (rawOcrExpiresAt != null) 'raw_ocr_expires_at': rawOcrExpiresAt,
+      if (processedAt != null) 'processed_at': processedAt,
+      if (linkedAt != null) 'linked_at': linkedAt,
+      if (pendingDeletionAt != null) 'pending_deletion_at': pendingDeletionAt,
+      if (purgedAt != null) 'purged_at': purgedAt,
+      if (encryptedAt != null) 'encrypted_at': encryptedAt,
+      if (hasRawOcrText != null) 'has_raw_ocr_text': hasRawOcrText,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2126,27 +2655,47 @@ class ImportedDocumentsTableCompanion
   ImportedDocumentsTableCompanion copyWith({
     Value<String>? id,
     Value<String>? localPath,
+    Value<String?>? storageRef,
     Value<String>? sourceType,
     Value<String>? mimeType,
     Value<DateTime>? createdAt,
+    Value<String>? lifecycleState,
     Value<String?>? linkedDebtId,
     Value<String?>? rawOcrText,
     Value<String>? parseStatus,
     Value<String>? parseVersion,
     Value<bool>? deleted,
+    Value<DateTime?>? retentionExpiresAt,
+    Value<DateTime?>? rawOcrExpiresAt,
+    Value<DateTime?>? processedAt,
+    Value<DateTime?>? linkedAt,
+    Value<DateTime?>? pendingDeletionAt,
+    Value<DateTime?>? purgedAt,
+    Value<DateTime?>? encryptedAt,
+    Value<bool>? hasRawOcrText,
     Value<int>? rowid,
   }) {
     return ImportedDocumentsTableCompanion(
       id: id ?? this.id,
       localPath: localPath ?? this.localPath,
+      storageRef: storageRef ?? this.storageRef,
       sourceType: sourceType ?? this.sourceType,
       mimeType: mimeType ?? this.mimeType,
       createdAt: createdAt ?? this.createdAt,
+      lifecycleState: lifecycleState ?? this.lifecycleState,
       linkedDebtId: linkedDebtId ?? this.linkedDebtId,
       rawOcrText: rawOcrText ?? this.rawOcrText,
       parseStatus: parseStatus ?? this.parseStatus,
       parseVersion: parseVersion ?? this.parseVersion,
       deleted: deleted ?? this.deleted,
+      retentionExpiresAt: retentionExpiresAt ?? this.retentionExpiresAt,
+      rawOcrExpiresAt: rawOcrExpiresAt ?? this.rawOcrExpiresAt,
+      processedAt: processedAt ?? this.processedAt,
+      linkedAt: linkedAt ?? this.linkedAt,
+      pendingDeletionAt: pendingDeletionAt ?? this.pendingDeletionAt,
+      purgedAt: purgedAt ?? this.purgedAt,
+      encryptedAt: encryptedAt ?? this.encryptedAt,
+      hasRawOcrText: hasRawOcrText ?? this.hasRawOcrText,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2160,6 +2709,9 @@ class ImportedDocumentsTableCompanion
     if (localPath.present) {
       map['local_path'] = Variable<String>(localPath.value);
     }
+    if (storageRef.present) {
+      map['storage_ref'] = Variable<String>(storageRef.value);
+    }
     if (sourceType.present) {
       map['source_type'] = Variable<String>(sourceType.value);
     }
@@ -2168,6 +2720,9 @@ class ImportedDocumentsTableCompanion
     }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (lifecycleState.present) {
+      map['lifecycle_state'] = Variable<String>(lifecycleState.value);
     }
     if (linkedDebtId.present) {
       map['linked_debt_id'] = Variable<String>(linkedDebtId.value);
@@ -2184,6 +2739,32 @@ class ImportedDocumentsTableCompanion
     if (deleted.present) {
       map['deleted'] = Variable<bool>(deleted.value);
     }
+    if (retentionExpiresAt.present) {
+      map['retention_expires_at'] = Variable<DateTime>(
+        retentionExpiresAt.value,
+      );
+    }
+    if (rawOcrExpiresAt.present) {
+      map['raw_ocr_expires_at'] = Variable<DateTime>(rawOcrExpiresAt.value);
+    }
+    if (processedAt.present) {
+      map['processed_at'] = Variable<DateTime>(processedAt.value);
+    }
+    if (linkedAt.present) {
+      map['linked_at'] = Variable<DateTime>(linkedAt.value);
+    }
+    if (pendingDeletionAt.present) {
+      map['pending_deletion_at'] = Variable<DateTime>(pendingDeletionAt.value);
+    }
+    if (purgedAt.present) {
+      map['purged_at'] = Variable<DateTime>(purgedAt.value);
+    }
+    if (encryptedAt.present) {
+      map['encrypted_at'] = Variable<DateTime>(encryptedAt.value);
+    }
+    if (hasRawOcrText.present) {
+      map['has_raw_ocr_text'] = Variable<bool>(hasRawOcrText.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2195,14 +2776,24 @@ class ImportedDocumentsTableCompanion
     return (StringBuffer('ImportedDocumentsTableCompanion(')
           ..write('id: $id, ')
           ..write('localPath: $localPath, ')
+          ..write('storageRef: $storageRef, ')
           ..write('sourceType: $sourceType, ')
           ..write('mimeType: $mimeType, ')
           ..write('createdAt: $createdAt, ')
+          ..write('lifecycleState: $lifecycleState, ')
           ..write('linkedDebtId: $linkedDebtId, ')
           ..write('rawOcrText: $rawOcrText, ')
           ..write('parseStatus: $parseStatus, ')
           ..write('parseVersion: $parseVersion, ')
           ..write('deleted: $deleted, ')
+          ..write('retentionExpiresAt: $retentionExpiresAt, ')
+          ..write('rawOcrExpiresAt: $rawOcrExpiresAt, ')
+          ..write('processedAt: $processedAt, ')
+          ..write('linkedAt: $linkedAt, ')
+          ..write('pendingDeletionAt: $pendingDeletionAt, ')
+          ..write('purgedAt: $purgedAt, ')
+          ..write('encryptedAt: $encryptedAt, ')
+          ..write('hasRawOcrText: $hasRawOcrText, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3014,6 +3605,318 @@ class ReminderRulesTableCompanion
   }
 }
 
+class $ReminderEventsTableTable extends ReminderEventsTable
+    with TableInfo<$ReminderEventsTableTable, ReminderEventsTableData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ReminderEventsTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _debtIdMeta = const VerificationMeta('debtId');
+  @override
+  late final GeneratedColumn<String> debtId = GeneratedColumn<String>(
+    'debt_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _kindMeta = const VerificationMeta('kind');
+  @override
+  late final GeneratedColumn<String> kind = GeneratedColumn<String>(
+    'kind',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, debtId, kind, createdAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'reminder_events_table';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ReminderEventsTableData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('debt_id')) {
+      context.handle(
+        _debtIdMeta,
+        debtId.isAcceptableOrUnknown(data['debt_id']!, _debtIdMeta),
+      );
+    }
+    if (data.containsKey('kind')) {
+      context.handle(
+        _kindMeta,
+        kind.isAcceptableOrUnknown(data['kind']!, _kindMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_kindMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ReminderEventsTableData map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ReminderEventsTableData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      debtId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}debt_id'],
+      ),
+      kind: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}kind'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $ReminderEventsTableTable createAlias(String alias) {
+    return $ReminderEventsTableTable(attachedDatabase, alias);
+  }
+}
+
+class ReminderEventsTableData extends DataClass
+    implements Insertable<ReminderEventsTableData> {
+  final String id;
+  final String? debtId;
+  final String kind;
+  final DateTime createdAt;
+  const ReminderEventsTableData({
+    required this.id,
+    this.debtId,
+    required this.kind,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    if (!nullToAbsent || debtId != null) {
+      map['debt_id'] = Variable<String>(debtId);
+    }
+    map['kind'] = Variable<String>(kind);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  ReminderEventsTableCompanion toCompanion(bool nullToAbsent) {
+    return ReminderEventsTableCompanion(
+      id: Value(id),
+      debtId: debtId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(debtId),
+      kind: Value(kind),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory ReminderEventsTableData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ReminderEventsTableData(
+      id: serializer.fromJson<String>(json['id']),
+      debtId: serializer.fromJson<String?>(json['debtId']),
+      kind: serializer.fromJson<String>(json['kind']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'debtId': serializer.toJson<String?>(debtId),
+      'kind': serializer.toJson<String>(kind),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  ReminderEventsTableData copyWith({
+    String? id,
+    Value<String?> debtId = const Value.absent(),
+    String? kind,
+    DateTime? createdAt,
+  }) => ReminderEventsTableData(
+    id: id ?? this.id,
+    debtId: debtId.present ? debtId.value : this.debtId,
+    kind: kind ?? this.kind,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  ReminderEventsTableData copyWithCompanion(ReminderEventsTableCompanion data) {
+    return ReminderEventsTableData(
+      id: data.id.present ? data.id.value : this.id,
+      debtId: data.debtId.present ? data.debtId.value : this.debtId,
+      kind: data.kind.present ? data.kind.value : this.kind,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReminderEventsTableData(')
+          ..write('id: $id, ')
+          ..write('debtId: $debtId, ')
+          ..write('kind: $kind, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, debtId, kind, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ReminderEventsTableData &&
+          other.id == this.id &&
+          other.debtId == this.debtId &&
+          other.kind == this.kind &&
+          other.createdAt == this.createdAt);
+}
+
+class ReminderEventsTableCompanion
+    extends UpdateCompanion<ReminderEventsTableData> {
+  final Value<String> id;
+  final Value<String?> debtId;
+  final Value<String> kind;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const ReminderEventsTableCompanion({
+    this.id = const Value.absent(),
+    this.debtId = const Value.absent(),
+    this.kind = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ReminderEventsTableCompanion.insert({
+    required String id,
+    this.debtId = const Value.absent(),
+    required String kind,
+    required DateTime createdAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       kind = Value(kind),
+       createdAt = Value(createdAt);
+  static Insertable<ReminderEventsTableData> custom({
+    Expression<String>? id,
+    Expression<String>? debtId,
+    Expression<String>? kind,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (debtId != null) 'debt_id': debtId,
+      if (kind != null) 'kind': kind,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ReminderEventsTableCompanion copyWith({
+    Value<String>? id,
+    Value<String?>? debtId,
+    Value<String>? kind,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return ReminderEventsTableCompanion(
+      id: id ?? this.id,
+      debtId: debtId ?? this.debtId,
+      kind: kind ?? this.kind,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (debtId.present) {
+      map['debt_id'] = Variable<String>(debtId.value);
+    }
+    if (kind.present) {
+      map['kind'] = Variable<String>(kind.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReminderEventsTableCompanion(')
+          ..write('id: $id, ')
+          ..write('debtId: $debtId, ')
+          ..write('kind: $kind, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $ScenariosTableTable extends ScenariosTable
     with TableInfo<$ScenariosTableTable, ScenariosTableData> {
   @override
@@ -3720,6 +4623,50 @@ class $AppPreferencesTableTable extends AppPreferencesTable
     ),
     defaultValue: const Constant(true),
   );
+  static const VerificationMeta _dueRemindersEnabledMeta =
+      const VerificationMeta('dueRemindersEnabled');
+  @override
+  late final GeneratedColumn<bool> dueRemindersEnabled = GeneratedColumn<bool>(
+    'due_reminders_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("due_reminders_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _overdueRemindersEnabledMeta =
+      const VerificationMeta('overdueRemindersEnabled');
+  @override
+  late final GeneratedColumn<bool> overdueRemindersEnabled =
+      GeneratedColumn<bool>(
+        'overdue_reminders_enabled',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("overdue_reminders_enabled" IN (0, 1))',
+        ),
+        defaultValue: const Constant(true),
+      );
+  static const VerificationMeta _milestoneNotificationsEnabledMeta =
+      const VerificationMeta('milestoneNotificationsEnabled');
+  @override
+  late final GeneratedColumn<bool> milestoneNotificationsEnabled =
+      GeneratedColumn<bool>(
+        'milestone_notifications_enabled',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("milestone_notifications_enabled" IN (0, 1))',
+        ),
+        defaultValue: const Constant(true),
+      );
   static const VerificationMeta _onboardingCompletedMeta =
       const VerificationMeta('onboardingCompleted');
   @override
@@ -3748,6 +4695,82 @@ class $AppPreferencesTableTable extends AppPreferencesTable
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _dueReminderLeadDaysMeta =
+      const VerificationMeta('dueReminderLeadDays');
+  @override
+  late final GeneratedColumn<int> dueReminderLeadDays = GeneratedColumn<int>(
+    'due_reminder_lead_days',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(2),
+  );
+  static const VerificationMeta _rawOcrRetentionEnabledMeta =
+      const VerificationMeta('rawOcrRetentionEnabled');
+  @override
+  late final GeneratedColumn<bool> rawOcrRetentionEnabled =
+      GeneratedColumn<bool>(
+        'raw_ocr_retention_enabled',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("raw_ocr_retention_enabled" IN (0, 1))',
+        ),
+        defaultValue: const Constant(false),
+      );
+  static const VerificationMeta _rawOcrRetentionHoursMeta =
+      const VerificationMeta('rawOcrRetentionHours');
+  @override
+  late final GeneratedColumn<int> rawOcrRetentionHours = GeneratedColumn<int>(
+    'raw_ocr_retention_hours',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _documentRetentionModeMeta =
+      const VerificationMeta('documentRetentionMode');
+  @override
+  late final GeneratedColumn<String> documentRetentionMode =
+      GeneratedColumn<String>(
+        'document_retention_mode',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('days30'),
+      );
+  static const VerificationMeta _purgeFailedImportsAfterHoursMeta =
+      const VerificationMeta('purgeFailedImportsAfterHours');
+  @override
+  late final GeneratedColumn<int> purgeFailedImportsAfterHours =
+      GeneratedColumn<int>(
+        'purge_failed_imports_after_hours',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(24),
+      );
+  static const VerificationMeta _dataProtectionExplainerSeenMeta =
+      const VerificationMeta('dataProtectionExplainerSeen');
+  @override
+  late final GeneratedColumn<bool> dataProtectionExplainerSeen =
+      GeneratedColumn<bool>(
+        'data_protection_explainer_seen',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("data_protection_explainer_seen" IN (0, 1))',
+        ),
+        defaultValue: const Constant(false),
+      );
   @override
   List<GeneratedColumn> get $columns => [
     key,
@@ -3759,8 +4782,17 @@ class $AppPreferencesTableTable extends AppPreferencesTable
     appLockEnabled,
     aiConsentEnabled,
     notificationsEnabled,
+    dueRemindersEnabled,
+    overdueRemindersEnabled,
+    milestoneNotificationsEnabled,
     onboardingCompleted,
     weeklySummaryEnabled,
+    dueReminderLeadDays,
+    rawOcrRetentionEnabled,
+    rawOcrRetentionHours,
+    documentRetentionMode,
+    purgeFailedImportsAfterHours,
+    dataProtectionExplainerSeen,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3846,6 +4878,33 @@ class $AppPreferencesTableTable extends AppPreferencesTable
         ),
       );
     }
+    if (data.containsKey('due_reminders_enabled')) {
+      context.handle(
+        _dueRemindersEnabledMeta,
+        dueRemindersEnabled.isAcceptableOrUnknown(
+          data['due_reminders_enabled']!,
+          _dueRemindersEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('overdue_reminders_enabled')) {
+      context.handle(
+        _overdueRemindersEnabledMeta,
+        overdueRemindersEnabled.isAcceptableOrUnknown(
+          data['overdue_reminders_enabled']!,
+          _overdueRemindersEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('milestone_notifications_enabled')) {
+      context.handle(
+        _milestoneNotificationsEnabledMeta,
+        milestoneNotificationsEnabled.isAcceptableOrUnknown(
+          data['milestone_notifications_enabled']!,
+          _milestoneNotificationsEnabledMeta,
+        ),
+      );
+    }
     if (data.containsKey('onboarding_completed')) {
       context.handle(
         _onboardingCompletedMeta,
@@ -3861,6 +4920,60 @@ class $AppPreferencesTableTable extends AppPreferencesTable
         weeklySummaryEnabled.isAcceptableOrUnknown(
           data['weekly_summary_enabled']!,
           _weeklySummaryEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('due_reminder_lead_days')) {
+      context.handle(
+        _dueReminderLeadDaysMeta,
+        dueReminderLeadDays.isAcceptableOrUnknown(
+          data['due_reminder_lead_days']!,
+          _dueReminderLeadDaysMeta,
+        ),
+      );
+    }
+    if (data.containsKey('raw_ocr_retention_enabled')) {
+      context.handle(
+        _rawOcrRetentionEnabledMeta,
+        rawOcrRetentionEnabled.isAcceptableOrUnknown(
+          data['raw_ocr_retention_enabled']!,
+          _rawOcrRetentionEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('raw_ocr_retention_hours')) {
+      context.handle(
+        _rawOcrRetentionHoursMeta,
+        rawOcrRetentionHours.isAcceptableOrUnknown(
+          data['raw_ocr_retention_hours']!,
+          _rawOcrRetentionHoursMeta,
+        ),
+      );
+    }
+    if (data.containsKey('document_retention_mode')) {
+      context.handle(
+        _documentRetentionModeMeta,
+        documentRetentionMode.isAcceptableOrUnknown(
+          data['document_retention_mode']!,
+          _documentRetentionModeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('purge_failed_imports_after_hours')) {
+      context.handle(
+        _purgeFailedImportsAfterHoursMeta,
+        purgeFailedImportsAfterHours.isAcceptableOrUnknown(
+          data['purge_failed_imports_after_hours']!,
+          _purgeFailedImportsAfterHoursMeta,
+        ),
+      );
+    }
+    if (data.containsKey('data_protection_explainer_seen')) {
+      context.handle(
+        _dataProtectionExplainerSeenMeta,
+        dataProtectionExplainerSeen.isAcceptableOrUnknown(
+          data['data_protection_explainer_seen']!,
+          _dataProtectionExplainerSeenMeta,
         ),
       );
     }
@@ -3912,6 +5025,18 @@ class $AppPreferencesTableTable extends AppPreferencesTable
         DriftSqlType.bool,
         data['${effectivePrefix}notifications_enabled'],
       )!,
+      dueRemindersEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}due_reminders_enabled'],
+      )!,
+      overdueRemindersEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}overdue_reminders_enabled'],
+      )!,
+      milestoneNotificationsEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}milestone_notifications_enabled'],
+      )!,
       onboardingCompleted: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}onboarding_completed'],
@@ -3919,6 +5044,30 @@ class $AppPreferencesTableTable extends AppPreferencesTable
       weeklySummaryEnabled: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}weekly_summary_enabled'],
+      )!,
+      dueReminderLeadDays: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}due_reminder_lead_days'],
+      )!,
+      rawOcrRetentionEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}raw_ocr_retention_enabled'],
+      )!,
+      rawOcrRetentionHours: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}raw_ocr_retention_hours'],
+      )!,
+      documentRetentionMode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}document_retention_mode'],
+      )!,
+      purgeFailedImportsAfterHours: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}purge_failed_imports_after_hours'],
+      )!,
+      dataProtectionExplainerSeen: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}data_protection_explainer_seen'],
       )!,
     );
   }
@@ -3940,8 +5089,17 @@ class AppPreferencesTableData extends DataClass
   final bool appLockEnabled;
   final bool aiConsentEnabled;
   final bool notificationsEnabled;
+  final bool dueRemindersEnabled;
+  final bool overdueRemindersEnabled;
+  final bool milestoneNotificationsEnabled;
   final bool onboardingCompleted;
   final bool weeklySummaryEnabled;
+  final int dueReminderLeadDays;
+  final bool rawOcrRetentionEnabled;
+  final int rawOcrRetentionHours;
+  final String documentRetentionMode;
+  final int purgeFailedImportsAfterHours;
+  final bool dataProtectionExplainerSeen;
   const AppPreferencesTableData({
     required this.key,
     required this.themeMode,
@@ -3952,8 +5110,17 @@ class AppPreferencesTableData extends DataClass
     required this.appLockEnabled,
     required this.aiConsentEnabled,
     required this.notificationsEnabled,
+    required this.dueRemindersEnabled,
+    required this.overdueRemindersEnabled,
+    required this.milestoneNotificationsEnabled,
     required this.onboardingCompleted,
     required this.weeklySummaryEnabled,
+    required this.dueReminderLeadDays,
+    required this.rawOcrRetentionEnabled,
+    required this.rawOcrRetentionHours,
+    required this.documentRetentionMode,
+    required this.purgeFailedImportsAfterHours,
+    required this.dataProtectionExplainerSeen,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3967,8 +5134,23 @@ class AppPreferencesTableData extends DataClass
     map['app_lock_enabled'] = Variable<bool>(appLockEnabled);
     map['ai_consent_enabled'] = Variable<bool>(aiConsentEnabled);
     map['notifications_enabled'] = Variable<bool>(notificationsEnabled);
+    map['due_reminders_enabled'] = Variable<bool>(dueRemindersEnabled);
+    map['overdue_reminders_enabled'] = Variable<bool>(overdueRemindersEnabled);
+    map['milestone_notifications_enabled'] = Variable<bool>(
+      milestoneNotificationsEnabled,
+    );
     map['onboarding_completed'] = Variable<bool>(onboardingCompleted);
     map['weekly_summary_enabled'] = Variable<bool>(weeklySummaryEnabled);
+    map['due_reminder_lead_days'] = Variable<int>(dueReminderLeadDays);
+    map['raw_ocr_retention_enabled'] = Variable<bool>(rawOcrRetentionEnabled);
+    map['raw_ocr_retention_hours'] = Variable<int>(rawOcrRetentionHours);
+    map['document_retention_mode'] = Variable<String>(documentRetentionMode);
+    map['purge_failed_imports_after_hours'] = Variable<int>(
+      purgeFailedImportsAfterHours,
+    );
+    map['data_protection_explainer_seen'] = Variable<bool>(
+      dataProtectionExplainerSeen,
+    );
     return map;
   }
 
@@ -3983,8 +5165,17 @@ class AppPreferencesTableData extends DataClass
       appLockEnabled: Value(appLockEnabled),
       aiConsentEnabled: Value(aiConsentEnabled),
       notificationsEnabled: Value(notificationsEnabled),
+      dueRemindersEnabled: Value(dueRemindersEnabled),
+      overdueRemindersEnabled: Value(overdueRemindersEnabled),
+      milestoneNotificationsEnabled: Value(milestoneNotificationsEnabled),
       onboardingCompleted: Value(onboardingCompleted),
       weeklySummaryEnabled: Value(weeklySummaryEnabled),
+      dueReminderLeadDays: Value(dueReminderLeadDays),
+      rawOcrRetentionEnabled: Value(rawOcrRetentionEnabled),
+      rawOcrRetentionHours: Value(rawOcrRetentionHours),
+      documentRetentionMode: Value(documentRetentionMode),
+      purgeFailedImportsAfterHours: Value(purgeFailedImportsAfterHours),
+      dataProtectionExplainerSeen: Value(dataProtectionExplainerSeen),
     );
   }
 
@@ -4005,11 +5196,38 @@ class AppPreferencesTableData extends DataClass
       notificationsEnabled: serializer.fromJson<bool>(
         json['notificationsEnabled'],
       ),
+      dueRemindersEnabled: serializer.fromJson<bool>(
+        json['dueRemindersEnabled'],
+      ),
+      overdueRemindersEnabled: serializer.fromJson<bool>(
+        json['overdueRemindersEnabled'],
+      ),
+      milestoneNotificationsEnabled: serializer.fromJson<bool>(
+        json['milestoneNotificationsEnabled'],
+      ),
       onboardingCompleted: serializer.fromJson<bool>(
         json['onboardingCompleted'],
       ),
       weeklySummaryEnabled: serializer.fromJson<bool>(
         json['weeklySummaryEnabled'],
+      ),
+      dueReminderLeadDays: serializer.fromJson<int>(
+        json['dueReminderLeadDays'],
+      ),
+      rawOcrRetentionEnabled: serializer.fromJson<bool>(
+        json['rawOcrRetentionEnabled'],
+      ),
+      rawOcrRetentionHours: serializer.fromJson<int>(
+        json['rawOcrRetentionHours'],
+      ),
+      documentRetentionMode: serializer.fromJson<String>(
+        json['documentRetentionMode'],
+      ),
+      purgeFailedImportsAfterHours: serializer.fromJson<int>(
+        json['purgeFailedImportsAfterHours'],
+      ),
+      dataProtectionExplainerSeen: serializer.fromJson<bool>(
+        json['dataProtectionExplainerSeen'],
       ),
     );
   }
@@ -4026,8 +5244,25 @@ class AppPreferencesTableData extends DataClass
       'appLockEnabled': serializer.toJson<bool>(appLockEnabled),
       'aiConsentEnabled': serializer.toJson<bool>(aiConsentEnabled),
       'notificationsEnabled': serializer.toJson<bool>(notificationsEnabled),
+      'dueRemindersEnabled': serializer.toJson<bool>(dueRemindersEnabled),
+      'overdueRemindersEnabled': serializer.toJson<bool>(
+        overdueRemindersEnabled,
+      ),
+      'milestoneNotificationsEnabled': serializer.toJson<bool>(
+        milestoneNotificationsEnabled,
+      ),
       'onboardingCompleted': serializer.toJson<bool>(onboardingCompleted),
       'weeklySummaryEnabled': serializer.toJson<bool>(weeklySummaryEnabled),
+      'dueReminderLeadDays': serializer.toJson<int>(dueReminderLeadDays),
+      'rawOcrRetentionEnabled': serializer.toJson<bool>(rawOcrRetentionEnabled),
+      'rawOcrRetentionHours': serializer.toJson<int>(rawOcrRetentionHours),
+      'documentRetentionMode': serializer.toJson<String>(documentRetentionMode),
+      'purgeFailedImportsAfterHours': serializer.toJson<int>(
+        purgeFailedImportsAfterHours,
+      ),
+      'dataProtectionExplainerSeen': serializer.toJson<bool>(
+        dataProtectionExplainerSeen,
+      ),
     };
   }
 
@@ -4041,8 +5276,17 @@ class AppPreferencesTableData extends DataClass
     bool? appLockEnabled,
     bool? aiConsentEnabled,
     bool? notificationsEnabled,
+    bool? dueRemindersEnabled,
+    bool? overdueRemindersEnabled,
+    bool? milestoneNotificationsEnabled,
     bool? onboardingCompleted,
     bool? weeklySummaryEnabled,
+    int? dueReminderLeadDays,
+    bool? rawOcrRetentionEnabled,
+    int? rawOcrRetentionHours,
+    String? documentRetentionMode,
+    int? purgeFailedImportsAfterHours,
+    bool? dataProtectionExplainerSeen,
   }) => AppPreferencesTableData(
     key: key ?? this.key,
     themeMode: themeMode ?? this.themeMode,
@@ -4053,8 +5297,22 @@ class AppPreferencesTableData extends DataClass
     appLockEnabled: appLockEnabled ?? this.appLockEnabled,
     aiConsentEnabled: aiConsentEnabled ?? this.aiConsentEnabled,
     notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
+    dueRemindersEnabled: dueRemindersEnabled ?? this.dueRemindersEnabled,
+    overdueRemindersEnabled:
+        overdueRemindersEnabled ?? this.overdueRemindersEnabled,
+    milestoneNotificationsEnabled:
+        milestoneNotificationsEnabled ?? this.milestoneNotificationsEnabled,
     onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
     weeklySummaryEnabled: weeklySummaryEnabled ?? this.weeklySummaryEnabled,
+    dueReminderLeadDays: dueReminderLeadDays ?? this.dueReminderLeadDays,
+    rawOcrRetentionEnabled:
+        rawOcrRetentionEnabled ?? this.rawOcrRetentionEnabled,
+    rawOcrRetentionHours: rawOcrRetentionHours ?? this.rawOcrRetentionHours,
+    documentRetentionMode: documentRetentionMode ?? this.documentRetentionMode,
+    purgeFailedImportsAfterHours:
+        purgeFailedImportsAfterHours ?? this.purgeFailedImportsAfterHours,
+    dataProtectionExplainerSeen:
+        dataProtectionExplainerSeen ?? this.dataProtectionExplainerSeen,
   );
   AppPreferencesTableData copyWithCompanion(AppPreferencesTableCompanion data) {
     return AppPreferencesTableData(
@@ -4081,12 +5339,39 @@ class AppPreferencesTableData extends DataClass
       notificationsEnabled: data.notificationsEnabled.present
           ? data.notificationsEnabled.value
           : this.notificationsEnabled,
+      dueRemindersEnabled: data.dueRemindersEnabled.present
+          ? data.dueRemindersEnabled.value
+          : this.dueRemindersEnabled,
+      overdueRemindersEnabled: data.overdueRemindersEnabled.present
+          ? data.overdueRemindersEnabled.value
+          : this.overdueRemindersEnabled,
+      milestoneNotificationsEnabled: data.milestoneNotificationsEnabled.present
+          ? data.milestoneNotificationsEnabled.value
+          : this.milestoneNotificationsEnabled,
       onboardingCompleted: data.onboardingCompleted.present
           ? data.onboardingCompleted.value
           : this.onboardingCompleted,
       weeklySummaryEnabled: data.weeklySummaryEnabled.present
           ? data.weeklySummaryEnabled.value
           : this.weeklySummaryEnabled,
+      dueReminderLeadDays: data.dueReminderLeadDays.present
+          ? data.dueReminderLeadDays.value
+          : this.dueReminderLeadDays,
+      rawOcrRetentionEnabled: data.rawOcrRetentionEnabled.present
+          ? data.rawOcrRetentionEnabled.value
+          : this.rawOcrRetentionEnabled,
+      rawOcrRetentionHours: data.rawOcrRetentionHours.present
+          ? data.rawOcrRetentionHours.value
+          : this.rawOcrRetentionHours,
+      documentRetentionMode: data.documentRetentionMode.present
+          ? data.documentRetentionMode.value
+          : this.documentRetentionMode,
+      purgeFailedImportsAfterHours: data.purgeFailedImportsAfterHours.present
+          ? data.purgeFailedImportsAfterHours.value
+          : this.purgeFailedImportsAfterHours,
+      dataProtectionExplainerSeen: data.dataProtectionExplainerSeen.present
+          ? data.dataProtectionExplainerSeen.value
+          : this.dataProtectionExplainerSeen,
     );
   }
 
@@ -4102,8 +5387,21 @@ class AppPreferencesTableData extends DataClass
           ..write('appLockEnabled: $appLockEnabled, ')
           ..write('aiConsentEnabled: $aiConsentEnabled, ')
           ..write('notificationsEnabled: $notificationsEnabled, ')
+          ..write('dueRemindersEnabled: $dueRemindersEnabled, ')
+          ..write('overdueRemindersEnabled: $overdueRemindersEnabled, ')
+          ..write(
+            'milestoneNotificationsEnabled: $milestoneNotificationsEnabled, ',
+          )
           ..write('onboardingCompleted: $onboardingCompleted, ')
-          ..write('weeklySummaryEnabled: $weeklySummaryEnabled')
+          ..write('weeklySummaryEnabled: $weeklySummaryEnabled, ')
+          ..write('dueReminderLeadDays: $dueReminderLeadDays, ')
+          ..write('rawOcrRetentionEnabled: $rawOcrRetentionEnabled, ')
+          ..write('rawOcrRetentionHours: $rawOcrRetentionHours, ')
+          ..write('documentRetentionMode: $documentRetentionMode, ')
+          ..write(
+            'purgeFailedImportsAfterHours: $purgeFailedImportsAfterHours, ',
+          )
+          ..write('dataProtectionExplainerSeen: $dataProtectionExplainerSeen')
           ..write(')'))
         .toString();
   }
@@ -4119,8 +5417,17 @@ class AppPreferencesTableData extends DataClass
     appLockEnabled,
     aiConsentEnabled,
     notificationsEnabled,
+    dueRemindersEnabled,
+    overdueRemindersEnabled,
+    milestoneNotificationsEnabled,
     onboardingCompleted,
     weeklySummaryEnabled,
+    dueReminderLeadDays,
+    rawOcrRetentionEnabled,
+    rawOcrRetentionHours,
+    documentRetentionMode,
+    purgeFailedImportsAfterHours,
+    dataProtectionExplainerSeen,
   );
   @override
   bool operator ==(Object other) =>
@@ -4135,8 +5442,20 @@ class AppPreferencesTableData extends DataClass
           other.appLockEnabled == this.appLockEnabled &&
           other.aiConsentEnabled == this.aiConsentEnabled &&
           other.notificationsEnabled == this.notificationsEnabled &&
+          other.dueRemindersEnabled == this.dueRemindersEnabled &&
+          other.overdueRemindersEnabled == this.overdueRemindersEnabled &&
+          other.milestoneNotificationsEnabled ==
+              this.milestoneNotificationsEnabled &&
           other.onboardingCompleted == this.onboardingCompleted &&
-          other.weeklySummaryEnabled == this.weeklySummaryEnabled);
+          other.weeklySummaryEnabled == this.weeklySummaryEnabled &&
+          other.dueReminderLeadDays == this.dueReminderLeadDays &&
+          other.rawOcrRetentionEnabled == this.rawOcrRetentionEnabled &&
+          other.rawOcrRetentionHours == this.rawOcrRetentionHours &&
+          other.documentRetentionMode == this.documentRetentionMode &&
+          other.purgeFailedImportsAfterHours ==
+              this.purgeFailedImportsAfterHours &&
+          other.dataProtectionExplainerSeen ==
+              this.dataProtectionExplainerSeen);
 }
 
 class AppPreferencesTableCompanion
@@ -4150,8 +5469,17 @@ class AppPreferencesTableCompanion
   final Value<bool> appLockEnabled;
   final Value<bool> aiConsentEnabled;
   final Value<bool> notificationsEnabled;
+  final Value<bool> dueRemindersEnabled;
+  final Value<bool> overdueRemindersEnabled;
+  final Value<bool> milestoneNotificationsEnabled;
   final Value<bool> onboardingCompleted;
   final Value<bool> weeklySummaryEnabled;
+  final Value<int> dueReminderLeadDays;
+  final Value<bool> rawOcrRetentionEnabled;
+  final Value<int> rawOcrRetentionHours;
+  final Value<String> documentRetentionMode;
+  final Value<int> purgeFailedImportsAfterHours;
+  final Value<bool> dataProtectionExplainerSeen;
   const AppPreferencesTableCompanion({
     this.key = const Value.absent(),
     this.themeMode = const Value.absent(),
@@ -4162,8 +5490,17 @@ class AppPreferencesTableCompanion
     this.appLockEnabled = const Value.absent(),
     this.aiConsentEnabled = const Value.absent(),
     this.notificationsEnabled = const Value.absent(),
+    this.dueRemindersEnabled = const Value.absent(),
+    this.overdueRemindersEnabled = const Value.absent(),
+    this.milestoneNotificationsEnabled = const Value.absent(),
     this.onboardingCompleted = const Value.absent(),
     this.weeklySummaryEnabled = const Value.absent(),
+    this.dueReminderLeadDays = const Value.absent(),
+    this.rawOcrRetentionEnabled = const Value.absent(),
+    this.rawOcrRetentionHours = const Value.absent(),
+    this.documentRetentionMode = const Value.absent(),
+    this.purgeFailedImportsAfterHours = const Value.absent(),
+    this.dataProtectionExplainerSeen = const Value.absent(),
   });
   AppPreferencesTableCompanion.insert({
     this.key = const Value.absent(),
@@ -4175,8 +5512,17 @@ class AppPreferencesTableCompanion
     this.appLockEnabled = const Value.absent(),
     this.aiConsentEnabled = const Value.absent(),
     this.notificationsEnabled = const Value.absent(),
+    this.dueRemindersEnabled = const Value.absent(),
+    this.overdueRemindersEnabled = const Value.absent(),
+    this.milestoneNotificationsEnabled = const Value.absent(),
     this.onboardingCompleted = const Value.absent(),
     this.weeklySummaryEnabled = const Value.absent(),
+    this.dueReminderLeadDays = const Value.absent(),
+    this.rawOcrRetentionEnabled = const Value.absent(),
+    this.rawOcrRetentionHours = const Value.absent(),
+    this.documentRetentionMode = const Value.absent(),
+    this.purgeFailedImportsAfterHours = const Value.absent(),
+    this.dataProtectionExplainerSeen = const Value.absent(),
   });
   static Insertable<AppPreferencesTableData> custom({
     Expression<int>? key,
@@ -4188,8 +5534,17 @@ class AppPreferencesTableCompanion
     Expression<bool>? appLockEnabled,
     Expression<bool>? aiConsentEnabled,
     Expression<bool>? notificationsEnabled,
+    Expression<bool>? dueRemindersEnabled,
+    Expression<bool>? overdueRemindersEnabled,
+    Expression<bool>? milestoneNotificationsEnabled,
     Expression<bool>? onboardingCompleted,
     Expression<bool>? weeklySummaryEnabled,
+    Expression<int>? dueReminderLeadDays,
+    Expression<bool>? rawOcrRetentionEnabled,
+    Expression<int>? rawOcrRetentionHours,
+    Expression<String>? documentRetentionMode,
+    Expression<int>? purgeFailedImportsAfterHours,
+    Expression<bool>? dataProtectionExplainerSeen,
   }) {
     return RawValuesInsertable({
       if (key != null) 'key': key,
@@ -4202,10 +5557,28 @@ class AppPreferencesTableCompanion
       if (aiConsentEnabled != null) 'ai_consent_enabled': aiConsentEnabled,
       if (notificationsEnabled != null)
         'notifications_enabled': notificationsEnabled,
+      if (dueRemindersEnabled != null)
+        'due_reminders_enabled': dueRemindersEnabled,
+      if (overdueRemindersEnabled != null)
+        'overdue_reminders_enabled': overdueRemindersEnabled,
+      if (milestoneNotificationsEnabled != null)
+        'milestone_notifications_enabled': milestoneNotificationsEnabled,
       if (onboardingCompleted != null)
         'onboarding_completed': onboardingCompleted,
       if (weeklySummaryEnabled != null)
         'weekly_summary_enabled': weeklySummaryEnabled,
+      if (dueReminderLeadDays != null)
+        'due_reminder_lead_days': dueReminderLeadDays,
+      if (rawOcrRetentionEnabled != null)
+        'raw_ocr_retention_enabled': rawOcrRetentionEnabled,
+      if (rawOcrRetentionHours != null)
+        'raw_ocr_retention_hours': rawOcrRetentionHours,
+      if (documentRetentionMode != null)
+        'document_retention_mode': documentRetentionMode,
+      if (purgeFailedImportsAfterHours != null)
+        'purge_failed_imports_after_hours': purgeFailedImportsAfterHours,
+      if (dataProtectionExplainerSeen != null)
+        'data_protection_explainer_seen': dataProtectionExplainerSeen,
     });
   }
 
@@ -4219,8 +5592,17 @@ class AppPreferencesTableCompanion
     Value<bool>? appLockEnabled,
     Value<bool>? aiConsentEnabled,
     Value<bool>? notificationsEnabled,
+    Value<bool>? dueRemindersEnabled,
+    Value<bool>? overdueRemindersEnabled,
+    Value<bool>? milestoneNotificationsEnabled,
     Value<bool>? onboardingCompleted,
     Value<bool>? weeklySummaryEnabled,
+    Value<int>? dueReminderLeadDays,
+    Value<bool>? rawOcrRetentionEnabled,
+    Value<int>? rawOcrRetentionHours,
+    Value<String>? documentRetentionMode,
+    Value<int>? purgeFailedImportsAfterHours,
+    Value<bool>? dataProtectionExplainerSeen,
   }) {
     return AppPreferencesTableCompanion(
       key: key ?? this.key,
@@ -4232,8 +5614,23 @@ class AppPreferencesTableCompanion
       appLockEnabled: appLockEnabled ?? this.appLockEnabled,
       aiConsentEnabled: aiConsentEnabled ?? this.aiConsentEnabled,
       notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
+      dueRemindersEnabled: dueRemindersEnabled ?? this.dueRemindersEnabled,
+      overdueRemindersEnabled:
+          overdueRemindersEnabled ?? this.overdueRemindersEnabled,
+      milestoneNotificationsEnabled:
+          milestoneNotificationsEnabled ?? this.milestoneNotificationsEnabled,
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
       weeklySummaryEnabled: weeklySummaryEnabled ?? this.weeklySummaryEnabled,
+      dueReminderLeadDays: dueReminderLeadDays ?? this.dueReminderLeadDays,
+      rawOcrRetentionEnabled:
+          rawOcrRetentionEnabled ?? this.rawOcrRetentionEnabled,
+      rawOcrRetentionHours: rawOcrRetentionHours ?? this.rawOcrRetentionHours,
+      documentRetentionMode:
+          documentRetentionMode ?? this.documentRetentionMode,
+      purgeFailedImportsAfterHours:
+          purgeFailedImportsAfterHours ?? this.purgeFailedImportsAfterHours,
+      dataProtectionExplainerSeen:
+          dataProtectionExplainerSeen ?? this.dataProtectionExplainerSeen,
     );
   }
 
@@ -4267,12 +5664,53 @@ class AppPreferencesTableCompanion
     if (notificationsEnabled.present) {
       map['notifications_enabled'] = Variable<bool>(notificationsEnabled.value);
     }
+    if (dueRemindersEnabled.present) {
+      map['due_reminders_enabled'] = Variable<bool>(dueRemindersEnabled.value);
+    }
+    if (overdueRemindersEnabled.present) {
+      map['overdue_reminders_enabled'] = Variable<bool>(
+        overdueRemindersEnabled.value,
+      );
+    }
+    if (milestoneNotificationsEnabled.present) {
+      map['milestone_notifications_enabled'] = Variable<bool>(
+        milestoneNotificationsEnabled.value,
+      );
+    }
     if (onboardingCompleted.present) {
       map['onboarding_completed'] = Variable<bool>(onboardingCompleted.value);
     }
     if (weeklySummaryEnabled.present) {
       map['weekly_summary_enabled'] = Variable<bool>(
         weeklySummaryEnabled.value,
+      );
+    }
+    if (dueReminderLeadDays.present) {
+      map['due_reminder_lead_days'] = Variable<int>(dueReminderLeadDays.value);
+    }
+    if (rawOcrRetentionEnabled.present) {
+      map['raw_ocr_retention_enabled'] = Variable<bool>(
+        rawOcrRetentionEnabled.value,
+      );
+    }
+    if (rawOcrRetentionHours.present) {
+      map['raw_ocr_retention_hours'] = Variable<int>(
+        rawOcrRetentionHours.value,
+      );
+    }
+    if (documentRetentionMode.present) {
+      map['document_retention_mode'] = Variable<String>(
+        documentRetentionMode.value,
+      );
+    }
+    if (purgeFailedImportsAfterHours.present) {
+      map['purge_failed_imports_after_hours'] = Variable<int>(
+        purgeFailedImportsAfterHours.value,
+      );
+    }
+    if (dataProtectionExplainerSeen.present) {
+      map['data_protection_explainer_seen'] = Variable<bool>(
+        dataProtectionExplainerSeen.value,
       );
     }
     return map;
@@ -4290,8 +5728,21 @@ class AppPreferencesTableCompanion
           ..write('appLockEnabled: $appLockEnabled, ')
           ..write('aiConsentEnabled: $aiConsentEnabled, ')
           ..write('notificationsEnabled: $notificationsEnabled, ')
+          ..write('dueRemindersEnabled: $dueRemindersEnabled, ')
+          ..write('overdueRemindersEnabled: $overdueRemindersEnabled, ')
+          ..write(
+            'milestoneNotificationsEnabled: $milestoneNotificationsEnabled, ',
+          )
           ..write('onboardingCompleted: $onboardingCompleted, ')
-          ..write('weeklySummaryEnabled: $weeklySummaryEnabled')
+          ..write('weeklySummaryEnabled: $weeklySummaryEnabled, ')
+          ..write('dueReminderLeadDays: $dueReminderLeadDays, ')
+          ..write('rawOcrRetentionEnabled: $rawOcrRetentionEnabled, ')
+          ..write('rawOcrRetentionHours: $rawOcrRetentionHours, ')
+          ..write('documentRetentionMode: $documentRetentionMode, ')
+          ..write(
+            'purgeFailedImportsAfterHours: $purgeFailedImportsAfterHours, ',
+          )
+          ..write('dataProtectionExplainerSeen: $dataProtectionExplainerSeen')
           ..write(')'))
         .toString();
   }
@@ -4339,6 +5790,59 @@ class $SubscriptionStateTableTable extends SubscriptionStateTable
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _productIdMeta = const VerificationMeta(
+    'productId',
+  );
+  @override
+  late final GeneratedColumn<String> productId = GeneratedColumn<String>(
+    'product_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _planIdMeta = const VerificationMeta('planId');
+  @override
+  late final GeneratedColumn<String> planId = GeneratedColumn<String>(
+    'plan_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _billingProviderMeta = const VerificationMeta(
+    'billingProvider',
+  );
+  @override
+  late final GeneratedColumn<String> billingProvider = GeneratedColumn<String>(
+    'billing_provider',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('free'),
+  );
+  static const VerificationMeta _lastVerifiedAtMeta = const VerificationMeta(
+    'lastVerifiedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastVerifiedAt =
+      GeneratedColumn<DateTime>(
+        'last_verified_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _unlockedFeaturesJsonMeta =
       const VerificationMeta('unlockedFeaturesJson');
   @override
@@ -4356,6 +5860,11 @@ class $SubscriptionStateTableTable extends SubscriptionStateTable
     key,
     isPremium,
     expiresAt,
+    productId,
+    planId,
+    billingProvider,
+    status,
+    lastVerifiedAt,
     unlockedFeaturesJson,
   ];
   @override
@@ -4386,6 +5895,42 @@ class $SubscriptionStateTableTable extends SubscriptionStateTable
       context.handle(
         _expiresAtMeta,
         expiresAt.isAcceptableOrUnknown(data['expires_at']!, _expiresAtMeta),
+      );
+    }
+    if (data.containsKey('product_id')) {
+      context.handle(
+        _productIdMeta,
+        productId.isAcceptableOrUnknown(data['product_id']!, _productIdMeta),
+      );
+    }
+    if (data.containsKey('plan_id')) {
+      context.handle(
+        _planIdMeta,
+        planId.isAcceptableOrUnknown(data['plan_id']!, _planIdMeta),
+      );
+    }
+    if (data.containsKey('billing_provider')) {
+      context.handle(
+        _billingProviderMeta,
+        billingProvider.isAcceptableOrUnknown(
+          data['billing_provider']!,
+          _billingProviderMeta,
+        ),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('last_verified_at')) {
+      context.handle(
+        _lastVerifiedAtMeta,
+        lastVerifiedAt.isAcceptableOrUnknown(
+          data['last_verified_at']!,
+          _lastVerifiedAtMeta,
+        ),
       );
     }
     if (data.containsKey('unlocked_features_json')) {
@@ -4421,6 +5966,26 @@ class $SubscriptionStateTableTable extends SubscriptionStateTable
         DriftSqlType.dateTime,
         data['${effectivePrefix}expires_at'],
       ),
+      productId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}product_id'],
+      ),
+      planId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}plan_id'],
+      ),
+      billingProvider: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}billing_provider'],
+      ),
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      lastVerifiedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_verified_at'],
+      ),
       unlockedFeaturesJson: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}unlocked_features_json'],
@@ -4439,11 +6004,21 @@ class SubscriptionStateTableData extends DataClass
   final int key;
   final bool isPremium;
   final DateTime? expiresAt;
+  final String? productId;
+  final String? planId;
+  final String? billingProvider;
+  final String status;
+  final DateTime? lastVerifiedAt;
   final String unlockedFeaturesJson;
   const SubscriptionStateTableData({
     required this.key,
     required this.isPremium,
     this.expiresAt,
+    this.productId,
+    this.planId,
+    this.billingProvider,
+    required this.status,
+    this.lastVerifiedAt,
     required this.unlockedFeaturesJson,
   });
   @override
@@ -4453,6 +6028,19 @@ class SubscriptionStateTableData extends DataClass
     map['is_premium'] = Variable<bool>(isPremium);
     if (!nullToAbsent || expiresAt != null) {
       map['expires_at'] = Variable<DateTime>(expiresAt);
+    }
+    if (!nullToAbsent || productId != null) {
+      map['product_id'] = Variable<String>(productId);
+    }
+    if (!nullToAbsent || planId != null) {
+      map['plan_id'] = Variable<String>(planId);
+    }
+    if (!nullToAbsent || billingProvider != null) {
+      map['billing_provider'] = Variable<String>(billingProvider);
+    }
+    map['status'] = Variable<String>(status);
+    if (!nullToAbsent || lastVerifiedAt != null) {
+      map['last_verified_at'] = Variable<DateTime>(lastVerifiedAt);
     }
     map['unlocked_features_json'] = Variable<String>(unlockedFeaturesJson);
     return map;
@@ -4465,6 +6053,19 @@ class SubscriptionStateTableData extends DataClass
       expiresAt: expiresAt == null && nullToAbsent
           ? const Value.absent()
           : Value(expiresAt),
+      productId: productId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(productId),
+      planId: planId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(planId),
+      billingProvider: billingProvider == null && nullToAbsent
+          ? const Value.absent()
+          : Value(billingProvider),
+      status: Value(status),
+      lastVerifiedAt: lastVerifiedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastVerifiedAt),
       unlockedFeaturesJson: Value(unlockedFeaturesJson),
     );
   }
@@ -4478,6 +6079,11 @@ class SubscriptionStateTableData extends DataClass
       key: serializer.fromJson<int>(json['key']),
       isPremium: serializer.fromJson<bool>(json['isPremium']),
       expiresAt: serializer.fromJson<DateTime?>(json['expiresAt']),
+      productId: serializer.fromJson<String?>(json['productId']),
+      planId: serializer.fromJson<String?>(json['planId']),
+      billingProvider: serializer.fromJson<String?>(json['billingProvider']),
+      status: serializer.fromJson<String>(json['status']),
+      lastVerifiedAt: serializer.fromJson<DateTime?>(json['lastVerifiedAt']),
       unlockedFeaturesJson: serializer.fromJson<String>(
         json['unlockedFeaturesJson'],
       ),
@@ -4490,6 +6096,11 @@ class SubscriptionStateTableData extends DataClass
       'key': serializer.toJson<int>(key),
       'isPremium': serializer.toJson<bool>(isPremium),
       'expiresAt': serializer.toJson<DateTime?>(expiresAt),
+      'productId': serializer.toJson<String?>(productId),
+      'planId': serializer.toJson<String?>(planId),
+      'billingProvider': serializer.toJson<String?>(billingProvider),
+      'status': serializer.toJson<String>(status),
+      'lastVerifiedAt': serializer.toJson<DateTime?>(lastVerifiedAt),
       'unlockedFeaturesJson': serializer.toJson<String>(unlockedFeaturesJson),
     };
   }
@@ -4498,11 +6109,25 @@ class SubscriptionStateTableData extends DataClass
     int? key,
     bool? isPremium,
     Value<DateTime?> expiresAt = const Value.absent(),
+    Value<String?> productId = const Value.absent(),
+    Value<String?> planId = const Value.absent(),
+    Value<String?> billingProvider = const Value.absent(),
+    String? status,
+    Value<DateTime?> lastVerifiedAt = const Value.absent(),
     String? unlockedFeaturesJson,
   }) => SubscriptionStateTableData(
     key: key ?? this.key,
     isPremium: isPremium ?? this.isPremium,
     expiresAt: expiresAt.present ? expiresAt.value : this.expiresAt,
+    productId: productId.present ? productId.value : this.productId,
+    planId: planId.present ? planId.value : this.planId,
+    billingProvider: billingProvider.present
+        ? billingProvider.value
+        : this.billingProvider,
+    status: status ?? this.status,
+    lastVerifiedAt: lastVerifiedAt.present
+        ? lastVerifiedAt.value
+        : this.lastVerifiedAt,
     unlockedFeaturesJson: unlockedFeaturesJson ?? this.unlockedFeaturesJson,
   );
   SubscriptionStateTableData copyWithCompanion(
@@ -4512,6 +6137,15 @@ class SubscriptionStateTableData extends DataClass
       key: data.key.present ? data.key.value : this.key,
       isPremium: data.isPremium.present ? data.isPremium.value : this.isPremium,
       expiresAt: data.expiresAt.present ? data.expiresAt.value : this.expiresAt,
+      productId: data.productId.present ? data.productId.value : this.productId,
+      planId: data.planId.present ? data.planId.value : this.planId,
+      billingProvider: data.billingProvider.present
+          ? data.billingProvider.value
+          : this.billingProvider,
+      status: data.status.present ? data.status.value : this.status,
+      lastVerifiedAt: data.lastVerifiedAt.present
+          ? data.lastVerifiedAt.value
+          : this.lastVerifiedAt,
       unlockedFeaturesJson: data.unlockedFeaturesJson.present
           ? data.unlockedFeaturesJson.value
           : this.unlockedFeaturesJson,
@@ -4524,14 +6158,28 @@ class SubscriptionStateTableData extends DataClass
           ..write('key: $key, ')
           ..write('isPremium: $isPremium, ')
           ..write('expiresAt: $expiresAt, ')
+          ..write('productId: $productId, ')
+          ..write('planId: $planId, ')
+          ..write('billingProvider: $billingProvider, ')
+          ..write('status: $status, ')
+          ..write('lastVerifiedAt: $lastVerifiedAt, ')
           ..write('unlockedFeaturesJson: $unlockedFeaturesJson')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(key, isPremium, expiresAt, unlockedFeaturesJson);
+  int get hashCode => Object.hash(
+    key,
+    isPremium,
+    expiresAt,
+    productId,
+    planId,
+    billingProvider,
+    status,
+    lastVerifiedAt,
+    unlockedFeaturesJson,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -4539,6 +6187,11 @@ class SubscriptionStateTableData extends DataClass
           other.key == this.key &&
           other.isPremium == this.isPremium &&
           other.expiresAt == this.expiresAt &&
+          other.productId == this.productId &&
+          other.planId == this.planId &&
+          other.billingProvider == this.billingProvider &&
+          other.status == this.status &&
+          other.lastVerifiedAt == this.lastVerifiedAt &&
           other.unlockedFeaturesJson == this.unlockedFeaturesJson);
 }
 
@@ -4547,29 +6200,54 @@ class SubscriptionStateTableCompanion
   final Value<int> key;
   final Value<bool> isPremium;
   final Value<DateTime?> expiresAt;
+  final Value<String?> productId;
+  final Value<String?> planId;
+  final Value<String?> billingProvider;
+  final Value<String> status;
+  final Value<DateTime?> lastVerifiedAt;
   final Value<String> unlockedFeaturesJson;
   const SubscriptionStateTableCompanion({
     this.key = const Value.absent(),
     this.isPremium = const Value.absent(),
     this.expiresAt = const Value.absent(),
+    this.productId = const Value.absent(),
+    this.planId = const Value.absent(),
+    this.billingProvider = const Value.absent(),
+    this.status = const Value.absent(),
+    this.lastVerifiedAt = const Value.absent(),
     this.unlockedFeaturesJson = const Value.absent(),
   });
   SubscriptionStateTableCompanion.insert({
     this.key = const Value.absent(),
     this.isPremium = const Value.absent(),
     this.expiresAt = const Value.absent(),
+    this.productId = const Value.absent(),
+    this.planId = const Value.absent(),
+    this.billingProvider = const Value.absent(),
+    this.status = const Value.absent(),
+    this.lastVerifiedAt = const Value.absent(),
     this.unlockedFeaturesJson = const Value.absent(),
   });
   static Insertable<SubscriptionStateTableData> custom({
     Expression<int>? key,
     Expression<bool>? isPremium,
     Expression<DateTime>? expiresAt,
+    Expression<String>? productId,
+    Expression<String>? planId,
+    Expression<String>? billingProvider,
+    Expression<String>? status,
+    Expression<DateTime>? lastVerifiedAt,
     Expression<String>? unlockedFeaturesJson,
   }) {
     return RawValuesInsertable({
       if (key != null) 'key': key,
       if (isPremium != null) 'is_premium': isPremium,
       if (expiresAt != null) 'expires_at': expiresAt,
+      if (productId != null) 'product_id': productId,
+      if (planId != null) 'plan_id': planId,
+      if (billingProvider != null) 'billing_provider': billingProvider,
+      if (status != null) 'status': status,
+      if (lastVerifiedAt != null) 'last_verified_at': lastVerifiedAt,
       if (unlockedFeaturesJson != null)
         'unlocked_features_json': unlockedFeaturesJson,
     });
@@ -4579,12 +6257,22 @@ class SubscriptionStateTableCompanion
     Value<int>? key,
     Value<bool>? isPremium,
     Value<DateTime?>? expiresAt,
+    Value<String?>? productId,
+    Value<String?>? planId,
+    Value<String?>? billingProvider,
+    Value<String>? status,
+    Value<DateTime?>? lastVerifiedAt,
     Value<String>? unlockedFeaturesJson,
   }) {
     return SubscriptionStateTableCompanion(
       key: key ?? this.key,
       isPremium: isPremium ?? this.isPremium,
       expiresAt: expiresAt ?? this.expiresAt,
+      productId: productId ?? this.productId,
+      planId: planId ?? this.planId,
+      billingProvider: billingProvider ?? this.billingProvider,
+      status: status ?? this.status,
+      lastVerifiedAt: lastVerifiedAt ?? this.lastVerifiedAt,
       unlockedFeaturesJson: unlockedFeaturesJson ?? this.unlockedFeaturesJson,
     );
   }
@@ -4601,6 +6289,21 @@ class SubscriptionStateTableCompanion
     if (expiresAt.present) {
       map['expires_at'] = Variable<DateTime>(expiresAt.value);
     }
+    if (productId.present) {
+      map['product_id'] = Variable<String>(productId.value);
+    }
+    if (planId.present) {
+      map['plan_id'] = Variable<String>(planId.value);
+    }
+    if (billingProvider.present) {
+      map['billing_provider'] = Variable<String>(billingProvider.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (lastVerifiedAt.present) {
+      map['last_verified_at'] = Variable<DateTime>(lastVerifiedAt.value);
+    }
     if (unlockedFeaturesJson.present) {
       map['unlocked_features_json'] = Variable<String>(
         unlockedFeaturesJson.value,
@@ -4615,6 +6318,11 @@ class SubscriptionStateTableCompanion
           ..write('key: $key, ')
           ..write('isPremium: $isPremium, ')
           ..write('expiresAt: $expiresAt, ')
+          ..write('productId: $productId, ')
+          ..write('planId: $planId, ')
+          ..write('billingProvider: $billingProvider, ')
+          ..write('status: $status, ')
+          ..write('lastVerifiedAt: $lastVerifiedAt, ')
           ..write('unlockedFeaturesJson: $unlockedFeaturesJson')
           ..write(')'))
         .toString();
@@ -4632,6 +6340,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $ParsedExtractionsTableTable(this);
   late final $ReminderRulesTableTable reminderRulesTable =
       $ReminderRulesTableTable(this);
+  late final $ReminderEventsTableTable reminderEventsTable =
+      $ReminderEventsTableTable(this);
   late final $ScenariosTableTable scenariosTable = $ScenariosTableTable(this);
   late final $AppPreferencesTableTable appPreferencesTable =
       $AppPreferencesTableTable(this);
@@ -4647,6 +6357,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     importedDocumentsTable,
     parsedExtractionsTable,
     reminderRulesTable,
+    reminderEventsTable,
     scenariosTable,
     appPreferencesTable,
     subscriptionStateTable,
@@ -4670,6 +6381,7 @@ typedef $$DebtsTableTableCreateCompanionBuilder =
       required DateTime updatedAt,
       Value<String> notes,
       Value<String> tagsJson,
+      Value<String> financialTermsJson,
       required String status,
       Value<bool> remindersEnabled,
       Value<int> customPriority,
@@ -4692,6 +6404,7 @@ typedef $$DebtsTableTableUpdateCompanionBuilder =
       Value<DateTime> updatedAt,
       Value<String> notes,
       Value<String> tagsJson,
+      Value<String> financialTermsJson,
       Value<String> status,
       Value<bool> remindersEnabled,
       Value<int> customPriority,
@@ -4829,6 +6542,11 @@ class $$DebtsTableTableFilterComposer
 
   ColumnFilters<String> get tagsJson => $composableBuilder(
     column: $table.tagsJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get financialTermsJson => $composableBuilder(
+    column: $table.financialTermsJson,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4982,6 +6700,11 @@ class $$DebtsTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get financialTermsJson => $composableBuilder(
+    column: $table.financialTermsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get status => $composableBuilder(
     column: $table.status,
     builder: (column) => ColumnOrderings(column),
@@ -5061,6 +6784,11 @@ class $$DebtsTableTableAnnotationComposer
 
   GeneratedColumn<String> get tagsJson =>
       $composableBuilder(column: $table.tagsJson, builder: (column) => column);
+
+  GeneratedColumn<String> get financialTermsJson => $composableBuilder(
+    column: $table.financialTermsJson,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get status =>
       $composableBuilder(column: $table.status, builder: (column) => column);
@@ -5173,6 +6901,7 @@ class $$DebtsTableTableTableManager
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<String> notes = const Value.absent(),
                 Value<String> tagsJson = const Value.absent(),
+                Value<String> financialTermsJson = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<bool> remindersEnabled = const Value.absent(),
                 Value<int> customPriority = const Value.absent(),
@@ -5193,6 +6922,7 @@ class $$DebtsTableTableTableManager
                 updatedAt: updatedAt,
                 notes: notes,
                 tagsJson: tagsJson,
+                financialTermsJson: financialTermsJson,
                 status: status,
                 remindersEnabled: remindersEnabled,
                 customPriority: customPriority,
@@ -5215,6 +6945,7 @@ class $$DebtsTableTableTableManager
                 required DateTime updatedAt,
                 Value<String> notes = const Value.absent(),
                 Value<String> tagsJson = const Value.absent(),
+                Value<String> financialTermsJson = const Value.absent(),
                 required String status,
                 Value<bool> remindersEnabled = const Value.absent(),
                 Value<int> customPriority = const Value.absent(),
@@ -5235,6 +6966,7 @@ class $$DebtsTableTableTableManager
                 updatedAt: updatedAt,
                 notes: notes,
                 tagsJson: tagsJson,
+                financialTermsJson: financialTermsJson,
                 status: status,
                 remindersEnabled: remindersEnabled,
                 customPriority: customPriority,
@@ -5731,29 +7463,49 @@ typedef $$PaymentsTableTableProcessedTableManager =
 typedef $$ImportedDocumentsTableTableCreateCompanionBuilder =
     ImportedDocumentsTableCompanion Function({
       required String id,
-      required String localPath,
+      Value<String> localPath,
+      Value<String?> storageRef,
       required String sourceType,
       required String mimeType,
       required DateTime createdAt,
+      Value<String> lifecycleState,
       Value<String?> linkedDebtId,
       Value<String?> rawOcrText,
       required String parseStatus,
       required String parseVersion,
       Value<bool> deleted,
+      Value<DateTime?> retentionExpiresAt,
+      Value<DateTime?> rawOcrExpiresAt,
+      Value<DateTime?> processedAt,
+      Value<DateTime?> linkedAt,
+      Value<DateTime?> pendingDeletionAt,
+      Value<DateTime?> purgedAt,
+      Value<DateTime?> encryptedAt,
+      Value<bool> hasRawOcrText,
       Value<int> rowid,
     });
 typedef $$ImportedDocumentsTableTableUpdateCompanionBuilder =
     ImportedDocumentsTableCompanion Function({
       Value<String> id,
       Value<String> localPath,
+      Value<String?> storageRef,
       Value<String> sourceType,
       Value<String> mimeType,
       Value<DateTime> createdAt,
+      Value<String> lifecycleState,
       Value<String?> linkedDebtId,
       Value<String?> rawOcrText,
       Value<String> parseStatus,
       Value<String> parseVersion,
       Value<bool> deleted,
+      Value<DateTime?> retentionExpiresAt,
+      Value<DateTime?> rawOcrExpiresAt,
+      Value<DateTime?> processedAt,
+      Value<DateTime?> linkedAt,
+      Value<DateTime?> pendingDeletionAt,
+      Value<DateTime?> purgedAt,
+      Value<DateTime?> encryptedAt,
+      Value<bool> hasRawOcrText,
       Value<int> rowid,
     });
 
@@ -5818,6 +7570,11 @@ class $$ImportedDocumentsTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get storageRef => $composableBuilder(
+    column: $table.storageRef,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get sourceType => $composableBuilder(
     column: $table.sourceType,
     builder: (column) => ColumnFilters(column),
@@ -5830,6 +7587,11 @@ class $$ImportedDocumentsTableTableFilterComposer
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get lifecycleState => $composableBuilder(
+    column: $table.lifecycleState,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5855,6 +7617,46 @@ class $$ImportedDocumentsTableTableFilterComposer
 
   ColumnFilters<bool> get deleted => $composableBuilder(
     column: $table.deleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get retentionExpiresAt => $composableBuilder(
+    column: $table.retentionExpiresAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get rawOcrExpiresAt => $composableBuilder(
+    column: $table.rawOcrExpiresAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get processedAt => $composableBuilder(
+    column: $table.processedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get linkedAt => $composableBuilder(
+    column: $table.linkedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get pendingDeletionAt => $composableBuilder(
+    column: $table.pendingDeletionAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get purgedAt => $composableBuilder(
+    column: $table.purgedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get encryptedAt => $composableBuilder(
+    column: $table.encryptedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get hasRawOcrText => $composableBuilder(
+    column: $table.hasRawOcrText,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5904,6 +7706,11 @@ class $$ImportedDocumentsTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get storageRef => $composableBuilder(
+    column: $table.storageRef,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get sourceType => $composableBuilder(
     column: $table.sourceType,
     builder: (column) => ColumnOrderings(column),
@@ -5916,6 +7723,11 @@ class $$ImportedDocumentsTableTableOrderingComposer
 
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get lifecycleState => $composableBuilder(
+    column: $table.lifecycleState,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -5943,6 +7755,46 @@ class $$ImportedDocumentsTableTableOrderingComposer
     column: $table.deleted,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<DateTime> get retentionExpiresAt => $composableBuilder(
+    column: $table.retentionExpiresAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get rawOcrExpiresAt => $composableBuilder(
+    column: $table.rawOcrExpiresAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get processedAt => $composableBuilder(
+    column: $table.processedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get linkedAt => $composableBuilder(
+    column: $table.linkedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get pendingDeletionAt => $composableBuilder(
+    column: $table.pendingDeletionAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get purgedAt => $composableBuilder(
+    column: $table.purgedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get encryptedAt => $composableBuilder(
+    column: $table.encryptedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get hasRawOcrText => $composableBuilder(
+    column: $table.hasRawOcrText,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ImportedDocumentsTableTableAnnotationComposer
@@ -5960,6 +7812,11 @@ class $$ImportedDocumentsTableTableAnnotationComposer
   GeneratedColumn<String> get localPath =>
       $composableBuilder(column: $table.localPath, builder: (column) => column);
 
+  GeneratedColumn<String> get storageRef => $composableBuilder(
+    column: $table.storageRef,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get sourceType => $composableBuilder(
     column: $table.sourceType,
     builder: (column) => column,
@@ -5970,6 +7827,11 @@ class $$ImportedDocumentsTableTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get lifecycleState => $composableBuilder(
+    column: $table.lifecycleState,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get linkedDebtId => $composableBuilder(
     column: $table.linkedDebtId,
@@ -5993,6 +7855,42 @@ class $$ImportedDocumentsTableTableAnnotationComposer
 
   GeneratedColumn<bool> get deleted =>
       $composableBuilder(column: $table.deleted, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get retentionExpiresAt => $composableBuilder(
+    column: $table.retentionExpiresAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get rawOcrExpiresAt => $composableBuilder(
+    column: $table.rawOcrExpiresAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get processedAt => $composableBuilder(
+    column: $table.processedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get linkedAt =>
+      $composableBuilder(column: $table.linkedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get pendingDeletionAt => $composableBuilder(
+    column: $table.pendingDeletionAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get purgedAt =>
+      $composableBuilder(column: $table.purgedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get encryptedAt => $composableBuilder(
+    column: $table.encryptedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get hasRawOcrText => $composableBuilder(
+    column: $table.hasRawOcrText,
+    builder: (column) => column,
+  );
 
   Expression<T> parsedExtractionsTableRefs<T extends Object>(
     Expression<T> Function($$ParsedExtractionsTableTableAnnotationComposer a) f,
@@ -6062,52 +7960,92 @@ class $$ImportedDocumentsTableTableTableManager
               ({
                 Value<String> id = const Value.absent(),
                 Value<String> localPath = const Value.absent(),
+                Value<String?> storageRef = const Value.absent(),
                 Value<String> sourceType = const Value.absent(),
                 Value<String> mimeType = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<String> lifecycleState = const Value.absent(),
                 Value<String?> linkedDebtId = const Value.absent(),
                 Value<String?> rawOcrText = const Value.absent(),
                 Value<String> parseStatus = const Value.absent(),
                 Value<String> parseVersion = const Value.absent(),
                 Value<bool> deleted = const Value.absent(),
+                Value<DateTime?> retentionExpiresAt = const Value.absent(),
+                Value<DateTime?> rawOcrExpiresAt = const Value.absent(),
+                Value<DateTime?> processedAt = const Value.absent(),
+                Value<DateTime?> linkedAt = const Value.absent(),
+                Value<DateTime?> pendingDeletionAt = const Value.absent(),
+                Value<DateTime?> purgedAt = const Value.absent(),
+                Value<DateTime?> encryptedAt = const Value.absent(),
+                Value<bool> hasRawOcrText = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ImportedDocumentsTableCompanion(
                 id: id,
                 localPath: localPath,
+                storageRef: storageRef,
                 sourceType: sourceType,
                 mimeType: mimeType,
                 createdAt: createdAt,
+                lifecycleState: lifecycleState,
                 linkedDebtId: linkedDebtId,
                 rawOcrText: rawOcrText,
                 parseStatus: parseStatus,
                 parseVersion: parseVersion,
                 deleted: deleted,
+                retentionExpiresAt: retentionExpiresAt,
+                rawOcrExpiresAt: rawOcrExpiresAt,
+                processedAt: processedAt,
+                linkedAt: linkedAt,
+                pendingDeletionAt: pendingDeletionAt,
+                purgedAt: purgedAt,
+                encryptedAt: encryptedAt,
+                hasRawOcrText: hasRawOcrText,
                 rowid: rowid,
               ),
           createCompanionCallback:
               ({
                 required String id,
-                required String localPath,
+                Value<String> localPath = const Value.absent(),
+                Value<String?> storageRef = const Value.absent(),
                 required String sourceType,
                 required String mimeType,
                 required DateTime createdAt,
+                Value<String> lifecycleState = const Value.absent(),
                 Value<String?> linkedDebtId = const Value.absent(),
                 Value<String?> rawOcrText = const Value.absent(),
                 required String parseStatus,
                 required String parseVersion,
                 Value<bool> deleted = const Value.absent(),
+                Value<DateTime?> retentionExpiresAt = const Value.absent(),
+                Value<DateTime?> rawOcrExpiresAt = const Value.absent(),
+                Value<DateTime?> processedAt = const Value.absent(),
+                Value<DateTime?> linkedAt = const Value.absent(),
+                Value<DateTime?> pendingDeletionAt = const Value.absent(),
+                Value<DateTime?> purgedAt = const Value.absent(),
+                Value<DateTime?> encryptedAt = const Value.absent(),
+                Value<bool> hasRawOcrText = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ImportedDocumentsTableCompanion.insert(
                 id: id,
                 localPath: localPath,
+                storageRef: storageRef,
                 sourceType: sourceType,
                 mimeType: mimeType,
                 createdAt: createdAt,
+                lifecycleState: lifecycleState,
                 linkedDebtId: linkedDebtId,
                 rawOcrText: rawOcrText,
                 parseStatus: parseStatus,
                 parseVersion: parseVersion,
                 deleted: deleted,
+                retentionExpiresAt: retentionExpiresAt,
+                rawOcrExpiresAt: rawOcrExpiresAt,
+                processedAt: processedAt,
+                linkedAt: linkedAt,
+                pendingDeletionAt: pendingDeletionAt,
+                purgedAt: purgedAt,
+                encryptedAt: encryptedAt,
+                hasRawOcrText: hasRawOcrText,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -6879,6 +8817,203 @@ typedef $$ReminderRulesTableTableProcessedTableManager =
       ReminderRulesTableData,
       PrefetchHooks Function({bool debtId})
     >;
+typedef $$ReminderEventsTableTableCreateCompanionBuilder =
+    ReminderEventsTableCompanion Function({
+      required String id,
+      Value<String?> debtId,
+      required String kind,
+      required DateTime createdAt,
+      Value<int> rowid,
+    });
+typedef $$ReminderEventsTableTableUpdateCompanionBuilder =
+    ReminderEventsTableCompanion Function({
+      Value<String> id,
+      Value<String?> debtId,
+      Value<String> kind,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$ReminderEventsTableTableFilterComposer
+    extends Composer<_$AppDatabase, $ReminderEventsTableTable> {
+  $$ReminderEventsTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get debtId => $composableBuilder(
+    column: $table.debtId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ReminderEventsTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $ReminderEventsTableTable> {
+  $$ReminderEventsTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get debtId => $composableBuilder(
+    column: $table.debtId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ReminderEventsTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ReminderEventsTableTable> {
+  $$ReminderEventsTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get debtId =>
+      $composableBuilder(column: $table.debtId, builder: (column) => column);
+
+  GeneratedColumn<String> get kind =>
+      $composableBuilder(column: $table.kind, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$ReminderEventsTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ReminderEventsTableTable,
+          ReminderEventsTableData,
+          $$ReminderEventsTableTableFilterComposer,
+          $$ReminderEventsTableTableOrderingComposer,
+          $$ReminderEventsTableTableAnnotationComposer,
+          $$ReminderEventsTableTableCreateCompanionBuilder,
+          $$ReminderEventsTableTableUpdateCompanionBuilder,
+          (
+            ReminderEventsTableData,
+            BaseReferences<
+              _$AppDatabase,
+              $ReminderEventsTableTable,
+              ReminderEventsTableData
+            >,
+          ),
+          ReminderEventsTableData,
+          PrefetchHooks Function()
+        > {
+  $$ReminderEventsTableTableTableManager(
+    _$AppDatabase db,
+    $ReminderEventsTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ReminderEventsTableTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ReminderEventsTableTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$ReminderEventsTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String?> debtId = const Value.absent(),
+                Value<String> kind = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ReminderEventsTableCompanion(
+                id: id,
+                debtId: debtId,
+                kind: kind,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                Value<String?> debtId = const Value.absent(),
+                required String kind,
+                required DateTime createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => ReminderEventsTableCompanion.insert(
+                id: id,
+                debtId: debtId,
+                kind: kind,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ReminderEventsTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ReminderEventsTableTable,
+      ReminderEventsTableData,
+      $$ReminderEventsTableTableFilterComposer,
+      $$ReminderEventsTableTableOrderingComposer,
+      $$ReminderEventsTableTableAnnotationComposer,
+      $$ReminderEventsTableTableCreateCompanionBuilder,
+      $$ReminderEventsTableTableUpdateCompanionBuilder,
+      (
+        ReminderEventsTableData,
+        BaseReferences<
+          _$AppDatabase,
+          $ReminderEventsTableTable,
+          ReminderEventsTableData
+        >,
+      ),
+      ReminderEventsTableData,
+      PrefetchHooks Function()
+    >;
 typedef $$ScenariosTableTableCreateCompanionBuilder =
     ScenariosTableCompanion Function({
       required String id,
@@ -7182,8 +9317,17 @@ typedef $$AppPreferencesTableTableCreateCompanionBuilder =
       Value<bool> appLockEnabled,
       Value<bool> aiConsentEnabled,
       Value<bool> notificationsEnabled,
+      Value<bool> dueRemindersEnabled,
+      Value<bool> overdueRemindersEnabled,
+      Value<bool> milestoneNotificationsEnabled,
       Value<bool> onboardingCompleted,
       Value<bool> weeklySummaryEnabled,
+      Value<int> dueReminderLeadDays,
+      Value<bool> rawOcrRetentionEnabled,
+      Value<int> rawOcrRetentionHours,
+      Value<String> documentRetentionMode,
+      Value<int> purgeFailedImportsAfterHours,
+      Value<bool> dataProtectionExplainerSeen,
     });
 typedef $$AppPreferencesTableTableUpdateCompanionBuilder =
     AppPreferencesTableCompanion Function({
@@ -7196,8 +9340,17 @@ typedef $$AppPreferencesTableTableUpdateCompanionBuilder =
       Value<bool> appLockEnabled,
       Value<bool> aiConsentEnabled,
       Value<bool> notificationsEnabled,
+      Value<bool> dueRemindersEnabled,
+      Value<bool> overdueRemindersEnabled,
+      Value<bool> milestoneNotificationsEnabled,
       Value<bool> onboardingCompleted,
       Value<bool> weeklySummaryEnabled,
+      Value<int> dueReminderLeadDays,
+      Value<bool> rawOcrRetentionEnabled,
+      Value<int> rawOcrRetentionHours,
+      Value<String> documentRetentionMode,
+      Value<int> purgeFailedImportsAfterHours,
+      Value<bool> dataProtectionExplainerSeen,
     });
 
 class $$AppPreferencesTableTableFilterComposer
@@ -7254,6 +9407,21 @@ class $$AppPreferencesTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<bool> get dueRemindersEnabled => $composableBuilder(
+    column: $table.dueRemindersEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get overdueRemindersEnabled => $composableBuilder(
+    column: $table.overdueRemindersEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get milestoneNotificationsEnabled => $composableBuilder(
+    column: $table.milestoneNotificationsEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<bool> get onboardingCompleted => $composableBuilder(
     column: $table.onboardingCompleted,
     builder: (column) => ColumnFilters(column),
@@ -7261,6 +9429,36 @@ class $$AppPreferencesTableTableFilterComposer
 
   ColumnFilters<bool> get weeklySummaryEnabled => $composableBuilder(
     column: $table.weeklySummaryEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get dueReminderLeadDays => $composableBuilder(
+    column: $table.dueReminderLeadDays,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get rawOcrRetentionEnabled => $composableBuilder(
+    column: $table.rawOcrRetentionEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get rawOcrRetentionHours => $composableBuilder(
+    column: $table.rawOcrRetentionHours,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get documentRetentionMode => $composableBuilder(
+    column: $table.documentRetentionMode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get purgeFailedImportsAfterHours => $composableBuilder(
+    column: $table.purgeFailedImportsAfterHours,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get dataProtectionExplainerSeen => $composableBuilder(
+    column: $table.dataProtectionExplainerSeen,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -7319,6 +9517,21 @@ class $$AppPreferencesTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get dueRemindersEnabled => $composableBuilder(
+    column: $table.dueRemindersEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get overdueRemindersEnabled => $composableBuilder(
+    column: $table.overdueRemindersEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get milestoneNotificationsEnabled => $composableBuilder(
+    column: $table.milestoneNotificationsEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get onboardingCompleted => $composableBuilder(
     column: $table.onboardingCompleted,
     builder: (column) => ColumnOrderings(column),
@@ -7326,6 +9539,36 @@ class $$AppPreferencesTableTableOrderingComposer
 
   ColumnOrderings<bool> get weeklySummaryEnabled => $composableBuilder(
     column: $table.weeklySummaryEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get dueReminderLeadDays => $composableBuilder(
+    column: $table.dueReminderLeadDays,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get rawOcrRetentionEnabled => $composableBuilder(
+    column: $table.rawOcrRetentionEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get rawOcrRetentionHours => $composableBuilder(
+    column: $table.rawOcrRetentionHours,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get documentRetentionMode => $composableBuilder(
+    column: $table.documentRetentionMode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get purgeFailedImportsAfterHours => $composableBuilder(
+    column: $table.purgeFailedImportsAfterHours,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get dataProtectionExplainerSeen => $composableBuilder(
+    column: $table.dataProtectionExplainerSeen,
     builder: (column) => ColumnOrderings(column),
   );
 }
@@ -7380,6 +9623,21 @@ class $$AppPreferencesTableTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<bool> get dueRemindersEnabled => $composableBuilder(
+    column: $table.dueRemindersEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get overdueRemindersEnabled => $composableBuilder(
+    column: $table.overdueRemindersEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get milestoneNotificationsEnabled => $composableBuilder(
+    column: $table.milestoneNotificationsEnabled,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<bool> get onboardingCompleted => $composableBuilder(
     column: $table.onboardingCompleted,
     builder: (column) => column,
@@ -7387,6 +9645,36 @@ class $$AppPreferencesTableTableAnnotationComposer
 
   GeneratedColumn<bool> get weeklySummaryEnabled => $composableBuilder(
     column: $table.weeklySummaryEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get dueReminderLeadDays => $composableBuilder(
+    column: $table.dueReminderLeadDays,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get rawOcrRetentionEnabled => $composableBuilder(
+    column: $table.rawOcrRetentionEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get rawOcrRetentionHours => $composableBuilder(
+    column: $table.rawOcrRetentionHours,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get documentRetentionMode => $composableBuilder(
+    column: $table.documentRetentionMode,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get purgeFailedImportsAfterHours => $composableBuilder(
+    column: $table.purgeFailedImportsAfterHours,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get dataProtectionExplainerSeen => $composableBuilder(
+    column: $table.dataProtectionExplainerSeen,
     builder: (column) => column,
   );
 }
@@ -7443,8 +9731,18 @@ class $$AppPreferencesTableTableTableManager
                 Value<bool> appLockEnabled = const Value.absent(),
                 Value<bool> aiConsentEnabled = const Value.absent(),
                 Value<bool> notificationsEnabled = const Value.absent(),
+                Value<bool> dueRemindersEnabled = const Value.absent(),
+                Value<bool> overdueRemindersEnabled = const Value.absent(),
+                Value<bool> milestoneNotificationsEnabled =
+                    const Value.absent(),
                 Value<bool> onboardingCompleted = const Value.absent(),
                 Value<bool> weeklySummaryEnabled = const Value.absent(),
+                Value<int> dueReminderLeadDays = const Value.absent(),
+                Value<bool> rawOcrRetentionEnabled = const Value.absent(),
+                Value<int> rawOcrRetentionHours = const Value.absent(),
+                Value<String> documentRetentionMode = const Value.absent(),
+                Value<int> purgeFailedImportsAfterHours = const Value.absent(),
+                Value<bool> dataProtectionExplainerSeen = const Value.absent(),
               }) => AppPreferencesTableCompanion(
                 key: key,
                 themeMode: themeMode,
@@ -7455,8 +9753,17 @@ class $$AppPreferencesTableTableTableManager
                 appLockEnabled: appLockEnabled,
                 aiConsentEnabled: aiConsentEnabled,
                 notificationsEnabled: notificationsEnabled,
+                dueRemindersEnabled: dueRemindersEnabled,
+                overdueRemindersEnabled: overdueRemindersEnabled,
+                milestoneNotificationsEnabled: milestoneNotificationsEnabled,
                 onboardingCompleted: onboardingCompleted,
                 weeklySummaryEnabled: weeklySummaryEnabled,
+                dueReminderLeadDays: dueReminderLeadDays,
+                rawOcrRetentionEnabled: rawOcrRetentionEnabled,
+                rawOcrRetentionHours: rawOcrRetentionHours,
+                documentRetentionMode: documentRetentionMode,
+                purgeFailedImportsAfterHours: purgeFailedImportsAfterHours,
+                dataProtectionExplainerSeen: dataProtectionExplainerSeen,
               ),
           createCompanionCallback:
               ({
@@ -7469,8 +9776,18 @@ class $$AppPreferencesTableTableTableManager
                 Value<bool> appLockEnabled = const Value.absent(),
                 Value<bool> aiConsentEnabled = const Value.absent(),
                 Value<bool> notificationsEnabled = const Value.absent(),
+                Value<bool> dueRemindersEnabled = const Value.absent(),
+                Value<bool> overdueRemindersEnabled = const Value.absent(),
+                Value<bool> milestoneNotificationsEnabled =
+                    const Value.absent(),
                 Value<bool> onboardingCompleted = const Value.absent(),
                 Value<bool> weeklySummaryEnabled = const Value.absent(),
+                Value<int> dueReminderLeadDays = const Value.absent(),
+                Value<bool> rawOcrRetentionEnabled = const Value.absent(),
+                Value<int> rawOcrRetentionHours = const Value.absent(),
+                Value<String> documentRetentionMode = const Value.absent(),
+                Value<int> purgeFailedImportsAfterHours = const Value.absent(),
+                Value<bool> dataProtectionExplainerSeen = const Value.absent(),
               }) => AppPreferencesTableCompanion.insert(
                 key: key,
                 themeMode: themeMode,
@@ -7481,8 +9798,17 @@ class $$AppPreferencesTableTableTableManager
                 appLockEnabled: appLockEnabled,
                 aiConsentEnabled: aiConsentEnabled,
                 notificationsEnabled: notificationsEnabled,
+                dueRemindersEnabled: dueRemindersEnabled,
+                overdueRemindersEnabled: overdueRemindersEnabled,
+                milestoneNotificationsEnabled: milestoneNotificationsEnabled,
                 onboardingCompleted: onboardingCompleted,
                 weeklySummaryEnabled: weeklySummaryEnabled,
+                dueReminderLeadDays: dueReminderLeadDays,
+                rawOcrRetentionEnabled: rawOcrRetentionEnabled,
+                rawOcrRetentionHours: rawOcrRetentionHours,
+                documentRetentionMode: documentRetentionMode,
+                purgeFailedImportsAfterHours: purgeFailedImportsAfterHours,
+                dataProtectionExplainerSeen: dataProtectionExplainerSeen,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
@@ -7518,6 +9844,11 @@ typedef $$SubscriptionStateTableTableCreateCompanionBuilder =
       Value<int> key,
       Value<bool> isPremium,
       Value<DateTime?> expiresAt,
+      Value<String?> productId,
+      Value<String?> planId,
+      Value<String?> billingProvider,
+      Value<String> status,
+      Value<DateTime?> lastVerifiedAt,
       Value<String> unlockedFeaturesJson,
     });
 typedef $$SubscriptionStateTableTableUpdateCompanionBuilder =
@@ -7525,6 +9856,11 @@ typedef $$SubscriptionStateTableTableUpdateCompanionBuilder =
       Value<int> key,
       Value<bool> isPremium,
       Value<DateTime?> expiresAt,
+      Value<String?> productId,
+      Value<String?> planId,
+      Value<String?> billingProvider,
+      Value<String> status,
+      Value<DateTime?> lastVerifiedAt,
       Value<String> unlockedFeaturesJson,
     });
 
@@ -7549,6 +9885,31 @@ class $$SubscriptionStateTableTableFilterComposer
 
   ColumnFilters<DateTime> get expiresAt => $composableBuilder(
     column: $table.expiresAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get productId => $composableBuilder(
+    column: $table.productId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get planId => $composableBuilder(
+    column: $table.planId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get billingProvider => $composableBuilder(
+    column: $table.billingProvider,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastVerifiedAt => $composableBuilder(
+    column: $table.lastVerifiedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7582,6 +9943,31 @@ class $$SubscriptionStateTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get productId => $composableBuilder(
+    column: $table.productId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get planId => $composableBuilder(
+    column: $table.planId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get billingProvider => $composableBuilder(
+    column: $table.billingProvider,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastVerifiedAt => $composableBuilder(
+    column: $table.lastVerifiedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get unlockedFeaturesJson => $composableBuilder(
     column: $table.unlockedFeaturesJson,
     builder: (column) => ColumnOrderings(column),
@@ -7605,6 +9991,25 @@ class $$SubscriptionStateTableTableAnnotationComposer
 
   GeneratedColumn<DateTime> get expiresAt =>
       $composableBuilder(column: $table.expiresAt, builder: (column) => column);
+
+  GeneratedColumn<String> get productId =>
+      $composableBuilder(column: $table.productId, builder: (column) => column);
+
+  GeneratedColumn<String> get planId =>
+      $composableBuilder(column: $table.planId, builder: (column) => column);
+
+  GeneratedColumn<String> get billingProvider => $composableBuilder(
+    column: $table.billingProvider,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastVerifiedAt => $composableBuilder(
+    column: $table.lastVerifiedAt,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get unlockedFeaturesJson => $composableBuilder(
     column: $table.unlockedFeaturesJson,
@@ -7661,11 +10066,21 @@ class $$SubscriptionStateTableTableTableManager
                 Value<int> key = const Value.absent(),
                 Value<bool> isPremium = const Value.absent(),
                 Value<DateTime?> expiresAt = const Value.absent(),
+                Value<String?> productId = const Value.absent(),
+                Value<String?> planId = const Value.absent(),
+                Value<String?> billingProvider = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<DateTime?> lastVerifiedAt = const Value.absent(),
                 Value<String> unlockedFeaturesJson = const Value.absent(),
               }) => SubscriptionStateTableCompanion(
                 key: key,
                 isPremium: isPremium,
                 expiresAt: expiresAt,
+                productId: productId,
+                planId: planId,
+                billingProvider: billingProvider,
+                status: status,
+                lastVerifiedAt: lastVerifiedAt,
                 unlockedFeaturesJson: unlockedFeaturesJson,
               ),
           createCompanionCallback:
@@ -7673,11 +10088,21 @@ class $$SubscriptionStateTableTableTableManager
                 Value<int> key = const Value.absent(),
                 Value<bool> isPremium = const Value.absent(),
                 Value<DateTime?> expiresAt = const Value.absent(),
+                Value<String?> productId = const Value.absent(),
+                Value<String?> planId = const Value.absent(),
+                Value<String?> billingProvider = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<DateTime?> lastVerifiedAt = const Value.absent(),
                 Value<String> unlockedFeaturesJson = const Value.absent(),
               }) => SubscriptionStateTableCompanion.insert(
                 key: key,
                 isPremium: isPremium,
                 expiresAt: expiresAt,
+                productId: productId,
+                planId: planId,
+                billingProvider: billingProvider,
+                status: status,
+                lastVerifiedAt: lastVerifiedAt,
                 unlockedFeaturesJson: unlockedFeaturesJson,
               ),
           withReferenceMapper: (p0) => p0
@@ -7729,6 +10154,8 @@ class $AppDatabaseManager {
       );
   $$ReminderRulesTableTableTableManager get reminderRulesTable =>
       $$ReminderRulesTableTableTableManager(_db, _db.reminderRulesTable);
+  $$ReminderEventsTableTableTableManager get reminderEventsTable =>
+      $$ReminderEventsTableTableTableManager(_db, _db.reminderEventsTable);
   $$ScenariosTableTableTableManager get scenariosTable =>
       $$ScenariosTableTableTableManager(_db, _db.scenariosTable);
   $$AppPreferencesTableTableTableManager get appPreferencesTable =>
