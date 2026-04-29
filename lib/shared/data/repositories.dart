@@ -274,29 +274,37 @@ class DriftPaymentsRepository implements PaymentsRepository {
 
   @override
   Future<void> savePayment(Payment payment) async {
-    final existing = await (database.select(
-      database.paymentsTable,
-    )..where((tbl) => tbl.id.equals(payment.id))).getSingleOrNull();
+    await database.transaction(() async {
+      final existing = await (database.select(
+        database.paymentsTable,
+      )..where((tbl) => tbl.id.equals(payment.id))).getSingleOrNull();
 
-    await database
-        .into(database.paymentsTable)
-        .insertOnConflictUpdate(
-          PaymentsTableCompanion.insert(
-            id: payment.id,
-            debtId: payment.debtId,
-            amount: payment.amount,
-            date: payment.date,
-            method: Value(payment.method),
-            sourceType: payment.sourceType.name,
-            notes: Value(payment.notes),
-            tagsJson: Value(database.encodeStringList(payment.tags)),
-            createdAt: payment.createdAt,
-          ),
-        );
+      await database
+          .into(database.paymentsTable)
+          .insertOnConflictUpdate(
+            PaymentsTableCompanion.insert(
+              id: payment.id,
+              debtId: payment.debtId,
+              amount: payment.amount,
+              date: payment.date,
+              method: Value(payment.method),
+              sourceType: payment.sourceType.name,
+              notes: Value(payment.notes),
+              tagsJson: Value(database.encodeStringList(payment.tags)),
+              createdAt: payment.createdAt,
+            ),
+          );
 
-    final priorAmount = existing?.amount ?? 0;
-    final amountDelta = payment.amount - priorAmount;
-    await _applyPaymentDelta(payment.debtId, amountDelta);
+      if (existing != null && existing.debtId != payment.debtId) {
+        await _applyPaymentDelta(existing.debtId, -existing.amount);
+        await _applyPaymentDelta(payment.debtId, payment.amount);
+        return;
+      }
+
+      final priorAmount = existing?.amount ?? 0;
+      final amountDelta = payment.amount - priorAmount;
+      await _applyPaymentDelta(payment.debtId, amountDelta);
+    });
   }
 
   @override

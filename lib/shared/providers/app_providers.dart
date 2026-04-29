@@ -507,11 +507,15 @@ class ImportFinalizationService {
       }
 
       await persist();
-    } catch (_) {
+    } catch (error, stackTrace) {
       if (createdStorageRef != null) {
-        await vaultService.purgeStoredDocument(createdStorageRef);
+        try {
+          await vaultService.purgeStoredDocument(createdStorageRef);
+        } catch (_) {
+          // Best-effort cleanup must not hide the original confirm failure.
+        }
       }
-      rethrow;
+      Error.throwWithStackTrace(error, stackTrace);
     }
   }
 

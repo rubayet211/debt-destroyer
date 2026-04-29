@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -206,20 +207,8 @@ void main() {
       300,
       scrollable: find.byType(Scrollable).first,
     );
-    final chartBuckets = buildMonthlyPaymentBucketsForReports(
-      filterPaymentsByDateRangeForReports(
-        allPayments,
-        DateTimeRange(
-          start: DateTime(2026, 2, 1),
-          end: DateTime(2026, 3, 31),
-        ),
-      ),
-    );
-
     expect(find.text('\$110.00'), findsOneWidget);
-    expect(chartBuckets, hasLength(2));
-    expect(chartBuckets[0].total, 40);
-    expect(chartBuckets[1].total, 70);
+    expect(_monthlyChartTotals(tester), orderedEquals([40.0, 70.0]));
   });
 
   testWidgets('reports screen exports csv when premium feature is active', (
@@ -465,21 +454,17 @@ void main() {
         300,
         scrollable: find.byType(Scrollable).first,
       );
-      final monthlyBuckets = buildMonthlyPaymentBucketsForReports(
-        filterPaymentsByDateRangeForReports(
-          payments,
-          DateTimeRange(
-            start: DateTime(2026, 2, 1),
-            end: DateTime(2026, 2, 28),
-          ),
-        ),
-      );
-
       expect(find.text('\$120.00'), findsOneWidget);
-      expect(monthlyBuckets, hasLength(1));
-      expect(monthlyBuckets.single.total, 120);
+      expect(_monthlyChartTotals(tester), orderedEquals([120.0]));
     },
   );
+}
+
+List<double> _monthlyChartTotals(WidgetTester tester) {
+  final chart = tester.widget<BarChart>(
+    find.byType(BarChart, skipOffstage: false),
+  );
+  return chart.data.barGroups.map((group) => group.barRods.single.toY).toList();
 }
 
 class _FakeCsvExportService extends CsvExportService {

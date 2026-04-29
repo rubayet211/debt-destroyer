@@ -185,6 +185,86 @@ void main() {
   });
 
   test(
+    'moving an existing payment to a different debt restores the old balance and debits the new debt',
+    () async {
+      final firstDebt = Debt(
+        id: 'd-payment-move-old',
+        title: 'Visa',
+        creditorName: 'Bank',
+        type: DebtType.creditCard,
+        currency: 'USD',
+        originalBalance: 1000,
+        currentBalance: 640,
+        apr: 20,
+        minimumPayment: 60,
+        dueDate: null,
+        paymentFrequency: PaymentFrequency.monthly,
+        createdAt: DateTime(2026, 1, 1),
+        updatedAt: DateTime(2026, 1, 1),
+        notes: '',
+        tags: const [],
+        status: DebtStatus.active,
+        remindersEnabled: false,
+        customPriority: 1,
+      );
+      final secondDebt = Debt(
+        id: 'd-payment-move-new',
+        title: 'Mastercard',
+        creditorName: 'Credit Union',
+        type: DebtType.creditCard,
+        currency: 'USD',
+        originalBalance: 1200,
+        currentBalance: 900,
+        apr: 18,
+        minimumPayment: 55,
+        dueDate: null,
+        paymentFrequency: PaymentFrequency.monthly,
+        createdAt: DateTime(2026, 1, 1),
+        updatedAt: DateTime(2026, 1, 1),
+        notes: '',
+        tags: const [],
+        status: DebtStatus.active,
+        remindersEnabled: false,
+        customPriority: 2,
+      );
+      await debtsRepository.saveDebt(firstDebt);
+      await debtsRepository.saveDebt(secondDebt);
+
+      await paymentsRepository.savePayment(
+        Payment(
+          id: 'payment-move-1',
+          debtId: firstDebt.id,
+          amount: 50,
+          date: DateTime(2026, 1, 20),
+          method: 'ACH',
+          sourceType: PaymentSourceType.manual,
+          notes: '',
+          tags: const [],
+          createdAt: DateTime(2026, 1, 20),
+        ),
+      );
+      await paymentsRepository.savePayment(
+        Payment(
+          id: 'payment-move-1',
+          debtId: secondDebt.id,
+          amount: 80,
+          date: DateTime(2026, 1, 20),
+          method: 'ACH',
+          sourceType: PaymentSourceType.manual,
+          notes: '',
+          tags: const [],
+          createdAt: DateTime(2026, 1, 20),
+        ),
+      );
+
+      final updated = await debtsRepository.loadDebts();
+      final byId = {for (final debt in updated) debt.id: debt};
+      expect(byId[firstDebt.id]!.currentBalance, 640);
+      expect(byId[secondDebt.id]!.currentBalance, 820);
+    },
+  );
+
+  test(
     'deleting a payment restores the deducted amount to current balance',
     () async {
       final debt = Debt(
@@ -633,6 +713,115 @@ void main() {
     },
   );
 
+  test(
+    'finalization preserves the original save failure even if cleanup throws after purge',
+    () async {
+      final failingPaymentsRepository = _ThrowingPaymentsRepository(database);
+      final throwingVaultService = _ThrowingAfterPurgeVaultService(
+        () async => tempDir,
+      );
+      final throwingDocumentsRepository = DriftDocumentsRepository(
+        database,
+        throwingVaultService,
+      );
+      final finalizationService = ImportFinalizationService(
+        database: () => database,
+        debtsRepository: debtsRepository,
+        paymentsRepository: failingPaymentsRepository,
+        documentsRepository: throwingDocumentsRepository,
+        vaultService: throwingVaultService,
+      );
+      final sourceFile = File(
+        '${tempDir.path}${Platform.pathSeparator}pending-import-purge-error.txt',
+      )..writeAsStringSync('statement bytes');
+      final debt = Debt(
+        id: 'd-finalize-purge-error',
+        title: 'Visa',
+        creditorName: 'Bank',
+        type: DebtType.creditCard,
+        currency: 'USD',
+        originalBalance: 900,
+        currentBalance: 620,
+        apr: 18,
+        minimumPayment: 35,
+        dueDate: null,
+        paymentFrequency: PaymentFrequency.monthly,
+        createdAt: DateTime(2026, 1, 1),
+        updatedAt: DateTime(2026, 1, 1),
+        notes: '',
+        tags: const [],
+        status: DebtStatus.active,
+        remindersEnabled: false,
+        customPriority: 1,
+      );
+      await debtsRepository.saveDebt(debt);
+
+      await expectLater(
+        finalizationService.finalize(
+          document: ImportedDocument(
+            id: 'doc-finalize-purge-error',
+            storageRef: null,
+            sourceType: DocumentSourceType.gallery,
+            mimeType: 'text/plain',
+            createdAt: DateTime(2026, 3, 1),
+            lifecycleState: DocumentLifecycleState.processed,
+            linkedDebtId: null,
+            rawOcrText: null,
+            parseStatus: ParseStatus.success,
+            parseVersion: 'v1',
+            deleted: false,
+            retentionExpiresAt: null,
+            rawOcrExpiresAt: null,
+            processedAt: DateTime(2026, 3, 1),
+            linkedAt: null,
+            pendingDeletionAt: null,
+            purgedAt: null,
+            encryptedAt: null,
+            hasRawOcrText: false,
+          ),
+          extraction: ParsedExtraction(
+            id: 'extract-finalize-purge-error',
+            documentId: 'doc-finalize-purge-error',
+            classification: DocumentClassification.creditCardStatement,
+            confidence: 0.91,
+            payloadJson: '{"title":"Acme"}',
+            ambiguityNotes: '',
+            createdAt: DateTime(2026, 3, 1),
+          ),
+          linkedDebtId: debt.id,
+          sourcePath: sourceFile.path,
+          payments: [
+            Payment(
+              id: 'payment-finalize-purge-error',
+              debtId: debt.id,
+              amount: 75,
+              date: DateTime(2026, 3, 1),
+              method: 'ACH',
+              sourceType: PaymentSourceType.scan,
+              notes: 'Imported payment',
+              tags: const ['scan'],
+              createdAt: DateTime(2026, 3, 1),
+            ),
+          ],
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            'simulated payment failure',
+          ),
+        ),
+      );
+
+      final vaultDir = Directory(
+        '${tempDir.path}${Platform.pathSeparator}secure_vault${Platform.pathSeparator}documents',
+      );
+      if (await vaultDir.exists()) {
+        expect(await vaultDir.list().toList(), isEmpty);
+      }
+    },
+  );
+
   test('loading subscription ignores unknown cached feature flags', () async {
     await database
         .into(database.subscriptionStateTable)
@@ -904,6 +1093,17 @@ class _ThrowingVaultService extends SecureDocumentVaultService {
 
   @override
   Future<void> purgeStoredDocument(String? storageRef) {
+    throw StateError('simulated purge failure');
+  }
+}
+
+class _ThrowingAfterPurgeVaultService extends SecureDocumentVaultService {
+  _ThrowingAfterPurgeVaultService(Future<Directory> Function() baseDirectory)
+    : super(_FakeKeyService(), baseDirectoryLoader: baseDirectory);
+
+  @override
+  Future<void> purgeStoredDocument(String? storageRef) async {
+    await super.purgeStoredDocument(storageRef);
     throw StateError('simulated purge failure');
   }
 }
