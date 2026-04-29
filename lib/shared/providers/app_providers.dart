@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:csv/csv.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -272,6 +273,15 @@ final documentsRepositoryProvider = Provider<DocumentsRepository>(
     ref.watch(secureDocumentVaultServiceProvider),
   ),
 );
+final importFinalizationServiceProvider = Provider<ImportFinalizationService>(
+  (ref) => ImportFinalizationService(
+    database: () => ref.read(appDatabaseProvider),
+    debtsRepository: ref.watch(debtsRepositoryProvider),
+    paymentsRepository: ref.watch(paymentsRepositoryProvider),
+    documentsRepository: ref.watch(documentsRepositoryProvider),
+    vaultService: ref.watch(secureDocumentVaultServiceProvider),
+  ),
+);
 final scenariosRepositoryProvider = Provider<ScenariosRepository>(
   (ref) => DriftScenariosRepository(ref.watch(appDatabaseProvider)),
 );
@@ -407,6 +417,7 @@ final appRouterProvider = Provider((ref) => buildRouter(ref));
 final selectedDebtFilterProvider = StateProvider<String>((ref) => '');
 final debtSortStrategyProvider = StateProvider<StrategyType?>((ref) => null);
 final debtSortModeProvider = StateProvider<String>((ref) => 'updated');
+final reportsDateRangeProvider = StateProvider<DateTimeRange?>((ref) => null);
 final appSecurityCoordinatorProvider =
     StateNotifierProvider<AppSecurityCoordinator, AppSecurityState>(
       (ref) => AppSecurityCoordinator(
@@ -441,6 +452,103 @@ class ScanImportController
   }
 
   void clear() => state = const AsyncValue.data(null);
+}
+
+class ImportFinalizationService {
+  ImportFinalizationService({
+    required AppDatabase Function() database,
+    required this.debtsRepository,
+    required this.paymentsRepository,
+    required this.documentsRepository,
+    required this.vaultService,
+  }) : _database = database;
+
+  final AppDatabase Function() _database;
+  final DebtsRepository debtsRepository;
+  final PaymentsRepository paymentsRepository;
+  final DocumentsRepository documentsRepository;
+  final SecureDocumentVaultService vaultService;
+
+  Future<void> finalize({
+    required ImportedDocument document,
+    required ParsedExtraction extraction,
+    required String? linkedDebtId,
+    String? sourcePath,
+    Debt? debtToCreate,
+    List<Payment> payments = const [],
+  }) async {
+    final sealedDocument = await _sealDocumentIfNeeded(
+      document: document,
+      sourcePath: sourcePath,
+    );
+    final createdStorageRef = document.storageRef == null
+        ? sealedDocument.storageRef
+        : null;
+
+    Future<void> persist() async {
+      await documentsRepository.saveDocument(sealedDocument);
+      await documentsRepository.saveParsedExtraction(extraction);
+      if (debtToCreate != null) {
+        await debtsRepository.saveDebt(debtToCreate);
+      }
+      for (final payment in payments) {
+        await paymentsRepository.savePayment(payment);
+      }
+      await documentsRepository.linkDocument(sealedDocument.id, linkedDebtId);
+    }
+
+    try {
+      if (_supportsAtomicCommit(
+        createsDebt: debtToCreate != null,
+        savesPayments: payments.isNotEmpty,
+      )) {
+        await _database().transaction(persist);
+        return;
+      }
+
+      await persist();
+    } catch (_) {
+      if (createdStorageRef != null) {
+        await vaultService.purgeStoredDocument(createdStorageRef);
+      }
+      rethrow;
+    }
+  }
+
+  bool _supportsAtomicCommit({
+    required bool createsDebt,
+    required bool savesPayments,
+  }) {
+    final driftDocuments = documentsRepository is DriftDocumentsRepository;
+    final driftDebts = !createsDebt || debtsRepository is DriftDebtsRepository;
+    final driftPayments =
+        !savesPayments || paymentsRepository is DriftPaymentsRepository;
+    return driftDocuments && driftDebts && driftPayments;
+  }
+
+  Future<ImportedDocument> _sealDocumentIfNeeded({
+    required ImportedDocument document,
+    required String? sourcePath,
+  }) async {
+    if (document.storageRef != null) {
+      return document;
+    }
+    if (sourcePath == null || sourcePath.isEmpty) {
+      throw StateError('Import source path is required before final save.');
+    }
+
+    final stored = await vaultService.sealImport(
+      FileReference(
+        path: sourcePath,
+        sourceType: document.sourceType,
+        mimeType: document.mimeType,
+      ),
+    );
+    return document.copyWith(
+      storageRef: stored.storageRef,
+      encryptedAt: stored.encryptedAt,
+    );
+  }
 }
 
 final seedDemoDataProvider = Provider<Future<void> Function()>((ref) {

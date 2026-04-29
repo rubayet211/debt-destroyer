@@ -384,6 +384,7 @@ class ImportReviewBundle {
     required this.issues,
     required this.reviewMode,
     required this.errorMessage,
+    this.sourcePath,
   });
 
   final ImportedDocument document;
@@ -395,6 +396,7 @@ class ImportReviewBundle {
   final List<ImportIssue> issues;
   final ImportReviewMode reviewMode;
   final String? errorMessage;
+  final String? sourcePath;
 
   bool get hasAiFailure => errorMessage != null;
 }

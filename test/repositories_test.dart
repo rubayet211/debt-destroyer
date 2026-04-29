@@ -15,6 +15,7 @@ import 'package:debt_destroyer/shared/models/debt.dart';
 import 'package:debt_destroyer/shared/models/debt_financial_terms.dart';
 import 'package:debt_destroyer/shared/models/import_models.dart';
 import 'package:debt_destroyer/shared/models/payment.dart';
+import 'package:debt_destroyer/shared/providers/app_providers.dart';
 
 void main() {
   late AppDatabase database;
@@ -518,6 +519,120 @@ void main() {
     );
   });
 
+  test(
+    'finalization rolls back rows and purges the vault blob when confirm fails',
+    () async {
+      final failingPaymentsRepository = _ThrowingPaymentsRepository(database);
+      final finalizationService = ImportFinalizationService(
+        database: () => database,
+        debtsRepository: debtsRepository,
+        paymentsRepository: failingPaymentsRepository,
+        documentsRepository: documentsRepository,
+        vaultService: vaultService,
+      );
+      final sourceFile = File(
+        '${tempDir.path}${Platform.pathSeparator}pending-import.txt',
+      )..writeAsStringSync('statement bytes');
+      final debt = Debt(
+        id: 'd-finalize-rollback',
+        title: 'Visa',
+        creditorName: 'Bank',
+        type: DebtType.creditCard,
+        currency: 'USD',
+        originalBalance: 900,
+        currentBalance: 620,
+        apr: 18,
+        minimumPayment: 35,
+        dueDate: null,
+        paymentFrequency: PaymentFrequency.monthly,
+        createdAt: DateTime(2026, 1, 1),
+        updatedAt: DateTime(2026, 1, 1),
+        notes: '',
+        tags: const [],
+        status: DebtStatus.active,
+        remindersEnabled: false,
+        customPriority: 1,
+      );
+      await debtsRepository.saveDebt(debt);
+
+      await expectLater(
+        finalizationService.finalize(
+          document: ImportedDocument(
+            id: 'doc-finalize-rollback',
+            storageRef: null,
+            sourceType: DocumentSourceType.gallery,
+            mimeType: 'text/plain',
+            createdAt: DateTime(2026, 3, 1),
+            lifecycleState: DocumentLifecycleState.processed,
+            linkedDebtId: null,
+            rawOcrText: null,
+            parseStatus: ParseStatus.success,
+            parseVersion: 'v1',
+            deleted: false,
+            retentionExpiresAt: null,
+            rawOcrExpiresAt: null,
+            processedAt: DateTime(2026, 3, 1),
+            linkedAt: null,
+            pendingDeletionAt: null,
+            purgedAt: null,
+            encryptedAt: null,
+            hasRawOcrText: false,
+          ),
+          extraction: ParsedExtraction(
+            id: 'extract-finalize-rollback',
+            documentId: 'doc-finalize-rollback',
+            classification: DocumentClassification.creditCardStatement,
+            confidence: 0.91,
+            payloadJson: '{"title":"Acme"}',
+            ambiguityNotes: '',
+            createdAt: DateTime(2026, 3, 1),
+          ),
+          linkedDebtId: debt.id,
+          sourcePath: sourceFile.path,
+          payments: [
+            Payment(
+              id: 'payment-finalize-rollback',
+              debtId: debt.id,
+              amount: 75,
+              date: DateTime(2026, 3, 1),
+              method: 'ACH',
+              sourceType: PaymentSourceType.scan,
+              notes: 'Imported payment',
+              tags: const ['scan'],
+              createdAt: DateTime(2026, 3, 1),
+            ),
+          ],
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            'simulated payment failure',
+          ),
+        ),
+      );
+
+      expect(await documentsRepository.loadDocuments(), isEmpty);
+      expect(
+        await database.select(database.importedDocumentsTable).get(),
+        isEmpty,
+      );
+      expect(
+        await database.select(database.parsedExtractionsTable).get(),
+        isEmpty,
+      );
+      expect(await paymentsRepository.loadPaymentsForDebt(debt.id), isEmpty);
+      expect((await debtsRepository.loadDebts()).single.currentBalance, 620);
+
+      final vaultDir = Directory(
+        '${tempDir.path}${Platform.pathSeparator}secure_vault${Platform.pathSeparator}documents',
+      );
+      if (await vaultDir.exists()) {
+        expect(await vaultDir.list().toList(), isEmpty);
+      }
+    },
+  );
+
   test('loading subscription ignores unknown cached feature flags', () async {
     await database
         .into(database.subscriptionStateTable)
@@ -790,5 +905,15 @@ class _ThrowingVaultService extends SecureDocumentVaultService {
   @override
   Future<void> purgeStoredDocument(String? storageRef) {
     throw StateError('simulated purge failure');
+  }
+}
+
+class _ThrowingPaymentsRepository extends DriftPaymentsRepository {
+  _ThrowingPaymentsRepository(super.database);
+
+  @override
+  Future<void> savePayment(Payment payment) async {
+    await super.savePayment(payment);
+    throw StateError('simulated payment failure');
   }
 }

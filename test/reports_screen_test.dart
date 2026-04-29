@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -24,7 +25,7 @@ void main() {
           allDebtsProvider.overrideWith(
             (_) => const Stream<List<Debt>>.empty(),
           ),
-          recentPaymentsProvider.overrideWith(
+          allPaymentsProvider.overrideWith(
             (_) => const Stream<List<Payment>>.empty(),
           ),
           userPreferencesProvider.overrideWith(
@@ -52,7 +53,7 @@ void main() {
           allDebtsProvider.overrideWith(
             (_) => Stream.error('debt load failed'),
           ),
-          recentPaymentsProvider.overrideWith((_) => Stream.value(const [])),
+          allPaymentsProvider.overrideWith((_) => Stream.value(const [])),
           userPreferencesProvider.overrideWith(
             (_) => Stream.value(buildTestPreferences()),
           ),
@@ -79,7 +80,7 @@ void main() {
       ProviderScope(
         overrides: [
           allDebtsProvider.overrideWith((_) => Stream.value(const [])),
-          recentPaymentsProvider.overrideWith((_) => Stream.value(const [])),
+          allPaymentsProvider.overrideWith((_) => Stream.value(const [])),
           userPreferencesProvider.overrideWith(
             (_) => Stream.value(buildTestPreferences()),
           ),
@@ -96,6 +97,122 @@ void main() {
 
     await tester.pumpAndSettle();
     expect(find.text('No reports yet'), findsOneWidget);
+  });
+
+  testWidgets('reports screen uses full payment history by default', (
+    tester,
+  ) async {
+    final debt = buildTestDebt(id: 'debt-history', currentBalance: 940);
+    final allPayments = [
+      buildTestPayment(id: 'payment-1', debtId: debt.id, amount: 120),
+      buildTestPayment(
+        id: 'payment-2',
+        debtId: debt.id,
+        amount: 260,
+        date: DateTime(2026, 2, 9),
+      ),
+      buildTestPayment(
+        id: 'payment-3',
+        debtId: debt.id,
+        amount: 400,
+        date: DateTime(2026, 1, 9),
+      ),
+    ];
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          allDebtsProvider.overrideWith((_) => Stream.value([debt])),
+          allPaymentsProvider.overrideWith((_) => Stream.value(allPayments)),
+          recentPaymentsProvider.overrideWith(
+            (_) => Stream.value(allPayments.take(1).toList()),
+          ),
+          userPreferencesProvider.overrideWith(
+            (_) => Stream.value(buildTestPreferences()),
+          ),
+          subscriptionStateProvider.overrideWith(
+            (_) => Stream.value(SubscriptionState.free()),
+          ),
+          entitlementRefreshProvider.overrideWith(
+            (_) async => EntitlementSnapshot.free(),
+          ),
+        ],
+        child: const MaterialApp(home: ReportsScreen()),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Payments tracked'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    expect(find.text('\$780.00'), findsOneWidget);
+  });
+
+  testWidgets('reports screen filters totals and monthly bars by date range', (
+    tester,
+  ) async {
+    final debt = buildTestDebt(id: 'debt-range', currentBalance: 880);
+    final allPayments = [
+      buildTestPayment(
+        id: 'payment-jan',
+        debtId: debt.id,
+        amount: 90,
+        date: DateTime(2026, 1, 15),
+      ),
+      buildTestPayment(
+        id: 'payment-feb',
+        debtId: debt.id,
+        amount: 40,
+        date: DateTime(2026, 2, 12),
+      ),
+      buildTestPayment(
+        id: 'payment-mar',
+        debtId: debt.id,
+        amount: 70,
+        date: DateTime(2026, 3, 18),
+      ),
+    ];
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          allDebtsProvider.overrideWith((_) => Stream.value([debt])),
+          allPaymentsProvider.overrideWith((_) => Stream.value(allPayments)),
+          reportsDateRangeProvider.overrideWith(
+            (ref) => DateTimeRange(
+              start: DateTime(2026, 2, 1),
+              end: DateTime(2026, 3, 31),
+            ),
+          ),
+          userPreferencesProvider.overrideWith(
+            (_) => Stream.value(buildTestPreferences()),
+          ),
+          subscriptionStateProvider.overrideWith(
+            (_) => Stream.value(SubscriptionState.free()),
+          ),
+          entitlementRefreshProvider.overrideWith(
+            (_) async => EntitlementSnapshot.free(),
+          ),
+        ],
+        child: const MaterialApp(home: ReportsScreen()),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    final chart = tester.widget<BarChart>(find.byType(BarChart).first);
+    await tester.scrollUntilVisible(
+      find.text('Payments tracked'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    expect(find.text('\$110.00'), findsOneWidget);
+    expect(chart.data.barGroups, hasLength(2));
+    expect(chart.data.barGroups[0].barRods.single.toY, 40);
+    expect(chart.data.barGroups[1].barRods.single.toY, 70);
   });
 
   testWidgets('reports screen exports csv when premium feature is active', (
@@ -128,7 +245,7 @@ void main() {
       ProviderScope(
         overrides: [
           allDebtsProvider.overrideWith((_) => Stream.value([debt])),
-          recentPaymentsProvider.overrideWith(
+          allPaymentsProvider.overrideWith(
             (_) => Stream.value([buildTestPayment(debtId: debt.id)]),
           ),
           userPreferencesProvider.overrideWith(
@@ -192,7 +309,7 @@ void main() {
       ProviderScope(
         overrides: [
           allDebtsProvider.overrideWith((_) => Stream.value([debt])),
-          recentPaymentsProvider.overrideWith(
+          allPaymentsProvider.overrideWith(
             (_) => Stream.value([buildTestPayment(debtId: debt.id)]),
           ),
           userPreferencesProvider.overrideWith(
@@ -215,6 +332,139 @@ void main() {
 
     expect(find.text('Premium route'), findsOneWidget);
   });
+
+  testWidgets(
+    'reports screen defaults to full payment history from all-payments storage',
+    (tester) async {
+      final debt = buildTestDebt(
+        id: 'debt-history',
+        dueDate: DateTime(2026, 3, 15),
+      );
+      final payments = [
+        buildTestPayment(
+          id: 'payment-history-1',
+          debtId: debt.id,
+          amount: 80,
+          date: DateTime(2025, 1, 10),
+        ),
+        buildTestPayment(
+          id: 'payment-history-2',
+          debtId: debt.id,
+          amount: 120,
+          date: DateTime(2026, 1, 10),
+        ),
+        buildTestPayment(
+          id: 'payment-history-3',
+          debtId: debt.id,
+          amount: 60,
+          date: DateTime(2026, 2, 10),
+        ),
+      ];
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            allDebtsProvider.overrideWith((_) => Stream.value([debt])),
+            allPaymentsProvider.overrideWith((_) => Stream.value(payments)),
+            recentPaymentsProvider.overrideWith((_) => Stream.value(const [])),
+            userPreferencesProvider.overrideWith(
+              (_) => Stream.value(buildTestPreferences()),
+            ),
+            subscriptionStateProvider.overrideWith(
+              (_) => Stream.value(SubscriptionState.free()),
+            ),
+            entitlementRefreshProvider.overrideWith(
+              (_) async => EntitlementSnapshot.free(),
+            ),
+          ],
+          child: const MaterialApp(home: ReportsScreen()),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+      final monthlyChart = tester.widget<BarChart>(find.byType(BarChart).first);
+      await tester.scrollUntilVisible(
+        find.text('Payments tracked'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+
+      expect(find.text('Payments tracked'), findsOneWidget);
+      expect(find.text('\$260.00'), findsOneWidget);
+      expect(monthlyChart.data.barGroups, hasLength(3));
+    },
+  );
+
+  testWidgets(
+    'reports screen filters totals and monthly chart by selected date range',
+    (tester) async {
+      final debt = buildTestDebt(
+        id: 'debt-range',
+        dueDate: DateTime(2026, 3, 15),
+      );
+      final payments = [
+        buildTestPayment(
+          id: 'payment-range-1',
+          debtId: debt.id,
+          amount: 80,
+          date: DateTime(2026, 1, 10),
+        ),
+        buildTestPayment(
+          id: 'payment-range-2',
+          debtId: debt.id,
+          amount: 120,
+          date: DateTime(2026, 2, 10),
+        ),
+        buildTestPayment(
+          id: 'payment-range-3',
+          debtId: debt.id,
+          amount: 60,
+          date: DateTime(2026, 3, 10),
+        ),
+      ];
+      final container = ProviderContainer(
+        overrides: [
+          allDebtsProvider.overrideWith((_) => Stream.value([debt])),
+          allPaymentsProvider.overrideWith((_) => Stream.value(payments)),
+          recentPaymentsProvider.overrideWith((_) => Stream.value(payments)),
+          userPreferencesProvider.overrideWith(
+            (_) => Stream.value(buildTestPreferences()),
+          ),
+          subscriptionStateProvider.overrideWith(
+            (_) => Stream.value(SubscriptionState.free()),
+          ),
+          entitlementRefreshProvider.overrideWith(
+            (_) async => EntitlementSnapshot.free(),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: ReportsScreen()),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+      container.read(reportsDateRangeProvider.notifier).state = DateTimeRange(
+        start: DateTime(2026, 2, 1),
+        end: DateTime(2026, 2, 28),
+      );
+      await tester.pumpAndSettle();
+      final monthlyChart = tester.widget<BarChart>(find.byType(BarChart).first);
+      await tester.scrollUntilVisible(
+        find.text('Payments tracked'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+
+      expect(find.text('\$120.00'), findsOneWidget);
+      expect(monthlyChart.data.barGroups, hasLength(1));
+      expect(monthlyChart.data.barGroups.single.barRods.single.toY, 120);
+    },
+  );
 }
 
 class _FakeCsvExportService extends CsvExportService {

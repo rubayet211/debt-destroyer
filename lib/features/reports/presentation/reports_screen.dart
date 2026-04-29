@@ -20,7 +20,8 @@ class ReportsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(entitlementRefreshProvider);
     final debts = ref.watch(allDebtsProvider);
-    final payments = ref.watch(recentPaymentsProvider);
+    final payments = ref.watch(allPaymentsProvider);
+    final selectedRange = ref.watch(reportsDateRangeProvider);
     final subscription = ref.watch(subscriptionStateProvider).valueOrNull;
     final preferences =
         ref.watch(userPreferencesProvider).valueOrNull ??
@@ -51,6 +52,7 @@ class ReportsScreen extends ConsumerWidget {
       child: _buildBody(
         debts,
         payments,
+        selectedRange,
         currency,
         preferences.defaultStrategy,
         ref,
@@ -61,6 +63,7 @@ class ReportsScreen extends ConsumerWidget {
   Widget _buildBody(
     AsyncValue<List<Debt>> debts,
     AsyncValue<List<Payment>> payments,
+    DateTimeRange? selectedRange,
     String currency,
     StrategyType defaultStrategy,
     WidgetRef ref,
@@ -79,6 +82,7 @@ class ReportsScreen extends ConsumerWidget {
     return _ReportsBody(
       debts: debts.value,
       payments: payments.value,
+      selectedRange: selectedRange,
       currency: currency,
       defaultStrategy: defaultStrategy,
       ref: ref,
@@ -90,6 +94,7 @@ class _ReportsBody extends StatelessWidget {
   const _ReportsBody({
     required this.debts,
     required this.payments,
+    required this.selectedRange,
     required this.currency,
     required this.defaultStrategy,
     required this.ref,
@@ -97,6 +102,7 @@ class _ReportsBody extends StatelessWidget {
 
   final List<Debt> debts;
   final List<Payment> payments;
+  final DateTimeRange? selectedRange;
   final String currency;
   final StrategyType defaultStrategy;
   final WidgetRef ref;
@@ -114,6 +120,10 @@ class _ReportsBody extends StatelessWidget {
     final activeDebts = debts
         .where((debt) => debt.status == DebtStatus.active)
         .toList();
+    final filteredPayments = filterPaymentsByDateRangeForReports(
+      payments,
+      selectedRange,
+    );
     final byType = <DebtType, double>{};
     for (final debt in activeDebts) {
       byType.update(
@@ -122,14 +132,9 @@ class _ReportsBody extends StatelessWidget {
         ifAbsent: () => debt.currentBalance,
       );
     }
-    final monthlyPayments = <int, double>{};
-    for (final payment in payments) {
-      monthlyPayments.update(
-        payment.date.month,
-        (value) => value + payment.amount,
-        ifAbsent: () => payment.amount,
-      );
-    }
+    final monthlyPayments = buildMonthlyPaymentBucketsForReports(
+      filteredPayments,
+    );
 
     final projectionStart = DateTime.now();
     final minimumBudget = ref
@@ -155,6 +160,63 @@ class _ReportsBody extends StatelessWidget {
 
     return ListView(
       children: [
+        AppCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SectionHeader(
+                title: 'Reporting range',
+                trailing: selectedRange == null
+                    ? const SizedBox.shrink()
+                    : TextButton(
+                        onPressed: () {
+                          ref.read(reportsDateRangeProvider.notifier).state =
+                              null;
+                        },
+                        child: const Text('Reset'),
+                      ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                selectedRange == null
+                    ? 'Full history'
+                    : '${Formatters.date(selectedRange!.start)} - ${Formatters.date(selectedRange!.end)}',
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: payments.isEmpty
+                    ? null
+                    : () async {
+                        final dates =
+                            payments.map((payment) => payment.date).toList()
+                              ..sort((left, right) => left.compareTo(right));
+                        final picked = await showDateRangePicker(
+                          context: context,
+                          firstDate: dates.first,
+                          lastDate: dates.last,
+                          initialDateRange:
+                              selectedRange ??
+                              DateTimeRange(
+                                start: dates.first,
+                                end: dates.last,
+                              ),
+                        );
+                        if (picked != null) {
+                          ref.read(reportsDateRangeProvider.notifier).state =
+                              picked;
+                        }
+                      },
+                icon: const Icon(Icons.date_range_outlined),
+                label: Text(
+                  selectedRange == null
+                      ? 'Choose date range'
+                      : 'Change date range',
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
         AppCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -203,18 +265,22 @@ class _ReportsBody extends StatelessWidget {
                   ),
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
-                      showTitles: true,
-                      getTitlesWidget: (value, _) => Text(
-                        Formatters.shortMonth(DateTime(2026, value.toInt())),
-                      ),
+                      showTitles: monthlyPayments.isNotEmpty,
+                      getTitlesWidget: (value, _) {
+                        final index = value.toInt();
+                        if (index < 0 || index >= monthlyPayments.length) {
+                          return const SizedBox.shrink();
+                        }
+                        return Text(monthlyPayments[index].label);
+                      },
                     ),
                   ),
                 ),
-                barGroups: monthlyPayments.entries
+                barGroups: monthlyPayments
                     .map(
                       (entry) => BarChartGroupData(
-                        x: entry.key,
-                        barRods: [BarChartRodData(toY: entry.value)],
+                        x: entry.index,
+                        barRods: [BarChartRodData(toY: entry.total)],
                       ),
                     )
                     .toList(),
@@ -316,7 +382,7 @@ class _ReportsBody extends StatelessWidget {
               _SummaryLine(
                 label: 'Payments tracked',
                 value: Formatters.currency(
-                  payments.fold<double>(
+                  filteredPayments.fold<double>(
                     0,
                     (sum, payment) => sum + payment.amount,
                   ),
@@ -344,6 +410,81 @@ class _ReportsBody extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+List<Payment> filterPaymentsByDateRangeForReports(
+  List<Payment> payments,
+  DateTimeRange? selectedRange,
+) {
+  if (selectedRange == null) {
+    return [...payments]
+      ..sort((left, right) => left.date.compareTo(right.date));
+  }
+
+  final start = DateTime(
+    selectedRange.start.year,
+    selectedRange.start.month,
+    selectedRange.start.day,
+  );
+  final end = DateTime(
+    selectedRange.end.year,
+    selectedRange.end.month,
+    selectedRange.end.day,
+    23,
+    59,
+    59,
+    999,
+    999,
+  );
+  return payments
+      .where(
+        (payment) =>
+            !payment.date.isBefore(start) && !payment.date.isAfter(end),
+      )
+      .toList()
+    ..sort((left, right) => left.date.compareTo(right.date));
+}
+
+List<ReportsMonthlyPaymentBucket> buildMonthlyPaymentBucketsForReports(
+  List<Payment> payments,
+) {
+  final totals = <DateTime, double>{};
+  for (final payment in payments) {
+    final month = DateTime(payment.date.year, payment.date.month);
+    totals.update(
+      month,
+      (value) => value + payment.amount,
+      ifAbsent: () => payment.amount,
+    );
+  }
+
+  final months = totals.keys.toList()
+    ..sort((left, right) => left.compareTo(right));
+  return [
+    for (var index = 0; index < months.length; index += 1)
+      ReportsMonthlyPaymentBucket(
+        index: index,
+        month: months[index],
+        total: totals[months[index]] ?? 0,
+      ),
+  ];
+}
+
+class ReportsMonthlyPaymentBucket {
+  const ReportsMonthlyPaymentBucket({
+    required this.index,
+    required this.month,
+    required this.total,
+  });
+
+  final int index;
+  final DateTime month;
+  final double total;
+
+  String get label {
+    final shortYear = (month.year % 100).toString().padLeft(2, '0');
+    return '${Formatters.shortMonth(month)} $shortYear';
   }
 }
 

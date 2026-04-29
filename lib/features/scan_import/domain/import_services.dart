@@ -750,7 +750,6 @@ class ImportCoordinator {
         allowCloud: allowCloud,
       ),
     );
-    final stored = await documentVaultService.sealImport(input);
     final now = DateTime.now();
     final retainRaw = retentionService.shouldRetainRawOcr(preferences);
     final rawOcrExpiry = retentionService.rawOcrExpiry(preferences, now);
@@ -770,7 +769,7 @@ class ImportCoordinator {
     return ImportReviewBundle(
       document: ImportedDocument(
         id: const Uuid().v4(),
-        storageRef: stored.storageRef,
+        storageRef: null,
         sourceType: input.sourceType,
         mimeType: input.mimeType,
         createdAt: now,
@@ -792,7 +791,7 @@ class ImportCoordinator {
         linkedAt: null,
         pendingDeletionAt: null,
         purgedAt: null,
-        encryptedAt: stored.encryptedAt,
+        encryptedAt: null,
         hasRawOcrText: retainRaw && multiline.isNotEmpty,
       ),
       classification: classification,
@@ -805,6 +804,7 @@ class ImportCoordinator {
       errorMessage:
           extracted.errorMessage ??
           (!allowCloud ? 'Using local OCR parsing only.' : null),
+      sourcePath: input.path,
     );
   }
 

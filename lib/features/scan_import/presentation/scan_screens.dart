@@ -767,7 +767,7 @@ class _ParsedReviewConfirmScreenState
 
   Future<void> _save(BuildContext context) async {
     final prefs = ref.read(userPreferencesProvider).valueOrNull;
-    final documentsRepository = ref.read(documentsRepositoryProvider);
+    final finalizationService = ref.read(importFinalizationServiceProvider);
 
     if (_action == ImportActionType.createDebt) {
       final debtId = const Uuid().v4();
@@ -796,9 +796,13 @@ class _ParsedReviewConfirmScreenState
         remindersEnabled: true,
         customPriority: 99,
       );
-      await _persistReviewArtifacts(documentsRepository);
-      await ref.read(debtsRepositoryProvider).saveDebt(debt);
-      await documentsRepository.linkDocument(widget.bundle.document.id, debtId);
+      await finalizationService.finalize(
+        document: widget.bundle.document,
+        extraction: _buildParsedExtraction(),
+        linkedDebtId: debtId,
+        sourcePath: widget.bundle.sourcePath,
+        debtToCreate: debt,
+      );
     } else if (_action == ImportActionType.addPayment) {
       final debtId = _selectedDebtId;
       if (debtId == null) {
@@ -838,26 +842,27 @@ class _ParsedReviewConfirmScreenState
         );
         return;
       }
-      await _persistReviewArtifacts(documentsRepository);
-      await ref
-          .read(paymentsRepositoryProvider)
-          .savePayment(
-            Payment(
-              id: const Uuid().v4(),
-              debtId: debtId,
-              amount: amount,
-              date:
-                  selectedPaymentItem.date ??
-                  widget.bundle.candidate.paymentDate ??
-                  DateTime.now(),
-              method: 'Imported',
-              sourceType: PaymentSourceType.scan,
-              notes: _notes.text.trim(),
-              tags: const ['scan'],
-              createdAt: DateTime.now(),
-            ),
-          );
-      await documentsRepository.linkDocument(widget.bundle.document.id, debtId);
+      final payment = Payment(
+        id: const Uuid().v4(),
+        debtId: debtId,
+        amount: amount,
+        date:
+            selectedPaymentItem.date ??
+            widget.bundle.candidate.paymentDate ??
+            DateTime.now(),
+        method: 'Imported',
+        sourceType: PaymentSourceType.scan,
+        notes: _notes.text.trim(),
+        tags: const ['scan'],
+        createdAt: DateTime.now(),
+      );
+      await finalizationService.finalize(
+        document: widget.bundle.document,
+        extraction: _buildParsedExtraction(),
+        linkedDebtId: debtId,
+        sourcePath: widget.bundle.sourcePath,
+        payments: [payment],
+      );
     } else {
       final debtId = _selectedDebtId;
       if (debtId == null) {
@@ -902,8 +907,9 @@ class _ParsedReviewConfirmScreenState
       final existingPayments = await paymentsRepository.loadPaymentsForDebt(
         debtId,
       );
+      final payments = <Payment>[];
       for (final item in selectedItems) {
-        await paymentsRepository.savePayment(
+        payments.add(
           Payment(
             id: const Uuid().v4(),
             debtId: debtId,
@@ -918,11 +924,16 @@ class _ParsedReviewConfirmScreenState
             ].where((part) => part.isNotEmpty).join(' • '),
             tags: const ['scan', 'statement'],
             createdAt: DateTime.now(),
-            ),
-          );
+          ),
+        );
       }
-      await _persistReviewArtifacts(documentsRepository);
-      await documentsRepository.linkDocument(widget.bundle.document.id, debtId);
+      await finalizationService.finalize(
+        document: widget.bundle.document,
+        extraction: _buildParsedExtraction(),
+        linkedDebtId: debtId,
+        sourcePath: widget.bundle.sourcePath,
+        payments: payments,
+      );
     }
 
     ref.read(scanImportStateProvider.notifier).clear();
@@ -931,38 +942,33 @@ class _ParsedReviewConfirmScreenState
     }
   }
 
-  Future<void> _persistReviewArtifacts(
-    DocumentsRepository documentsRepository,
-  ) async {
-    await documentsRepository.saveDocument(widget.bundle.document);
-    await documentsRepository.saveParsedExtraction(
-      ParsedExtraction(
-        id: const Uuid().v4(),
-        documentId: widget.bundle.document.id,
-        classification: widget.bundle.classification,
-        confidence: widget.bundle.candidate.confidence,
-        payloadJson: jsonEncode({
-          'title': _title.text,
-          'creditorName': _creditor.text,
-          'balance': _balance.text,
-          'apr': _apr.text,
-          'minimum': _minimum.text,
-          'paymentAmount': _paymentAmount.text,
-          'statementLineItems': _lineItems
-              .map(
-                (item) => {
-                  'description': item.description,
-                  'amount': item.amount,
-                  'date': item.date?.toIso8601String(),
-                  'type': item.type.name,
-                  'selected': item.isSelected,
-                },
-              )
-              .toList(),
-        }),
-        ambiguityNotes: widget.bundle.errorMessage ?? '',
-        createdAt: DateTime.now(),
-      ),
+  ParsedExtraction _buildParsedExtraction() {
+    return ParsedExtraction(
+      id: const Uuid().v4(),
+      documentId: widget.bundle.document.id,
+      classification: widget.bundle.classification,
+      confidence: widget.bundle.candidate.confidence,
+      payloadJson: jsonEncode({
+        'title': _title.text,
+        'creditorName': _creditor.text,
+        'balance': _balance.text,
+        'apr': _apr.text,
+        'minimum': _minimum.text,
+        'paymentAmount': _paymentAmount.text,
+        'statementLineItems': _lineItems
+            .map(
+              (item) => {
+                'description': item.description,
+                'amount': item.amount,
+                'date': item.date?.toIso8601String(),
+                'type': item.type.name,
+                'selected': item.isSelected,
+              },
+            )
+            .toList(),
+      }),
+      ambiguityNotes: widget.bundle.errorMessage ?? '',
+      createdAt: DateTime.now(),
     );
   }
 
