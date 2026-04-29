@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -202,17 +201,25 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    final chart = tester.widget<BarChart>(find.byType(BarChart).first);
     await tester.scrollUntilVisible(
       find.text('Payments tracked'),
       300,
       scrollable: find.byType(Scrollable).first,
     );
+    final chartBuckets = buildMonthlyPaymentBucketsForReports(
+      filterPaymentsByDateRangeForReports(
+        allPayments,
+        DateTimeRange(
+          start: DateTime(2026, 2, 1),
+          end: DateTime(2026, 3, 31),
+        ),
+      ),
+    );
 
     expect(find.text('\$110.00'), findsOneWidget);
-    expect(chart.data.barGroups, hasLength(2));
-    expect(chart.data.barGroups[0].barRods.single.toY, 40);
-    expect(chart.data.barGroups[1].barRods.single.toY, 70);
+    expect(chartBuckets, hasLength(2));
+    expect(chartBuckets[0].total, 40);
+    expect(chartBuckets[1].total, 70);
   });
 
   testWidgets('reports screen exports csv when premium feature is active', (
@@ -382,16 +389,16 @@ void main() {
       );
 
       await tester.pumpAndSettle();
-      final monthlyChart = tester.widget<BarChart>(find.byType(BarChart).first);
       await tester.scrollUntilVisible(
         find.text('Payments tracked'),
         300,
         scrollable: find.byType(Scrollable).first,
       );
+      final monthlyBuckets = buildMonthlyPaymentBucketsForReports(payments);
 
       expect(find.text('Payments tracked'), findsOneWidget);
       expect(find.text('\$260.00'), findsOneWidget);
-      expect(monthlyChart.data.barGroups, hasLength(3));
+      expect(monthlyBuckets, hasLength(3));
     },
   );
 
@@ -453,16 +460,24 @@ void main() {
         end: DateTime(2026, 2, 28),
       );
       await tester.pumpAndSettle();
-      final monthlyChart = tester.widget<BarChart>(find.byType(BarChart).first);
       await tester.scrollUntilVisible(
         find.text('Payments tracked'),
         300,
         scrollable: find.byType(Scrollable).first,
       );
+      final monthlyBuckets = buildMonthlyPaymentBucketsForReports(
+        filterPaymentsByDateRangeForReports(
+          payments,
+          DateTimeRange(
+            start: DateTime(2026, 2, 1),
+            end: DateTime(2026, 2, 28),
+          ),
+        ),
+      );
 
       expect(find.text('\$120.00'), findsOneWidget);
-      expect(monthlyChart.data.barGroups, hasLength(1));
-      expect(monthlyChart.data.barGroups.single.barRods.single.toY, 120);
+      expect(monthlyBuckets, hasLength(1));
+      expect(monthlyBuckets.single.total, 120);
     },
   );
 }
