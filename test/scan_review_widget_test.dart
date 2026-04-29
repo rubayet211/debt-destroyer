@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:debt_destroyer/features/scan_import/presentation/scan_screens.dart';
 import 'package:debt_destroyer/shared/data/repositories.dart';
@@ -12,6 +13,7 @@ import 'package:debt_destroyer/shared/models/import_models.dart';
 import 'package:debt_destroyer/shared/models/payment.dart';
 import 'package:debt_destroyer/shared/models/user_preferences.dart';
 import 'package:debt_destroyer/shared/providers/app_providers.dart';
+import 'test_helpers.dart';
 
 void main() {
   testWidgets(
@@ -219,6 +221,183 @@ void main() {
     expect(paymentsRepository.savedPayments, isEmpty);
   });
 
+  testWidgets(
+    'review screen leaves storage unchanged when add-payment validation fails',
+    (tester) async {
+      final documentsRepository = _TestDocumentsRepository();
+      final paymentsRepository = _TestPaymentsRepository();
+      final debt = buildTestDebt(id: 'debt-1');
+      final bundle = ImportReviewBundle(
+        document: ImportedDocument(
+          id: 'doc-2',
+          storageRef: 'vault-2',
+          sourceType: DocumentSourceType.gallery,
+          mimeType: 'image/png',
+          createdAt: DateTime(2026, 3, 1),
+          lifecycleState: DocumentLifecycleState.processed,
+          linkedDebtId: null,
+          rawOcrText: null,
+          parseStatus: ParseStatus.success,
+          parseVersion: 'v1',
+          deleted: false,
+          retentionExpiresAt: null,
+          rawOcrExpiresAt: null,
+          processedAt: DateTime(2026, 3, 1),
+          linkedAt: null,
+          pendingDeletionAt: null,
+          purgedAt: null,
+          encryptedAt: DateTime(2026, 3, 1),
+          hasRawOcrText: false,
+        ),
+        classification: DocumentClassification.creditCardStatement,
+        normalizedText: 'ACME CREDIT CARD STATEMENT',
+        candidate: const ExtractionCandidate(
+          title: 'Acme Statement',
+          creditorName: 'Acme Bank',
+          debtType: DebtType.creditCard,
+          currency: 'USD',
+          confidence: 0.7,
+        ),
+        summary: const StatementSummaryCandidate(
+          title: 'Acme Statement',
+          creditorName: 'Acme Bank',
+          debtType: DebtType.creditCard,
+          currency: 'USD',
+          confidence: 0.7,
+        ),
+        statementLineItems: const [],
+        issues: const [],
+        reviewMode: ImportReviewMode.summaryOnly,
+        errorMessage: null,
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            debtsProvider.overrideWith((_) => Stream.value([debt])),
+            documentsRepositoryProvider.overrideWithValue(documentsRepository),
+            paymentsRepositoryProvider.overrideWithValue(paymentsRepository),
+            userPreferencesProvider.overrideWith(
+              (_) => Stream.value(UserPreferences.defaults()),
+            ),
+            paymentsByDebtProvider(
+              debt.id,
+            ).overrideWith((_) => Stream.value(const <Payment>[])),
+          ],
+          child: MaterialApp(home: ParsedReviewConfirmScreen(bundle: bundle)),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(DropdownButtonFormField<ImportActionType>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add payment').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(DropdownButtonFormField<String>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Visa').last);
+      await tester.pumpAndSettle();
+      await tester.drag(find.byType(ListView), const Offset(0, -800));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Save'));
+      await tester.pump();
+
+      expect(documentsRepository.savedDocuments, isEmpty);
+      expect(documentsRepository.savedExtractions, isEmpty);
+      expect(paymentsRepository.savedPayments, isEmpty);
+    },
+  );
+
+  testWidgets('review screen persists artifacts only after successful save', (
+    tester,
+  ) async {
+    final documentsRepository = _TestDocumentsRepository();
+    final debtsRepository = _TestDebtsRepository();
+    final bundle = ImportReviewBundle(
+      document: ImportedDocument(
+        id: 'doc-success',
+        storageRef: 'vault-success',
+        sourceType: DocumentSourceType.gallery,
+        mimeType: 'image/png',
+        createdAt: DateTime(2026, 3, 1),
+        lifecycleState: DocumentLifecycleState.processed,
+        linkedDebtId: null,
+        rawOcrText: null,
+        parseStatus: ParseStatus.success,
+        parseVersion: 'v1',
+        deleted: false,
+        retentionExpiresAt: null,
+        rawOcrExpiresAt: null,
+        processedAt: DateTime(2026, 3, 1),
+        linkedAt: null,
+        pendingDeletionAt: null,
+        purgedAt: null,
+        encryptedAt: DateTime(2026, 3, 1),
+        hasRawOcrText: false,
+      ),
+      classification: DocumentClassification.creditCardStatement,
+      normalizedText: 'ACME CREDIT CARD STATEMENT',
+      candidate: const ExtractionCandidate(
+        title: 'Imported debt',
+        creditorName: 'Acme Bank',
+        debtType: DebtType.creditCard,
+        currentBalance: 500,
+        confidence: 0.9,
+      ),
+      summary: const StatementSummaryCandidate(
+        title: 'Imported debt',
+        creditorName: 'Acme Bank',
+        debtType: DebtType.creditCard,
+        currentBalance: 500,
+        confidence: 0.9,
+      ),
+      statementLineItems: const [],
+      issues: const [],
+      reviewMode: ImportReviewMode.summaryOnly,
+      errorMessage: null,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          debtsProvider.overrideWith((_) => Stream.value(const <Debt>[])),
+          debtsRepositoryProvider.overrideWithValue(debtsRepository),
+          documentsRepositoryProvider.overrideWithValue(documentsRepository),
+          userPreferencesProvider.overrideWith(
+            (_) => Stream.value(UserPreferences.defaults()),
+          ),
+        ],
+        child: MaterialApp.router(
+          routerConfig: GoRouter(
+            routes: [
+              GoRoute(
+                path: '/',
+                builder: (context, state) =>
+                    ParsedReviewConfirmScreen(bundle: bundle),
+              ),
+              GoRoute(
+                path: '/dashboard',
+                builder: (context, state) => const Scaffold(
+                  body: Text('Dashboard'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView), const Offset(0, -800));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(documentsRepository.savedDocuments, hasLength(1));
+    expect(documentsRepository.savedExtractions, hasLength(1));
+    expect(debtsRepository.savedDebts, hasLength(1));
+  });
+
   testWidgets('review screen surfaces parse failure and manual fallback copy', (
     tester,
   ) async {
@@ -298,6 +477,7 @@ void main() {
 
 class _TestDocumentsRepository implements DocumentsRepository {
   final List<ImportedDocument> savedDocuments = [];
+  final List<ParsedExtraction> savedExtractions = [];
 
   @override
   Future<int> countSuccessfulScansInMonth(DateTime month) async => 0;
@@ -333,7 +513,9 @@ class _TestDocumentsRepository implements DocumentsRepository {
   }
 
   @override
-  Future<void> saveParsedExtraction(ParsedExtraction extraction) async {}
+  Future<void> saveParsedExtraction(ParsedExtraction extraction) async {
+    savedExtractions.add(extraction);
+  }
 
   @override
   Future<void> trimRawOcr(String documentId) async {}
@@ -341,6 +523,38 @@ class _TestDocumentsRepository implements DocumentsRepository {
   @override
   Stream<List<ImportedDocument>> watchDocuments({String? debtId}) =>
       Stream.value(const <ImportedDocument>[]);
+}
+
+class _TestDebtsRepository implements DebtsRepository {
+  final List<Debt> savedDebts = [];
+
+  @override
+  Future<void> archiveDebt(String id) async {}
+
+  @override
+  Future<void> deleteDebt(String id) async {}
+
+  @override
+  Future<List<Debt>> loadDebts({bool includeArchived = false}) async =>
+      savedDebts;
+
+  @override
+  Future<void> markPaidOff(String id) async {}
+
+  @override
+  Future<void> restoreDebt(String id) async {}
+
+  @override
+  Future<void> saveDebt(Debt debt) async {
+    savedDebts.add(debt);
+  }
+
+  @override
+  Stream<Debt?> watchDebt(String id) => Stream.value(null);
+
+  @override
+  Stream<List<Debt>> watchDebts({bool includeArchived = false}) =>
+      Stream.value(savedDebts);
 }
 
 class _TestPaymentsRepository implements PaymentsRepository {

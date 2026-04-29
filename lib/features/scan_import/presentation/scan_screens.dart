@@ -11,6 +11,7 @@ import 'package:uuid/uuid.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/utils/parsers.dart';
 import '../../../core/widgets/app_widgets.dart';
+import '../../../shared/data/repositories.dart';
 import '../../../shared/enums/app_enums.dart';
 import '../../../shared/models/debt.dart';
 import '../../../shared/models/import_models.dart';
@@ -767,36 +768,6 @@ class _ParsedReviewConfirmScreenState
   Future<void> _save(BuildContext context) async {
     final prefs = ref.read(userPreferencesProvider).valueOrNull;
     final documentsRepository = ref.read(documentsRepositoryProvider);
-    await documentsRepository.saveDocument(widget.bundle.document);
-    await documentsRepository.saveParsedExtraction(
-      ParsedExtraction(
-        id: const Uuid().v4(),
-        documentId: widget.bundle.document.id,
-        classification: widget.bundle.classification,
-        confidence: widget.bundle.candidate.confidence,
-        payloadJson: jsonEncode({
-          'title': _title.text,
-          'creditorName': _creditor.text,
-          'balance': _balance.text,
-          'apr': _apr.text,
-          'minimum': _minimum.text,
-          'paymentAmount': _paymentAmount.text,
-          'statementLineItems': _lineItems
-              .map(
-                (item) => {
-                  'description': item.description,
-                  'amount': item.amount,
-                  'date': item.date?.toIso8601String(),
-                  'type': item.type.name,
-                  'selected': item.isSelected,
-                },
-              )
-              .toList(),
-        }),
-        ambiguityNotes: widget.bundle.errorMessage ?? '',
-        createdAt: DateTime.now(),
-      ),
-    );
 
     if (_action == ImportActionType.createDebt) {
       final debtId = const Uuid().v4();
@@ -825,6 +796,7 @@ class _ParsedReviewConfirmScreenState
         remindersEnabled: true,
         customPriority: 99,
       );
+      await _persistReviewArtifacts(documentsRepository);
       await ref.read(debtsRepositoryProvider).saveDebt(debt);
       await documentsRepository.linkDocument(widget.bundle.document.id, debtId);
     } else if (_action == ImportActionType.addPayment) {
@@ -866,6 +838,7 @@ class _ParsedReviewConfirmScreenState
         );
         return;
       }
+      await _persistReviewArtifacts(documentsRepository);
       await ref
           .read(paymentsRepositoryProvider)
           .savePayment(
@@ -945,9 +918,10 @@ class _ParsedReviewConfirmScreenState
             ].where((part) => part.isNotEmpty).join(' • '),
             tags: const ['scan', 'statement'],
             createdAt: DateTime.now(),
-          ),
-        );
+            ),
+          );
       }
+      await _persistReviewArtifacts(documentsRepository);
       await documentsRepository.linkDocument(widget.bundle.document.id, debtId);
     }
 
@@ -955,6 +929,41 @@ class _ParsedReviewConfirmScreenState
     if (context.mounted) {
       context.go('/dashboard');
     }
+  }
+
+  Future<void> _persistReviewArtifacts(
+    DocumentsRepository documentsRepository,
+  ) async {
+    await documentsRepository.saveDocument(widget.bundle.document);
+    await documentsRepository.saveParsedExtraction(
+      ParsedExtraction(
+        id: const Uuid().v4(),
+        documentId: widget.bundle.document.id,
+        classification: widget.bundle.classification,
+        confidence: widget.bundle.candidate.confidence,
+        payloadJson: jsonEncode({
+          'title': _title.text,
+          'creditorName': _creditor.text,
+          'balance': _balance.text,
+          'apr': _apr.text,
+          'minimum': _minimum.text,
+          'paymentAmount': _paymentAmount.text,
+          'statementLineItems': _lineItems
+              .map(
+                (item) => {
+                  'description': item.description,
+                  'amount': item.amount,
+                  'date': item.date?.toIso8601String(),
+                  'type': item.type.name,
+                  'selected': item.isSelected,
+                },
+              )
+              .toList(),
+        }),
+        ambiguityNotes: widget.bundle.errorMessage ?? '',
+        createdAt: DateTime.now(),
+      ),
+    );
   }
 
   String _periodLabel(StatementSummaryCandidate summary) {

@@ -434,11 +434,9 @@ class ScanImportController
   }) async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
-      final bundle = await ref
+      return ref
           .read(importCoordinatorProvider)
           .process(input: input, allowCloud: allowCloud);
-      await ref.read(documentsRepositoryProvider).saveDocument(bundle.document);
-      return bundle;
     });
   }
 
