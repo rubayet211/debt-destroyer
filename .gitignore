@@ -50,3 +50,4 @@ app.*.map.json
 /backend/node_modules/
 /backend/dist/
 /backend/test/*.js
+/.worktrees/
