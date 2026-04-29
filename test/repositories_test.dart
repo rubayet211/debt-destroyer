@@ -85,6 +85,150 @@ void main() {
     expect(updated.single.status, DebtStatus.active);
   });
 
+  test(
+    'saving a payment decrements current stored balance instead of deriving from original balance',
+    () async {
+      final debt = Debt(
+        id: 'd-balance-delta',
+        title: 'Visa',
+        creditorName: 'Bank',
+        type: DebtType.creditCard,
+        currency: 'USD',
+        originalBalance: 1000,
+        currentBalance: 640,
+        apr: 20,
+        minimumPayment: 60,
+        dueDate: null,
+        paymentFrequency: PaymentFrequency.monthly,
+        createdAt: DateTime(2026, 1, 1),
+        updatedAt: DateTime(2026, 1, 1),
+        notes: '',
+        tags: const [],
+        status: DebtStatus.active,
+        remindersEnabled: false,
+        customPriority: 1,
+      );
+      await debtsRepository.saveDebt(debt);
+
+      await paymentsRepository.savePayment(
+        Payment(
+          id: 'payment-delta-1',
+          debtId: debt.id,
+          amount: 50,
+          date: DateTime(2026, 1, 20),
+          method: 'ACH',
+          sourceType: PaymentSourceType.manual,
+          notes: '',
+          tags: const [],
+          createdAt: DateTime(2026, 1, 20),
+        ),
+      );
+
+      final updated = await debtsRepository.loadDebts();
+      expect(updated.single.currentBalance, 590);
+    },
+  );
+
+  test('updating an existing payment only applies the payment delta', () async {
+    final debt = Debt(
+      id: 'd-payment-update',
+      title: 'Visa',
+      creditorName: 'Bank',
+      type: DebtType.creditCard,
+      currency: 'USD',
+      originalBalance: 1000,
+      currentBalance: 640,
+      apr: 20,
+      minimumPayment: 60,
+      dueDate: null,
+      paymentFrequency: PaymentFrequency.monthly,
+      createdAt: DateTime(2026, 1, 1),
+      updatedAt: DateTime(2026, 1, 1),
+      notes: '',
+      tags: const [],
+      status: DebtStatus.active,
+      remindersEnabled: false,
+      customPriority: 1,
+    );
+    await debtsRepository.saveDebt(debt);
+
+    await paymentsRepository.savePayment(
+      Payment(
+        id: 'payment-update-1',
+        debtId: debt.id,
+        amount: 50,
+        date: DateTime(2026, 1, 20),
+        method: 'ACH',
+        sourceType: PaymentSourceType.manual,
+        notes: '',
+        tags: const [],
+        createdAt: DateTime(2026, 1, 20),
+      ),
+    );
+    await paymentsRepository.savePayment(
+      Payment(
+        id: 'payment-update-1',
+        debtId: debt.id,
+        amount: 80,
+        date: DateTime(2026, 1, 20),
+        method: 'ACH',
+        sourceType: PaymentSourceType.manual,
+        notes: '',
+        tags: const [],
+        createdAt: DateTime(2026, 1, 20),
+      ),
+    );
+
+    final updated = await debtsRepository.loadDebts();
+    expect(updated.single.currentBalance, 560);
+  });
+
+  test(
+    'deleting a payment restores the deducted amount to current balance',
+    () async {
+      final debt = Debt(
+        id: 'd-payment-delete',
+        title: 'Visa',
+        creditorName: 'Bank',
+        type: DebtType.creditCard,
+        currency: 'USD',
+        originalBalance: 1000,
+        currentBalance: 640,
+        apr: 20,
+        minimumPayment: 60,
+        dueDate: null,
+        paymentFrequency: PaymentFrequency.monthly,
+        createdAt: DateTime(2026, 1, 1),
+        updatedAt: DateTime(2026, 1, 1),
+        notes: '',
+        tags: const [],
+        status: DebtStatus.active,
+        remindersEnabled: false,
+        customPriority: 1,
+      );
+      await debtsRepository.saveDebt(debt);
+
+      await paymentsRepository.savePayment(
+        Payment(
+          id: 'payment-delete-1',
+          debtId: debt.id,
+          amount: 50,
+          date: DateTime(2026, 1, 20),
+          method: 'ACH',
+          sourceType: PaymentSourceType.manual,
+          notes: '',
+          tags: const [],
+          createdAt: DateTime(2026, 1, 20),
+        ),
+      );
+      await paymentsRepository.deletePayment('payment-delete-1');
+
+      final updated = await debtsRepository.loadDebts();
+      expect(updated.single.currentBalance, 640);
+      expect(updated.single.status, DebtStatus.active);
+    },
+  );
+
   test('debt financial terms persist through repository mapping', () async {
     final debt = Debt(
       id: 'd-financial-terms',

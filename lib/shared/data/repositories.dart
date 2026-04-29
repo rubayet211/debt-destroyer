@@ -274,6 +274,10 @@ class DriftPaymentsRepository implements PaymentsRepository {
 
   @override
   Future<void> savePayment(Payment payment) async {
+    final existing = await (database.select(
+      database.paymentsTable,
+    )..where((tbl) => tbl.id.equals(payment.id))).getSingleOrNull();
+
     await database
         .into(database.paymentsTable)
         .insertOnConflictUpdate(
@@ -289,7 +293,10 @@ class DriftPaymentsRepository implements PaymentsRepository {
             createdAt: payment.createdAt,
           ),
         );
-    await _recalculateDebtBalance(payment.debtId);
+
+    final priorAmount = existing?.amount ?? 0;
+    final amountDelta = payment.amount - priorAmount;
+    await _applyPaymentDelta(payment.debtId, amountDelta);
   }
 
   @override
@@ -301,34 +308,33 @@ class DriftPaymentsRepository implements PaymentsRepository {
       database.paymentsTable,
     )..where((tbl) => tbl.id.equals(id))).go();
     if (payment != null) {
-      await _recalculateDebtBalance(payment.debtId);
+      await _applyPaymentDelta(payment.debtId, -payment.amount);
     }
   }
 
-  Future<void> _recalculateDebtBalance(String debtId) async {
+  Future<void> _applyPaymentDelta(String debtId, double amountDelta) async {
     final debtRow = await (database.select(
       database.debtsTable,
     )..where((tbl) => tbl.id.equals(debtId))).getSingleOrNull();
     if (debtRow == null) {
       return;
     }
-    final payments = await loadPaymentsForDebt(debtId);
-    final totalPaid = payments.fold<double>(
-      0,
-      (sum, payment) => sum + payment.amount,
-    );
-    final nextBalance = (debtRow.originalBalance - totalPaid).clamp(
-      0,
-      debtRow.originalBalance,
-    );
+
+    final nextBalance = (debtRow.currentBalance - amountDelta)
+        .clamp(0, double.infinity)
+        .toDouble();
+    final currentStatus = DebtStatus.values.byName(debtRow.status);
     final nextStatus = nextBalance == 0
         ? DebtStatus.paidOff
-        : DebtStatus.values.byName(debtRow.status);
+        : currentStatus == DebtStatus.paidOff
+        ? DebtStatus.active
+        : currentStatus;
+
     await (database.update(
       database.debtsTable,
     )..where((tbl) => tbl.id.equals(debtId))).write(
       DebtsTableCompanion(
-        currentBalance: Value(nextBalance.toDouble()),
+        currentBalance: Value(nextBalance),
         status: Value(nextStatus.name),
         updatedAt: Value(DateTime.now()),
       ),
