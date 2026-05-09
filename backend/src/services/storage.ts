@@ -80,6 +80,16 @@ export type ExtractionAuditRecord = {
   warnings: string[];
 };
 
+export type CleanupSummary = {
+  expiredChallengesDeleted: number;
+  expiredRefreshTokensDeleted: number;
+  expiredReservationsReleased: number;
+  staleReservationsDeleted: number;
+  oldRateLimitEventsDeleted: number;
+  oldAuditEventsDeleted: number;
+  oldExtractionAuditsDeleted: number;
+};
+
 export interface AppStore {
   createChallenge(record: ChallengeRecord): Promise<void>;
   getChallenge(challengeId: string): Promise<ChallengeRecord | null>;
@@ -116,6 +126,8 @@ export interface AppStore {
     remaining: number;
     resetAt: Date;
   }): Promise<void>;
+  checkHealth(timeoutMs?: number): Promise<boolean>;
+  cleanupExpiredData(referenceTime?: Date): Promise<CleanupSummary>;
   close?(): Promise<void>;
 }
 
@@ -282,6 +294,59 @@ export class MemoryAppStore implements AppStore {
     remaining: number;
     resetAt: Date;
   }) {}
+
+  async checkHealth() {
+    return true;
+  }
+
+  async cleanupExpiredData(referenceTime = new Date()) {
+    const now = referenceTime.getTime();
+    let expiredChallengesDeleted = 0;
+    for (const [challengeId, challenge] of this.challenges.entries()) {
+      if (challenge.expiresAt.getTime() <= now) {
+        this.challenges.delete(challengeId);
+        expiredChallengesDeleted += 1;
+      }
+    }
+
+    let expiredRefreshTokensDeleted = 0;
+    for (const [tokenHash, token] of this.refreshTokens.entries()) {
+      if (token.expiresAt.getTime() <= now) {
+        this.refreshTokens.delete(tokenHash);
+        expiredRefreshTokensDeleted += 1;
+      }
+    }
+
+    let expiredReservationsReleased = 0;
+    let staleReservationsDeleted = 0;
+    for (const [reservationId, reservation] of this.reservations.entries()) {
+      if (
+        reservation.status === 'reserved' &&
+        reservation.expiresAt.getTime() <= now
+      ) {
+        reservation.status = 'released';
+        expiredReservationsReleased += 1;
+        continue;
+      }
+      if (
+        reservation.status !== 'reserved' &&
+        reservation.expiresAt.getTime() < now - 24 * 60 * 60 * 1000
+      ) {
+        this.reservations.delete(reservationId);
+        staleReservationsDeleted += 1;
+      }
+    }
+
+    return {
+      expiredChallengesDeleted,
+      expiredRefreshTokensDeleted,
+      expiredReservationsReleased,
+      staleReservationsDeleted,
+      oldRateLimitEventsDeleted: 0,
+      oldAuditEventsDeleted: 0,
+      oldExtractionAuditsDeleted: 0,
+    };
+  }
 
   private reclaimExpiredReservations() {
     const now = Date.now();
@@ -927,13 +992,114 @@ export class PostgresAppStore implements AppStore {
     );
   }
 
+  async checkHealth(timeoutMs = 1200) {
+    return withTimeout(
+      this.pool.query('select 1').then(() => true),
+      timeoutMs,
+      false,
+    );
+  }
+
+  async cleanupExpiredData(referenceTime = new Date()) {
+    const client = await this.pool.connect();
+    try {
+      await client.query('begin');
+      const expiredChallenges = await client.query(
+        `
+          delete from attestation_challenges
+          where expires_at <= $1
+             or (consumed_at is not null and consumed_at <= $1 - interval '7 days')
+        `,
+        [referenceTime],
+      );
+
+      const expiredRefreshTokens = await client.query(
+        `
+          delete from refresh_tokens
+          where expires_at <= $1
+             or (revoked_at is not null and revoked_at <= $1 - interval '30 days')
+        `,
+        [referenceTime],
+      );
+
+      const releasedReservations = await client.query(
+        `
+          update quota_reservations
+          set status = 'released', released_at = coalesce(released_at, $1)
+          where status = 'reserved'
+            and expires_at <= $1
+        `,
+        [referenceTime],
+      );
+
+      const staleReservations = await client.query(
+        `
+          delete from quota_reservations
+          where status in ('released', 'committed')
+            and coalesce(released_at, committed_at, expires_at) <= $1 - interval '30 days'
+        `,
+        [referenceTime],
+      );
+
+      const oldRateLimitEvents = await client.query(
+        `
+          delete from rate_limit_events
+          where created_at <= $1 - interval '14 days'
+        `,
+        [referenceTime],
+      );
+
+      const oldAuditEvents = await client.query(
+        `
+          delete from audit_events
+          where created_at <= $1 - interval '30 days'
+        `,
+        [referenceTime],
+      );
+
+      const oldExtractionAudits = await client.query(
+        `
+          delete from extraction_requests
+          where created_at <= $1 - interval '90 days'
+        `,
+        [referenceTime],
+      );
+
+      await client.query('commit');
+      return {
+        expiredChallengesDeleted: expiredChallenges.rowCount ?? 0,
+        expiredRefreshTokensDeleted: expiredRefreshTokens.rowCount ?? 0,
+        expiredReservationsReleased: releasedReservations.rowCount ?? 0,
+        staleReservationsDeleted: staleReservations.rowCount ?? 0,
+        oldRateLimitEventsDeleted: oldRateLimitEvents.rowCount ?? 0,
+        oldAuditEventsDeleted: oldAuditEvents.rowCount ?? 0,
+        oldExtractionAuditsDeleted: oldExtractionAudits.rowCount ?? 0,
+      };
+    } catch (error) {
+      await client.query('rollback');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async close() {
     await this.pool.end();
   }
 }
 
-export async function createStore(postgresUrl?: string) {
+export async function createStore(
+  postgresUrl?: string,
+  environment: string = 'development',
+) {
+  const isLocalEnvironment =
+    environment === 'development' || environment === 'test';
   if (!postgresUrl) {
+    if (!isLocalEnvironment) {
+      throw new Error(
+        'POSTGRES_URL is required in staging/production. Refusing to use memory storage.',
+      );
+    }
     return new MemoryAppStore();
   }
   return PostgresAppStore.create(postgresUrl);
@@ -952,4 +1118,14 @@ export function monthKeyFor(date: Date) {
 
 export function hashToken(token: string) {
   return sha256(token);
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T) {
+  return new Promise<T>((resolve) => {
+    const timer = setTimeout(() => resolve(fallback), timeoutMs);
+    promise
+      .then((value) => resolve(value))
+      .catch(() => resolve(fallback))
+      .finally(() => clearTimeout(timer));
+  });
 }

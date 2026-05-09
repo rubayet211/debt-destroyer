@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
+import jwt from 'jsonwebtoken';
 
 import { createApp } from '../src/app.js';
 import { buildDebugAttestationToken } from '../src/services/attestation.js';
@@ -157,5 +158,55 @@ describe('mobile bootstrap auth flow', () => {
     expect(statuses).toEqual([200, 400]);
     const failed = [first, second].find((response) => response.statusCode === 400);
     expect(failed?.json().error).toBe('challenge_consumed');
+  });
+
+  test('rejects token with wrong issuer claim', async () => {
+    const forged = jwt.sign(
+      {
+        installId: 'install-1',
+        type: 'access',
+      },
+      'test-access-secret',
+      {
+        expiresIn: 900,
+        issuer: 'wrong-issuer',
+        audience: 'debt-destroyer-mobile',
+        subject: 'install-1',
+      },
+    );
+
+    const capabilities = await app.inject({
+      method: 'GET',
+      url: '/v1/mobile/me/capabilities',
+      headers: { authorization: `Bearer ${forged}` },
+    });
+
+    expect(capabilities.statusCode).toBe(401);
+    expect(capabilities.json().error).toBe('invalid_auth');
+  });
+
+  test('rejects token with wrong audience claim', async () => {
+    const forged = jwt.sign(
+      {
+        installId: 'install-1',
+        type: 'access',
+      },
+      'test-access-secret',
+      {
+        expiresIn: 900,
+        issuer: 'debt-destroyer-backend',
+        audience: 'wrong-audience',
+        subject: 'install-1',
+      },
+    );
+
+    const capabilities = await app.inject({
+      method: 'GET',
+      url: '/v1/mobile/me/capabilities',
+      headers: { authorization: `Bearer ${forged}` },
+    });
+
+    expect(capabilities.statusCode).toBe(401);
+    expect(capabilities.json().error).toBe('invalid_auth');
   });
 });

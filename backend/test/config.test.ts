@@ -14,11 +14,22 @@ afterEach(() => {
 });
 
 describe('backend config validation', () => {
+  function setRequiredProductionEnv() {
+    process.env.POSTGRES_URL =
+      'postgres://postgres:postgres@localhost:5432/debt_destroyer';
+    process.env.REDIS_URL = 'redis://localhost:6379';
+    process.env.GEMINI_API_KEY = 'gemini-key';
+    process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON =
+      '{"type":"service_account","project_id":"test"}';
+    process.env.PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER = '123456789';
+  }
+
   test('rejects default JWT secrets in production', () => {
     process.env.NODE_ENV = 'production';
-    process.env.PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER = '123456789';
+    setRequiredProductionEnv();
     delete process.env.JWT_ACCESS_SECRET;
     delete process.env.JWT_REFRESH_SECRET;
+    delete process.env.JWT_SECRET;
 
     expect(() => loadConfig()).toThrow(/JWT_ACCESS_SECRET/);
   });
@@ -44,11 +55,58 @@ describe('backend config validation', () => {
 
   test('requires play integrity project number outside local environments', () => {
     process.env.NODE_ENV = 'production';
+    process.env.POSTGRES_URL =
+      'postgres://postgres:postgres@localhost:5432/debt_destroyer';
+    process.env.REDIS_URL = 'redis://localhost:6379';
+    process.env.GEMINI_API_KEY = 'gemini-key';
+    process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON =
+      '{"type":"service_account","project_id":"test"}';
     process.env.JWT_ACCESS_SECRET = 'prod-access-secret';
     process.env.JWT_REFRESH_SECRET = 'prod-refresh-secret';
     delete process.env.PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER;
 
     expect(() => loadConfig()).toThrow(/PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER/);
+  });
+
+  test('requires postgres url outside local environments', () => {
+    process.env.NODE_ENV = 'production';
+    process.env.JWT_SECRET = 'prod-shared-secret';
+    process.env.REDIS_URL = 'redis://localhost:6379';
+    process.env.GEMINI_API_KEY = 'gemini-key';
+    process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON =
+      '{"type":"service_account","project_id":"test"}';
+    process.env.PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER = '123456789';
+    delete process.env.POSTGRES_URL;
+
+    expect(() => loadConfig()).toThrow(/POSTGRES_URL/);
+  });
+
+  test('requires redis url outside local environments', () => {
+    process.env.NODE_ENV = 'production';
+    process.env.JWT_SECRET = 'prod-shared-secret';
+    process.env.POSTGRES_URL =
+      'postgres://postgres:postgres@localhost:5432/debt_destroyer';
+    process.env.GEMINI_API_KEY = 'gemini-key';
+    process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON =
+      '{"type":"service_account","project_id":"test"}';
+    process.env.PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER = '123456789';
+    delete process.env.REDIS_URL;
+
+    expect(() => loadConfig()).toThrow(/REDIS_URL/);
+  });
+
+  test('requires gemini api key outside local environments', () => {
+    process.env.NODE_ENV = 'production';
+    process.env.JWT_SECRET = 'prod-shared-secret';
+    process.env.POSTGRES_URL =
+      'postgres://postgres:postgres@localhost:5432/debt_destroyer';
+    process.env.REDIS_URL = 'redis://localhost:6379';
+    process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON =
+      '{"type":"service_account","project_id":"test"}';
+    process.env.PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER = '123456789';
+    delete process.env.GEMINI_API_KEY;
+
+    expect(() => loadConfig()).toThrow(/GEMINI_API_KEY/);
   });
 });
 

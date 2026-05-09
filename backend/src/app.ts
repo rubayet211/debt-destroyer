@@ -4,6 +4,7 @@ import Fastify, {
   type FastifyRequest,
 } from "fastify";
 import jwt from "jsonwebtoken";
+import { ZodError } from "zod";
 
 import { loadConfig, type AppConfig } from "./config.js";
 import {
@@ -60,20 +61,38 @@ type AccessTokenPayload = {
 };
 
 export async function createApp(options: CreateAppOptions = {}) {
-  const config = options.config ?? loadConfig();
+  const config = withRuntimeDefaults(options.config ?? loadConfig());
+  if (
+    (config.environment === "production" || config.environment === "staging") &&
+    !config.postgresUrl
+  ) {
+    throw new Error(
+      "POSTGRES_URL is required in staging/production. Refusing to start with memory storage.",
+    );
+  }
+  if (
+    (config.environment === "production" || config.environment === "staging") &&
+    !config.redisUrl
+  ) {
+    throw new Error(
+      "REDIS_URL is required in staging/production. Refusing to start with memory rate limiting.",
+    );
+  }
   const store: AppStore =
-    options.store ?? (await createStore(config.postgresUrl));
+    options.store ?? (await createStore(config.postgresUrl, config.environment));
   const provider = options.provider ?? new GeminiProvider(config);
   const billingVerifier =
     options.billingVerifier ?? createBillingVerifier(config);
   const rateLimiter: RateLimiter =
-    options.rateLimiter ?? (await createRateLimiter(config.redisUrl));
+    options.rateLimiter ??
+    (await createRateLimiter(config.redisUrl, config.environment));
   const attestationVerifier =
     options.attestationVerifier ?? new ConfigurableAttestationVerifier(config);
 
   const app = Fastify({
+    trustProxy: config.trustProxy,
     logger: {
-      level: config.environment === "production" ? "info" : "debug",
+      level: config.logLevel,
     },
   });
   const extractionAliasDeprecatedAt = new Date().toUTCString();
@@ -86,7 +105,21 @@ export async function createApp(options: CreateAppOptions = {}) {
       return reply.status(error.statusCode).send({
         error: error.code,
         message: error.message,
-        details: error.details,
+        details: config.environment === "production" ? undefined : error.details,
+      });
+    }
+    if (error instanceof ZodError) {
+      const issues = error.issues.map((issue) => ({
+        path: issue.path.join("."),
+        code: issue.code,
+        ...(config.environment === "production"
+          ? {}
+          : { message: issue.message }),
+      }));
+      return reply.status(400).send({
+        error: "validation_error",
+        message: "Invalid request payload",
+        issues,
       });
     }
     request.log.error(error);
@@ -96,16 +129,60 @@ export async function createApp(options: CreateAppOptions = {}) {
     });
   });
 
+  let cleanupInterval: NodeJS.Timeout | null = null;
+  if (config.enableCleanupJobs) {
+    const intervalMs = config.cleanupIntervalMinutes * 60 * 1000;
+    cleanupInterval = setInterval(() => {
+      void store
+        .cleanupExpiredData(new Date())
+        .then((summary) => {
+          app.log.debug({ summary }, "cleanup job completed");
+        })
+        .catch((error: unknown) => {
+          app.log.error(error, "cleanup job failed");
+        });
+    }, intervalMs);
+    cleanupInterval.unref();
+  }
+
   app.addHook("onClose", async () => {
+    if (cleanupInterval) {
+      clearInterval(cleanupInterval);
+    }
     await store.close?.();
     await rateLimiter.close?.();
   });
 
   app.get("/health/live", async () => ({ ok: true, status: "live" }));
-  app.get("/health/ready", async () => ({ ok: true, status: "ready" }));
+  app.get("/health/ready", async (_request, reply) => {
+    const checks = await buildReadinessChecks(config, store, rateLimiter);
+    const isReady = Object.values(checks).every((value) => value === "ok");
+    if (!isReady) {
+      return reply.status(503).send({
+        ok: false,
+        status: "not_ready",
+        checks,
+      });
+    }
+    return reply.send({
+      ok: true,
+      status: "ready",
+      checks,
+    });
+  });
 
   app.post("/v1/mobile/bootstrap/challenge", async (request, reply) => {
     const body = bootstrapChallengeRequestSchema.parse(request.body);
+    await enforceRateLimit({
+      rateLimiter,
+      store,
+      key: `bootstrap:challenge:ip:${request.ip}`,
+      limit: config.rateLimits.bootstrapChallengePerMinute,
+      windowSeconds: 60,
+      eventKey: "bootstrap_challenge",
+      installId: body.install_id,
+      ipAddress: request.ip,
+    });
     const challengeId = makeId();
     const nonce = makeNonce();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
@@ -138,6 +215,16 @@ export async function createApp(options: CreateAppOptions = {}) {
 
   app.post("/v1/mobile/bootstrap/verify", async (request, reply) => {
     const body = bootstrapVerifyRequestSchema.parse(request.body);
+    await enforceRateLimit({
+      rateLimiter,
+      store,
+      key: `bootstrap:verify:ip:${request.ip}`,
+      limit: config.rateLimits.bootstrapVerifyPerMinute,
+      windowSeconds: 60,
+      eventKey: "bootstrap_verify",
+      installId: body.install_id,
+      ipAddress: request.ip,
+    });
     const challenge = await store.getChallenge(body.challenge_id);
     if (!challenge || challenge.installId !== body.install_id) {
       throw new AppError(400, "invalid_challenge", "Challenge not found");
@@ -211,6 +298,15 @@ export async function createApp(options: CreateAppOptions = {}) {
 
   app.post("/v1/mobile/token/refresh", async (request, reply) => {
     const body = tokenRefreshRequestSchema.parse(request.body);
+    await enforceRateLimit({
+      rateLimiter,
+      store,
+      key: `token:refresh:ip:${request.ip}`,
+      limit: config.rateLimits.tokenRefreshPerMinute,
+      windowSeconds: 60,
+      eventKey: "token_refresh",
+      ipAddress: request.ip,
+    });
     const stored = await store.getRefreshTokenByHash(
       hashToken(body.refresh_token),
     );
@@ -257,6 +353,16 @@ export async function createApp(options: CreateAppOptions = {}) {
 
   app.post("/v1/billing/google-play/verify", async (request, reply) => {
     const installId = await requireInstallId(request, config);
+    await enforceRateLimit({
+      rateLimiter,
+      store,
+      key: `billing:verify:install:${installId}`,
+      limit: config.rateLimits.billingVerifyPerMinute,
+      windowSeconds: 60,
+      eventKey: "billing_verify",
+      installId,
+      ipAddress: request.ip,
+    });
     const body = billingVerifyRequestSchema.parse(request.body);
     if (body.install_id !== installId) {
       throw new AppError(403, "install_mismatch", "Install id mismatch");
@@ -336,6 +442,16 @@ export async function createApp(options: CreateAppOptions = {}) {
 
   app.post("/v1/billing/google-play/restore", async (request, reply) => {
     const installId = await requireInstallId(request, config);
+    await enforceRateLimit({
+      rateLimiter,
+      store,
+      key: `billing:restore:install:${installId}`,
+      limit: config.rateLimits.billingRestorePerMinute,
+      windowSeconds: 60,
+      eventKey: "billing_restore",
+      installId,
+      ipAddress: request.ip,
+    });
     const body = billingRestoreRequestSchema.parse(request.body);
     if (body.install_id !== installId) {
       throw new AppError(403, "install_mismatch", "Install id mismatch");
@@ -419,28 +535,26 @@ export async function createApp(options: CreateAppOptions = {}) {
       throw new AppError(403, "install_mismatch", "Install id mismatch");
     }
 
-    const installRate = await rateLimiter.consume(
-      `install:${installId}`,
-      20,
-      60,
-    );
-    const ipRate = await rateLimiter.consume(`ip:${request.ip}`, 60, 60);
-    await store.saveRateLimitEvent({
+    await enforceRateLimit({
+      rateLimiter,
+      store,
+      key: `extract:install:${installId}`,
+      limit: config.rateLimits.extractionInstallPerMinute,
+      windowSeconds: 60,
+      eventKey: "extract_install",
       installId,
       ipAddress: request.ip,
-      key: "install",
-      limitValue: 20,
-      remaining: installRate.remaining,
-      resetAt: installRate.resetAt,
     });
-    if (!installRate.allowed || !ipRate.allowed) {
-      throw new AppError(429, "rate_limited", "Too many extraction requests", {
-        retry_at: (installRate.allowed
-          ? ipRate.resetAt
-          : installRate.resetAt
-        ).toISOString(),
-      });
-    }
+    await enforceRateLimit({
+      rateLimiter,
+      store,
+      key: `extract:ip:${request.ip}`,
+      limit: config.rateLimits.extractionIpPerMinute,
+      windowSeconds: 60,
+      eventKey: "extract_ip",
+      installId,
+      ipAddress: request.ip,
+    });
 
     const entitlement = await store.getEntitlement(installId);
     const monthKey = monthKeyFor(new Date());
@@ -606,8 +720,20 @@ async function requireInstallId(
     const payload = jwt.verify(
       token,
       config.jwtAccessSecret,
+      {
+        issuer: config.jwtIssuer,
+        audience: config.jwtAudience,
+      },
     ) as AccessTokenPayload;
-    if (payload.type !== "access") {
+    const subject = (payload as { sub?: unknown }).sub;
+    if (
+      payload.type !== "access" ||
+      typeof payload.installId !== "string" ||
+      payload.installId.length === 0 ||
+      typeof subject !== "string" ||
+      subject.length === 0 ||
+      subject !== payload.installId
+    ) {
       throw new AppError(401, "invalid_auth", "Invalid token type");
     }
     return payload.installId;
@@ -625,8 +751,91 @@ function signAccessToken(config: AppConfig, installId: string) {
     config.jwtAccessSecret,
     {
       expiresIn: config.accessTokenTtlSeconds,
+      issuer: config.jwtIssuer,
+      audience: config.jwtAudience,
+      subject: installId,
     },
   );
+}
+
+async function enforceRateLimit(input: {
+  rateLimiter: RateLimiter;
+  store: AppStore;
+  key: string;
+  limit: number;
+  windowSeconds: number;
+  eventKey: string;
+  installId?: string;
+  ipAddress?: string;
+}) {
+  const result = await input.rateLimiter.consume(
+    input.key,
+    input.limit,
+    input.windowSeconds,
+  );
+  await input.store.saveRateLimitEvent({
+    installId: input.installId,
+    ipAddress: input.ipAddress,
+    key: input.eventKey,
+    limitValue: input.limit,
+    remaining: result.remaining,
+    resetAt: result.resetAt,
+  });
+  if (!result.allowed) {
+    throw new AppError(
+      429,
+      "rate_limited",
+      "Too many requests. Please try again later.",
+      { retry_at: result.resetAt.toISOString() },
+    );
+  }
+  return result;
+}
+
+async function buildReadinessChecks(
+  config: AppConfig,
+  store: AppStore,
+  rateLimiter: RateLimiter,
+) {
+  const [postgresOk, redisOk] = await Promise.all([
+    store.checkHealth(1200),
+    rateLimiter.checkHealth?.(1200) ?? Promise.resolve(true),
+  ]);
+  const checks: Record<string, "ok" | "failed"> = {
+    postgres: postgresOk ? "ok" : "failed",
+    redis: redisOk ? "ok" : "failed",
+    gemini: config.geminiApiKey && config.geminiModel ? "ok" : "failed",
+  };
+  if (config.environment === "production" || config.environment === "staging") {
+    checks.google_play_credentials = config.googlePlayServiceAccountJson
+      ? "ok"
+      : "failed";
+  }
+  return checks;
+}
+
+function withRuntimeDefaults(config: AppConfig): AppConfig {
+  return {
+    ...config,
+    host: config.host ?? "0.0.0.0",
+    logLevel:
+      config.logLevel ?? (config.environment === "production" ? "info" : "debug"),
+    trustProxy: config.trustProxy ?? false,
+    jwtIssuer: config.jwtIssuer ?? "debt-destroyer-backend",
+    jwtAudience: config.jwtAudience ?? "debt-destroyer-mobile",
+    geminiApiVersion: config.geminiApiVersion ?? "v1beta",
+    rateLimits: config.rateLimits ?? {
+      bootstrapChallengePerMinute: 20,
+      bootstrapVerifyPerMinute: 20,
+      tokenRefreshPerMinute: 20,
+      billingVerifyPerMinute: 20,
+      billingRestorePerMinute: 10,
+      extractionInstallPerMinute: 20,
+      extractionIpPerMinute: 60,
+    },
+    enableCleanupJobs: config.enableCleanupJobs ?? false,
+    cleanupIntervalMinutes: config.cleanupIntervalMinutes ?? 60,
+  };
 }
 
 async function getQuotaSnapshot(

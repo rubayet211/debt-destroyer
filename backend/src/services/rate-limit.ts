@@ -14,6 +14,7 @@ export interface RateLimiter {
     limit: number,
     windowSeconds: number,
   ): Promise<RateLimitResult>;
+  checkHealth?(timeoutMs?: number): Promise<boolean>;
   close?(): Promise<void>;
 }
 
@@ -47,6 +48,10 @@ export class MemoryRateLimiter implements RateLimiter {
       resetAt: new Date(existing.resetAt),
     };
   }
+
+  async checkHealth() {
+    return true;
+  }
 }
 
 export class RedisRateLimiter implements RateLimiter {
@@ -73,15 +78,48 @@ export class RedisRateLimiter implements RateLimiter {
   async close() {
     await this.redis.quit();
   }
+
+  async checkHealth(timeoutMs = 1200) {
+    return withTimeout(
+      this.redis
+        .ping()
+        .then((value) => value === 'PONG')
+        .catch(() => false),
+      timeoutMs,
+      false,
+    );
+  }
 }
 
-export async function createRateLimiter(redisUrl?: string) {
+export async function createRateLimiter(
+  redisUrl?: string,
+  environment: string = 'development',
+) {
+  const isLocalEnvironment =
+    environment === 'development' || environment === 'test';
   if (!redisUrl) {
+    if (!isLocalEnvironment) {
+      throw new Error(
+        'REDIS_URL is required in staging/production. Refusing to use memory rate limiting.',
+      );
+    }
     return new MemoryRateLimiter();
   }
-  return new RedisRateLimiter(new Redis(redisUrl));
+  const redis = new Redis(redisUrl);
+  await redis.ping();
+  return new RedisRateLimiter(redis);
 }
 
 export function makeRateLimitEventKey(prefix: string, suffix: string) {
   return `${prefix}:${suffix}:${makeId()}`;
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T) {
+  return new Promise<T>((resolve) => {
+    const timer = setTimeout(() => resolve(fallback), timeoutMs);
+    promise
+      .then((value) => resolve(value))
+      .catch(() => resolve(fallback))
+      .finally(() => clearTimeout(timer));
+  });
 }
