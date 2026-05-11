@@ -639,8 +639,9 @@ export async function createApp(options: CreateAppOptions = {}) {
       const nextQuota = entitlement.isPremium
         ? {
             allowed: true,
-            remaining_free_scans: config.freeScanLimit,
+            remaining_free_scans: 0,
             premium_required: false,
+            unlimited: true,
             reset_at: nextMonthReset().toISOString(),
           }
         : makeQuotaSnapshot(config, usageSnapshot!, false);
@@ -856,8 +857,9 @@ async function getQuotaSnapshot(
   if (entitlement.isPremium) {
     return {
       allowed: true,
-      remaining_free_scans: config.freeScanLimit,
+      remaining_free_scans: 0,
       premium_required: false,
+      unlimited: true,
       reset_at: nextMonthReset().toISOString(),
     };
   }
@@ -879,6 +881,7 @@ function makeQuotaSnapshot(
     allowed: remaining > 0,
     remaining_free_scans: remaining,
     premium_required: premiumRequiredOnExhaustion && remaining <= 0,
+    unlimited: false,
     reset_at: nextMonthReset().toISOString(),
   };
 }

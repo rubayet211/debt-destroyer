@@ -77,12 +77,14 @@ class BackendQuotaSnapshot {
     required this.allowed,
     required this.remainingFreeScans,
     required this.premiumRequired,
+    required this.unlimited,
     required this.resetAt,
   });
 
   final bool allowed;
   final int remainingFreeScans;
   final bool premiumRequired;
+  final bool unlimited;
   final DateTime? resetAt;
 }
 

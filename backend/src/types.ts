@@ -61,6 +61,7 @@ export const quotaSnapshotSchema = z.object({
   allowed: z.boolean(),
   remaining_free_scans: z.number().int().min(0),
   premium_required: z.boolean(),
+  unlimited: z.boolean(),
   reset_at: z.string(),
 });
 

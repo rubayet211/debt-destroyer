@@ -4,7 +4,10 @@ import { createApp } from '../src/app.js';
 import { buildDebugAttestationToken } from '../src/services/attestation.js';
 import type { AiProvider } from '../src/services/provider.js';
 import { MemoryRateLimiter } from '../src/services/rate-limit.js';
-import { MemoryAppStore } from '../src/services/storage.js';
+import {
+  MemoryAppStore,
+  freeEntitlementRecord,
+} from '../src/services/storage.js';
 
 class FakeProvider implements AiProvider {
   readonly providerName = 'fake';
@@ -398,6 +401,208 @@ describe('extraction endpoint', () => {
       expect(capabilities.json().free_scan_remaining).toBe(1);
     } finally {
       await failingApp.close();
+    }
+  });
+
+  test('allows 5 free monthly cloud scans, then blocks 6th', async () => {
+    const freeApp = await createApp({
+      config: {
+        environment: 'test',
+        port: 0,
+        postgresUrl: undefined,
+        redisUrl: undefined,
+        jwtAccessSecret: 'test-access-secret',
+        jwtRefreshSecret: 'test-refresh-secret',
+        geminiApiKey: undefined,
+        geminiModel: 'gemini-2.0-flash',
+        freeScanLimit: 5,
+        accessTokenTtlSeconds: 900,
+        refreshTokenTtlDays: 30,
+        requestTimeoutMs: 15000,
+        allowDebugAttestation: true,
+        debugAttestationSecret: 'debug-secret',
+        googlePlayPackageName: 'com.debtdestroyer.app',
+        googlePlayServiceAccountJson: undefined,
+        playIntegrityCloudProjectNumber: '123456789',
+        playIntegrityPackageName: 'com.debtdestroyer.app',
+        premiumProductId: 'premium',
+        premiumMonthlyBasePlanId: 'monthly',
+        premiumYearlyBasePlanId: 'yearly',
+      },
+      store: new MemoryAppStore(),
+      rateLimiter: new MemoryRateLimiter(),
+      provider: new FakeProvider(),
+    });
+    try {
+      const accessToken = await (async () => {
+        const challenge = await freeApp.inject({
+          method: 'POST',
+          url: '/v1/mobile/bootstrap/challenge',
+          payload: {
+            app_version: '1.0.0+1',
+            platform: 'android',
+            install_id: 'install-free-5',
+          },
+        });
+        const body = challenge.json();
+        const verify = await freeApp.inject({
+          method: 'POST',
+          url: '/v1/mobile/bootstrap/verify',
+          payload: {
+            challenge_id: body.challenge_id,
+            install_id: 'install-free-5',
+            attestation_token: buildDebugAttestationToken({
+              secret: 'debug-secret',
+              installId: 'install-free-5',
+              nonce: body.nonce,
+            }),
+            device: {
+              platform: 'android',
+              app_version: '1.0.0+1',
+              build_mode: 'debug',
+            },
+          },
+        });
+        return verify.json().access_token as string;
+      })();
+
+      for (let index = 1; index <= 5; index += 1) {
+        const response = await freeApp.inject({
+          method: 'POST',
+          url: '/v1/import/extract',
+          headers: { authorization: `Bearer ${accessToken}` },
+          payload: {
+            request_id: `req-free-${index}`,
+            install_id: 'install-free-5',
+            document_classification: 'creditCardStatement',
+            normalized_ocr_text: `Free OCR body ${index}`,
+            source_type: 'gallery',
+            app_version: '1.0.0+1',
+            consented_at: new Date().toISOString(),
+          },
+        });
+        expect(response.statusCode).toBe(200);
+        expect(response.json().quota.unlimited).toBe(false);
+      }
+
+      const blocked = await freeApp.inject({
+        method: 'POST',
+        url: '/v1/import/extract',
+        headers: { authorization: `Bearer ${accessToken}` },
+        payload: {
+          request_id: 'req-free-6',
+          install_id: 'install-free-5',
+          document_classification: 'creditCardStatement',
+          normalized_ocr_text: 'Free OCR body 6',
+          source_type: 'gallery',
+          app_version: '1.0.0+1',
+          consented_at: new Date().toISOString(),
+        },
+      });
+      expect(blocked.statusCode).toBe(429);
+      expect(blocked.json().error).toBe('quota_exhausted');
+    } finally {
+      await freeApp.close();
+    }
+  });
+
+  test('premium subscriber gets unlimited cloud scans', async () => {
+    const premiumStore = new MemoryAppStore();
+    const premiumApp = await createApp({
+      config: {
+        environment: 'test',
+        port: 0,
+        postgresUrl: undefined,
+        redisUrl: undefined,
+        jwtAccessSecret: 'test-access-secret',
+        jwtRefreshSecret: 'test-refresh-secret',
+        geminiApiKey: undefined,
+        geminiModel: 'gemini-2.0-flash',
+        freeScanLimit: 5,
+        accessTokenTtlSeconds: 900,
+        refreshTokenTtlDays: 30,
+        requestTimeoutMs: 15000,
+        allowDebugAttestation: true,
+        debugAttestationSecret: 'debug-secret',
+        googlePlayPackageName: 'com.debtdestroyer.app',
+        googlePlayServiceAccountJson: undefined,
+        playIntegrityCloudProjectNumber: '123456789',
+        playIntegrityPackageName: 'com.debtdestroyer.app',
+        premiumProductId: 'premium',
+        premiumMonthlyBasePlanId: 'monthly',
+        premiumYearlyBasePlanId: 'yearly',
+      },
+      store: premiumStore,
+      rateLimiter: new MemoryRateLimiter(),
+      provider: new FakeProvider(),
+    });
+    try {
+      const accessToken = await (async () => {
+        const challenge = await premiumApp.inject({
+          method: 'POST',
+          url: '/v1/mobile/bootstrap/challenge',
+          payload: {
+            app_version: '1.0.0+1',
+            platform: 'android',
+            install_id: 'install-premium-scan',
+          },
+        });
+        const body = challenge.json();
+        const verify = await premiumApp.inject({
+          method: 'POST',
+          url: '/v1/mobile/bootstrap/verify',
+          payload: {
+            challenge_id: body.challenge_id,
+            install_id: 'install-premium-scan',
+            attestation_token: buildDebugAttestationToken({
+              secret: 'debug-secret',
+              installId: 'install-premium-scan',
+              nonce: body.nonce,
+            }),
+            device: {
+              platform: 'android',
+              app_version: '1.0.0+1',
+              build_mode: 'debug',
+            },
+          },
+        });
+        return verify.json().access_token as string;
+      })();
+
+      await premiumStore.upsertEntitlement({
+        ...freeEntitlementRecord('install-premium-scan'),
+        isPremium: true,
+        productId: 'premium',
+        planId: 'monthly',
+        billingProvider: 'google_play',
+        status: 'active',
+        validUntil: new Date('2026-07-01T00:00:00.000Z'),
+        autoRenewing: true,
+        lastVerifiedAt: new Date('2026-06-01T00:00:00.000Z'),
+        features: ['unlimitedScans'],
+      });
+
+      for (let index = 1; index <= 7; index += 1) {
+        const response = await premiumApp.inject({
+          method: 'POST',
+          url: '/v1/import/extract',
+          headers: { authorization: `Bearer ${accessToken}` },
+          payload: {
+            request_id: `req-premium-${index}`,
+            install_id: 'install-premium-scan',
+            document_classification: 'creditCardStatement',
+            normalized_ocr_text: `Premium OCR body ${index}`,
+            source_type: 'gallery',
+            app_version: '1.0.0+1',
+            consented_at: new Date().toISOString(),
+          },
+        });
+        expect(response.statusCode).toBe(200);
+        expect(response.json().quota.unlimited).toBe(true);
+        expect(response.json().quota.remaining_free_scans).toBe(0);
+      }
+    } finally {
+      await premiumApp.close();
     }
   });
 });

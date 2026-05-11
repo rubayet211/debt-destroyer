@@ -663,6 +663,7 @@ class BackendAiExtractionService implements AiExtractionService {
       allowed: json['allowed'] as bool? ?? true,
       remainingFreeScans: json['remaining_free_scans'] as int? ?? 0,
       premiumRequired: json['premium_required'] as bool? ?? false,
+      unlimited: json['unlimited'] as bool? ?? false,
       resetAt: json['reset_at'] == null
           ? null
           : DateTime.tryParse(json['reset_at'].toString()),

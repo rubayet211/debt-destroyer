@@ -13,6 +13,7 @@ import '../../../core/utils/parsers.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../../../core/widgets/monetization_widgets.dart';
 import '../../../shared/enums/app_enums.dart';
+import '../../../shared/models/backend_models.dart';
 import '../../../shared/models/debt.dart';
 import '../../../shared/models/import_models.dart';
 import '../../../shared/models/payment.dart';
@@ -140,7 +141,7 @@ class ScanImportHubScreen extends ConsumerWidget {
       return;
     }
 
-    final allowCloud = await _askConsent(context, ref);
+    final allowCloud = await _requestCloudExtractionChoice(context, ref);
     if (!context.mounted) {
       return;
     }
@@ -184,7 +185,7 @@ class ScanImportHubScreen extends ConsumerWidget {
       return;
     }
 
-    final allowCloud = await _askConsent(context, ref);
+    final allowCloud = await _requestCloudExtractionChoice(context, ref);
     if (!context.mounted) {
       return;
     }
@@ -201,73 +202,85 @@ class ScanImportHubScreen extends ConsumerWidget {
       ),
     );
   }
+}
 
-  Future<bool> _askConsent(BuildContext context, WidgetRef ref) async {
-    try {
-      final config = ref.read(backendConfigProvider);
-      if (config.isConfigured) {
-        final capabilities = await ref
-            .read(backendCapabilitiesServiceProvider)
-            .loadCapabilities();
-        if (!context.mounted) {
-          return false;
-        }
-        if (!capabilities.premium && capabilities.freeScanRemaining <= 0) {
-          await showPremiumUpsellSheet(
-            context,
-            title: 'Free cloud scans are used up',
-            message:
-                'Premium removes the cloud extraction quota while keeping your local-first data model and secure review flow.',
-          );
-          return false;
-        }
-      }
-    } catch (_) {
-      if (!context.mounted) {
-        return false;
-      }
+Future<bool> _requestCloudExtractionChoice(
+  BuildContext context,
+  WidgetRef ref,
+) async {
+  BackendCapabilities? capabilities;
+  try {
+    final config = ref.read(backendConfigProvider);
+    if (config.isConfigured) {
+      capabilities = await ref
+          .read(backendCapabilitiesServiceProvider)
+          .loadCapabilities();
     }
+  } catch (_) {
+    if (!context.mounted) {
+      return false;
+    }
+  }
 
-    final choice = await showModalBottomSheet<bool>(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Choose import privacy level',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Local OCR runs on-device. Cloud extraction is processed by DEBT DESTROYER secure servers only if you allow it for this import.',
-              ),
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Use local OCR + secure cloud extraction'),
-              ),
-              const SizedBox(height: 8),
-              OutlinedButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Use local OCR only'),
-              ),
-            ],
-          ),
+  if (!context.mounted) {
+    return false;
+  }
+
+  if (capabilities != null &&
+      !capabilities.premium &&
+      capabilities.freeScanRemaining <= 0) {
+    await showPremiumUpsellSheet(
+      context,
+      title: 'Free cloud scans are used up',
+      message:
+          'Free plan includes 5 secure cloud scans per month. Premium removes quota while keeping your local-first review flow.',
+    );
+    return false;
+  }
+
+  final quotaMessage = capabilities == null
+      ? 'Local OCR runs on-device. Cloud extraction is processed by DEBT DESTROYER secure servers only if you allow it for this import.'
+      : capabilities.premium
+      ? 'Premium is active. Secure cloud extraction is unlimited for this account. Local OCR still runs on-device first.'
+      : 'Free plan includes 5 secure cloud scans per month. ${capabilities.freeScanRemaining} remaining this month. Local OCR still runs on-device first.';
+
+  final choice = await showModalBottomSheet<bool>(
+    context: context,
+    builder: (context) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Choose import privacy level',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 12),
+            Text(quotaMessage),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Use local OCR + secure cloud extraction'),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Use local OCR only'),
+            ),
+          ],
         ),
       ),
-    );
+    ),
+  );
 
-    final repository = ref.read(preferencesRepositoryProvider);
-    final prefs = await repository.loadPreferences();
-    await repository.savePreferences(
-      prefs.copyWith(aiConsentEnabled: choice ?? false),
-    );
-    return choice ?? false;
-  }
+  final repository = ref.read(preferencesRepositoryProvider);
+  final prefs = await repository.loadPreferences();
+  await repository.savePreferences(
+    prefs.copyWith(aiConsentEnabled: choice ?? false),
+  );
+  return choice ?? false;
 }
 
 class CameraCaptureScreen extends ConsumerStatefulWidget {
@@ -357,7 +370,7 @@ class _CameraCaptureScreenState extends ConsumerState<CameraCaptureScreen> {
     if (!mounted) {
       return;
     }
-    final allowCloud = await _askConsent(context);
+    final allowCloud = await _requestCloudExtractionChoice(context, ref);
     if (!mounted) {
       return;
     }
@@ -372,29 +385,6 @@ class _CameraCaptureScreenState extends ConsumerState<CameraCaptureScreen> {
         mimeType: 'image/jpeg',
       ),
     );
-  }
-
-  Future<bool> _askConsent(BuildContext context) async {
-    final choice = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Use secure cloud extraction?'),
-        content: const Text(
-          'Local OCR always runs first. Allow DEBT DESTROYER secure servers to structure this capture?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Local only'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Allow once'),
-          ),
-        ],
-      ),
-    );
-    return choice ?? false;
   }
 }
 
@@ -550,8 +540,16 @@ class _ParsedReviewConfirmScreenState
                     if (widget.bundle.candidate.quotaSnapshot != null) ...[
                       const SizedBox(height: 8),
                       Text(
-                        'Free scans remaining: ${widget.bundle.candidate.quotaSnapshot!.remainingFreeScans}',
+                        widget.bundle.candidate.quotaSnapshot!.unlimited
+                            ? 'Premium active: unlimited secure cloud scans.'
+                            : 'Free cloud scans remaining this month: ${widget.bundle.candidate.quotaSnapshot!.remainingFreeScans}',
                       ),
+                      if (!widget.bundle.candidate.quotaSnapshot!.unlimited &&
+                          widget.bundle.candidate.quotaSnapshot!.resetAt !=
+                              null)
+                        Text(
+                          'Quota resets ${Formatters.date(widget.bundle.candidate.quotaSnapshot!.resetAt)}.',
+                        ),
                     ],
                   ],
                 ),

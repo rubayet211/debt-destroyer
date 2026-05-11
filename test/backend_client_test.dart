@@ -85,6 +85,7 @@ void main() {
                       'allowed': false,
                       'remaining_free_scans': 0,
                       'premium_required': true,
+                      'unlimited': false,
                       'reset_at': '2026-04-01T00:00:00.000Z',
                     },
                   },
@@ -152,6 +153,7 @@ void main() {
                     'allowed': true,
                     'remaining_free_scans': 3,
                     'premium_required': false,
+                    'unlimited': false,
                     'reset_at': '2026-04-01T00:00:00.000Z',
                   },
                 }),
@@ -181,6 +183,59 @@ ACME CREDIT CARD STATEMENT
         expect(result.summary.currency, isNull);
       },
     );
+
+    test('parses premium unlimited quota snapshot', () async {
+      final service = BackendAiExtractionService(
+        client: BackendApiClient(
+          httpClient: _SequenceClient([
+            http.Response(
+              jsonEncode({
+                'summary': {
+                  'title': 'Premium Statement',
+                  'issuer_name': 'Acme Bank',
+                  'debt_type': 'credit card',
+                  'confidence': 0.9,
+                  'currency': null,
+                },
+                'extraction': {
+                  'title': 'Premium Statement',
+                  'issuer_name': 'Acme Bank',
+                  'debt_type': 'credit card',
+                  'confidence': 0.9,
+                  'currency': null,
+                },
+                'line_items': [],
+                'document_signals': [],
+                'warnings': [],
+                'quota': {
+                  'allowed': true,
+                  'remaining_free_scans': 0,
+                  'premium_required': false,
+                  'unlimited': true,
+                  'reset_at': '2026-04-01T00:00:00.000Z',
+                },
+              }),
+              200,
+            ),
+          ]),
+          config: _backendConfig,
+          sessionManager: _FakeSessionManager(),
+        ),
+        sessionManager: _FakeSessionManager(),
+        config: _backendConfig,
+        parser: HeuristicExtractionParser(),
+      );
+
+      final result = await service.extract(
+        classification: DocumentClassification.creditCardStatement,
+        normalizedText: 'Current balance: \$900',
+        sourceType: DocumentSourceType.gallery,
+        allowCloud: true,
+      );
+
+      expect(result.quotaSnapshot?.unlimited, true);
+      expect(result.quotaSnapshot?.remainingFreeScans, 0);
+    });
   });
 
   group('PlayIntegrityAttestationService', () {
