@@ -1,5 +1,7 @@
 # Privacy Policy and Data Safety Checklist
 
+Draft privacy policy: [privacy_policy.md](privacy_policy.md)
+
 ## Privacy policy reference points
 - Explain local-first storage of debts, payments, preferences, scenarios, and imported documents.
 - Explain optional cloud extraction:

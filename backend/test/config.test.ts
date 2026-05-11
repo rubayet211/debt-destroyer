@@ -22,6 +22,8 @@ describe('backend config validation', () => {
     process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON =
       '{"type":"service_account","project_id":"test"}';
     process.env.PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER = '123456789';
+    delete process.env.ALLOW_DEBUG_ATTESTATION;
+    delete process.env.DEBUG_ATTESTATION_SECRET;
   }
 
   test('rejects default JWT secrets in production', () => {

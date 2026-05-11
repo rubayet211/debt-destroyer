@@ -136,8 +136,32 @@ export async function createRateLimiter(
       }),
     );
   });
-  await redis.connect();
-  await redis.ping();
+  const startupError = await withTimeout(
+    connectRedis(redis)
+      .then(() => undefined)
+      .catch((error) => toError(error)),
+    3_000,
+    new Error('Redis connection timed out after 3000ms'),
+  );
+  if (startupError) {
+    redis.disconnect();
+    if (isLocalEnvironment) {
+      console.warn(
+        JSON.stringify({
+          level: 'warn',
+          event: 'redis_fallback_memory',
+          service: 'debt-destroyer-backend',
+          message:
+            'Redis unavailable in local environment; using in-memory rate limiting.',
+          reason: startupError.message,
+        }),
+      );
+      return new MemoryRateLimiter();
+    }
+    throw new Error(`Redis unavailable: ${startupError.message}`, {
+      cause: startupError,
+    });
+  }
   return new RedisRateLimiter(redis);
 }
 
@@ -153,4 +177,13 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T) {
       .catch(() => resolve(fallback))
       .finally(() => clearTimeout(timer));
   });
+}
+
+async function connectRedis(redis: Redis) {
+  await redis.connect();
+  await redis.ping();
+}
+
+function toError(error: unknown) {
+  return error instanceof Error ? error : new Error(String(error));
 }

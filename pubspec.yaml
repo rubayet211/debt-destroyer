@@ -54,6 +54,7 @@ dev_dependencies:
   mocktail: ^1.0.4
 
 flutter:
+  default-flavor: dev
   uses-material-design: true
   assets:
     - .env
