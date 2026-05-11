@@ -1,12 +1,12 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/utils/formatters.dart';
 import '../../../core/utils/parsers.dart';
 import '../../../core/widgets/app_widgets.dart';
+import '../../../core/widgets/monetization_widgets.dart';
 import '../../../shared/enums/app_enums.dart';
 import '../../../shared/models/debt.dart';
 import '../../../shared/models/subscription_state.dart';
@@ -261,7 +261,12 @@ class _StrategySimulatorScreenState
                           .guard(premium, PremiumFeature.scenarioSaving);
                       if (!hasAccess) {
                         if (context.mounted) {
-                          context.push('/premium');
+                          await showPremiumUpsellSheet(
+                            context,
+                            title: 'Scenario saving is part of Premium',
+                            message:
+                                'Premium saves payoff scenarios so you can compare budgets, rates, and timing without rebuilding each simulation.',
+                          );
                         }
                         return;
                       }

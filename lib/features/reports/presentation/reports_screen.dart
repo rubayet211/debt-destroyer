@@ -1,11 +1,12 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/app_widgets.dart';
+import '../../../core/widgets/monetization_widgets.dart';
 import '../../../shared/enums/app_enums.dart';
+import '../../../shared/models/ad_models.dart';
 import '../../../shared/models/debt.dart';
 import '../../../shared/models/payment.dart';
 import '../../../shared/models/strategy_models.dart';
@@ -39,7 +40,12 @@ class ReportsScreen extends ConsumerWidget {
                 .guard(premium, PremiumFeature.csvExport);
             if (!allowed) {
               if (context.mounted) {
-                context.push('/premium');
+                await showPremiumUpsellSheet(
+                  context,
+                  title: 'CSV export is part of Premium',
+                  message:
+                      'Premium keeps exports, advanced reporting, and secure statement workflows available without lifting limits.',
+                );
               }
               return;
             }
@@ -408,6 +414,7 @@ class _ReportsBody extends StatelessWidget {
             ],
           ),
         ),
+        const PremiumAwareBannerAdSlot(placement: AdPlacement.reports),
       ],
     );
   }

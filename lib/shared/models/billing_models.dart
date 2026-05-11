@@ -43,13 +43,20 @@ class BillingPlan {
 }
 
 class BillingCatalog {
-  const BillingCatalog({required this.plans, required this.loadedAt});
+  const BillingCatalog({
+    required this.plans,
+    required this.loadedAt,
+    required this.monthlyBasePlanId,
+    required this.yearlyBasePlanId,
+  });
 
   final List<BillingPlan> plans;
   final DateTime loadedAt;
+  final String monthlyBasePlanId;
+  final String yearlyBasePlanId;
 
-  BillingPlan? get yearlyPlan => _byBasePlan('yearly');
-  BillingPlan? get monthlyPlan => _byBasePlan('monthly');
+  BillingPlan? get yearlyPlan => _byBasePlan(yearlyBasePlanId);
+  BillingPlan? get monthlyPlan => _byBasePlan(monthlyBasePlanId);
 
   BillingPlan? _byBasePlan(String value) {
     for (final plan in plans) {

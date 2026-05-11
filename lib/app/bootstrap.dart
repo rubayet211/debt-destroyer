@@ -7,7 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 
 import '../core/logging/app_logger.dart';
+import '../core/services/ad_services.dart';
 import '../core/services/telemetry_services.dart';
+import '../shared/models/ad_models.dart';
 import '../shared/providers/app_providers.dart';
 import 'app.dart';
 
@@ -23,6 +25,8 @@ Future<void> bootstrap() async {
       context: const {'category': 'bootstrap', 'status': 'local_defaults'},
     );
   }
+
+  await AdMobBootstrap.initialize(AdMobConfig.fromEnvironment(dotenv.env));
 
   final cameras = await _loadAvailableCameras();
   final telemetryConfig = TelemetryConfig.fromEnvironment();

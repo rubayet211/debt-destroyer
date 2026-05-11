@@ -53,6 +53,43 @@ export type EntitlementRecord = {
   features: string[];
 };
 
+export function freeEntitlementRecord(installId: string): EntitlementRecord {
+  return {
+    installId,
+    isPremium: false,
+    productId: null,
+    planId: null,
+    billingProvider: null,
+    status: 'free',
+    validUntil: null,
+    autoRenewing: false,
+    lastVerifiedAt: null,
+    purchaseTokenHash: null,
+    originalExternalId: null,
+    features: [],
+  };
+}
+
+export function normalizeEntitlementRecord(
+  record: EntitlementRecord,
+  now: Date = new Date(),
+): EntitlementRecord {
+  const isExpired =
+    record.validUntil != null && record.validUntil.getTime() <= now.getTime();
+
+  if (!isExpired) {
+    return record.isPremium ? record : { ...record, features: [] };
+  }
+
+  return {
+    ...record,
+    isPremium: false,
+    status: record.status === 'free' ? 'free' : 'expired',
+    autoRenewing: false,
+    features: [],
+  };
+}
+
 export type PurchaseHistoryRecord = {
   recordId: string;
   installId: string;
@@ -272,21 +309,8 @@ export class MemoryAppStore implements AppStore {
   }
 
   async getEntitlement(installId: string) {
-    return (
-      this.entitlements.get(installId) ?? {
-        installId,
-        isPremium: false,
-        productId: null,
-        planId: null,
-        billingProvider: null,
-        status: 'free',
-        validUntil: null,
-        autoRenewing: false,
-        lastVerifiedAt: null,
-        purchaseTokenHash: null,
-        originalExternalId: null,
-        features: [],
-      }
+    return normalizeEntitlementRecord(
+      this.entitlements.get(installId) ?? freeEntitlementRecord(installId),
     );
   }
 
@@ -846,7 +870,7 @@ export class PostgresAppStore implements AppStore {
       [installId],
     );
     const row = result.rows[0];
-    return row
+    const record = row
       ? {
           installId: row.install_id,
           isPremium: row.is_premium,
@@ -861,20 +885,8 @@ export class PostgresAppStore implements AppStore {
           originalExternalId: row.original_external_id,
           features: row.features,
         }
-      : {
-          installId,
-          isPremium: false,
-          productId: null,
-          planId: null,
-          billingProvider: null,
-          status: 'free',
-          validUntil: null,
-          autoRenewing: false,
-          lastVerifiedAt: null,
-          purchaseTokenHash: null,
-          originalExternalId: null,
-          features: [],
-        };
+      : freeEntitlementRecord(installId);
+    return normalizeEntitlementRecord(record);
   }
 
   async upsertEntitlement(record: EntitlementRecord) {

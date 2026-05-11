@@ -4,9 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 
+import '../../core/errors/app_exception.dart';
+import '../../shared/data/repositories.dart';
 import '../../shared/enums/app_enums.dart';
 import '../../shared/models/billing_models.dart';
-import '../../shared/data/repositories.dart';
 import 'backend_services.dart';
 
 abstract class BillingService {
@@ -84,7 +85,12 @@ class GooglePlayBillingService implements BillingService {
       );
     }
 
-    return BillingCatalog(plans: plans, loadedAt: DateTime.now());
+    return BillingCatalog(
+      plans: plans,
+      loadedAt: DateTime.now(),
+      monthlyBasePlanId: _monthlyBasePlanId,
+      yearlyBasePlanId: _yearlyBasePlanId,
+    );
   }
 
   @override
@@ -335,6 +341,7 @@ class BillingController extends StateNotifier<BillingState> {
   final String _packageName;
   final String _appVersion;
   late final StreamSubscription<List<PurchaseDetails>> _subscription;
+  final Set<String> _verifyingPurchaseTokens = <String>{};
 
   Future<void> initialize() async {
     final cached = await _entitlementSyncService.loadCachedEntitlement();
@@ -359,7 +366,7 @@ class BillingController extends StateNotifier<BillingState> {
     } catch (error) {
       state = state.copyWith(
         status: BillingStatus.error,
-        message: error.toString(),
+        message: _friendlyMessage(error),
       );
     }
   }
@@ -376,7 +383,7 @@ class BillingController extends StateNotifier<BillingState> {
     } catch (error) {
       state = state.copyWith(
         status: BillingStatus.error,
-        message: error.toString(),
+        message: _friendlyMessage(error),
       );
     }
   }
@@ -403,7 +410,7 @@ class BillingController extends StateNotifier<BillingState> {
     } catch (error) {
       state = state.copyWith(
         status: BillingStatus.error,
-        message: error.toString(),
+        message: _friendlyMessage(error),
       );
     }
   }
@@ -438,11 +445,17 @@ class BillingController extends StateNotifier<BillingState> {
   }
 
   Future<void> _verifyPurchase(PurchaseDetails purchase) async {
+    final purchaseToken = purchase.verificationData.serverVerificationData;
+    if (purchaseToken.isEmpty ||
+        _verifyingPurchaseTokens.contains(purchaseToken)) {
+      return;
+    }
+    _verifyingPurchaseTokens.add(purchaseToken);
     try {
       final attempt = PurchaseAttempt(
         productId: purchase.productID,
         basePlanId: _extractBasePlanId(purchase),
-        purchaseToken: purchase.verificationData.serverVerificationData,
+        purchaseToken: purchaseToken,
         purchaseState: purchase.status.name,
         purchaseTime: _parsePurchaseDate(purchase.transactionDate),
       );
@@ -465,8 +478,10 @@ class BillingController extends StateNotifier<BillingState> {
     } catch (error) {
       state = state.copyWith(
         status: BillingStatus.error,
-        message: error.toString(),
+        message: _friendlyMessage(error),
       );
+    } finally {
+      _verifyingPurchaseTokens.remove(purchaseToken);
     }
   }
 
@@ -475,6 +490,37 @@ class BillingController extends StateNotifier<BillingState> {
       return null;
     }
     return null;
+  }
+
+  String _friendlyMessage(Object error) {
+    if (error is BackendHttpException) {
+      switch (error.code) {
+        case 'network_error':
+          return 'Network unavailable. Your purchase state will sync when the app can reach the backend.';
+        case 'backend_timeout':
+          return 'Verification timed out. The app will keep your purchase pending until it can be verified safely.';
+        case 'billing_unavailable':
+          return 'Billing verification is not configured on the backend yet.';
+        case 'billing_product_mismatch':
+        case 'billing_plan_mismatch':
+          return 'Google Play returned a product configuration the app does not recognize.';
+        case 'missing_auth':
+        case 'invalid_auth':
+          return 'Your secure session expired. Try again in a moment.';
+        default:
+          return error.message;
+      }
+    }
+    if (error is AppException) {
+      return error.message;
+    }
+    if (error is StateError) {
+      return error.message;
+    }
+    return error
+        .toString()
+        .replaceFirst('Exception: ', '')
+        .replaceFirst('Bad state: ', '');
   }
 
   DateTime? _parsePurchaseDate(String? value) {

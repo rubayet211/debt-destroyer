@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/app_widgets.dart';
+import '../../../core/widgets/monetization_widgets.dart';
+import '../../../shared/models/ad_models.dart';
 import '../../../shared/models/debt.dart';
 import '../../../shared/providers/app_providers.dart';
 
@@ -231,6 +233,7 @@ class HomeDashboardScreen extends ConsumerWidget {
                     ),
                   ),
                 ),
+              const PremiumAwareBannerAdSlot(placement: AdPlacement.dashboard),
             ],
           ],
         ),

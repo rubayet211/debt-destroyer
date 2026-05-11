@@ -21,6 +21,10 @@ fun signingValue(propertyName: String, envName: String): String? {
     return System.getenv(envName)?.trim()?.takeIf { it.isNotEmpty() }
 }
 
+fun envOrDefault(envName: String, defaultValue: String): String {
+    return System.getenv(envName)?.trim()?.takeIf { it.isNotEmpty() } ?: defaultValue
+}
+
 val releaseStoreFile =
     signingValue("storeFile", "ANDROID_KEYSTORE_PATH")?.let { rootProject.file(it) }
 val releaseStorePassword = signingValue("storePassword", "ANDROID_KEYSTORE_PASSWORD")
@@ -31,6 +35,10 @@ val hasReleaseSigning =
         !releaseStorePassword.isNullOrEmpty() &&
         !releaseKeyAlias.isNullOrEmpty() &&
         !releaseKeyPassword.isNullOrEmpty()
+val admobAppId = envOrDefault(
+    "ADMOB_ANDROID_APP_ID",
+    "ca-app-pub-3940256099942544~3347511713",
+)
 
 android {
     namespace = "com.debtdestroyer.app"
@@ -53,6 +61,7 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["ADMOB_APP_ID"] = admobAppId
         resValue("string", "app_name", "DEBT DESTROYER")
         resValue("string", "app_env", "prod")
     }

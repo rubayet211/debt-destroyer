@@ -11,6 +11,7 @@ import 'package:uuid/uuid.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/utils/parsers.dart';
 import '../../../core/widgets/app_widgets.dart';
+import '../../../core/widgets/monetization_widgets.dart';
 import '../../../shared/enums/app_enums.dart';
 import '../../../shared/models/debt.dart';
 import '../../../shared/models/import_models.dart';
@@ -165,7 +166,12 @@ class ScanImportHubScreen extends ConsumerWidget {
         .read(premiumServiceProvider)
         .guard(premium, PremiumFeature.pdfImport);
     if (!hasPdfAccess && context.mounted) {
-      context.push('/premium');
+      await showPremiumUpsellSheet(
+        context,
+        title: 'PDF statement import is part of Premium',
+        message:
+            'Premium unlocks PDF statement parsing, advanced reports, and unlimited secure scan workflows.',
+      );
       return;
     }
 
@@ -207,7 +213,12 @@ class ScanImportHubScreen extends ConsumerWidget {
           return false;
         }
         if (!capabilities.premium && capabilities.freeScanRemaining <= 0) {
-          context.push('/premium');
+          await showPremiumUpsellSheet(
+            context,
+            title: 'Free cloud scans are used up',
+            message:
+                'Premium removes the cloud extraction quota while keeping your local-first data model and secure review flow.',
+          );
           return false;
         }
       }

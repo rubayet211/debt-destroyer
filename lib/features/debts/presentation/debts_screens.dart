@@ -8,7 +8,9 @@ import 'package:uuid/uuid.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/utils/parsers.dart';
 import '../../../core/widgets/app_widgets.dart';
+import '../../../core/widgets/monetization_widgets.dart';
 import '../../../shared/enums/app_enums.dart';
+import '../../../shared/models/ad_models.dart';
 import '../../../shared/models/debt.dart';
 import '../../../shared/models/debt_financial_terms.dart';
 import '../../../shared/models/payment.dart';
@@ -173,6 +175,7 @@ class _DebtsListScreenState extends ConsumerState<DebtsListScreen> {
                   },
                 ),
               ),
+              const PremiumAwareBannerAdSlot(placement: AdPlacement.debtsList),
             ],
           );
         },

@@ -39,8 +39,10 @@ import { createRateLimiter, type RateLimiter } from "./services/rate-limit.js";
 import {
   createStore,
   type EntitlementRecord,
+  freeEntitlementRecord,
   hashToken,
   monthKeyFor,
+  normalizeEntitlementRecord,
   type AppStore,
   type UsageSnapshot,
 } from "./services/storage.js";
@@ -471,7 +473,7 @@ export async function createApp(options: CreateAppOptions = {}) {
       );
     }
 
-    let bestEntitlement = await store.getEntitlement(installId);
+    let bestEntitlement = freeEntitlementRecord(installId);
     for (const purchase of body.purchases) {
       const verified = await billingVerifier.verifySubscription({
         productId: purchase.product_id,
@@ -510,21 +512,17 @@ export async function createApp(options: CreateAppOptions = {}) {
         autoRenewing: normalized.autoRenewing,
         payload: normalized.rawProviderPayload,
       });
-      if (
-        nextEntitlement.isPremium &&
-        (bestEntitlement.validUntil == null ||
-          (nextEntitlement.validUntil?.getTime() ?? 0) >
-            (bestEntitlement.validUntil?.getTime() ?? 0))
-      ) {
+      if (shouldReplaceEntitlement(bestEntitlement, nextEntitlement)) {
         bestEntitlement = nextEntitlement;
       }
     }
 
-    await store.upsertEntitlement(bestEntitlement);
+    const normalizedBestEntitlement = normalizeEntitlementRecord(bestEntitlement);
+    await store.upsertEntitlement(normalizedBestEntitlement);
 
     return reply.send(
       entitlementResponseSchema.parse({
-        entitlement: serializeEntitlement(bestEntitlement),
+        entitlement: serializeEntitlement(normalizedBestEntitlement),
       }),
     );
   });
@@ -907,4 +905,20 @@ function serializeEntitlement(entitlement: EntitlementRecord) {
     original_external_id: entitlement.originalExternalId,
     features: entitlement.features,
   };
+}
+
+function shouldReplaceEntitlement(
+  current: EntitlementRecord,
+  candidate: EntitlementRecord,
+) {
+  if (candidate.isPremium && !current.isPremium) {
+    return true;
+  }
+  if (!candidate.isPremium && current.isPremium) {
+    return false;
+  }
+  if (current.status === 'free' && candidate.status !== 'free') {
+    return true;
+  }
+  return (candidate.validUntil?.getTime() ?? 0) > (current.validUntil?.getTime() ?? 0);
 }

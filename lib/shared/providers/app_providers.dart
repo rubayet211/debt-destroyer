@@ -18,6 +18,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../app/router/app_router.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/services/ad_services.dart';
 import '../../core/services/app_services.dart';
 import '../../core/services/backend_services.dart';
 import '../../core/services/billing_services.dart';
@@ -33,6 +34,7 @@ import '../../features/strategy/domain/portfolio_projection_service.dart';
 import '../data/local/app_database.dart';
 import '../data/repositories.dart';
 import '../enums/app_enums.dart';
+import '../models/ad_models.dart';
 import '../models/backend_models.dart';
 import '../models/backup_models.dart';
 import '../models/billing_models.dart';
@@ -90,6 +92,16 @@ final appDatabaseProvider = Provider<AppDatabase>((ref) {
   final db = AppDatabase();
   ref.onDispose(db.close);
   return db;
+});
+final adMobConfigProvider = Provider<AdMobConfig>((ref) {
+  try {
+    return AdMobConfig.fromEnvironment(dotenv.env);
+  } catch (_) {
+    return AdMobConfig.fromEnvironment(const {});
+  }
+});
+final adSlotRendererProvider = Provider<AdSlotRenderer>((ref) {
+  return const GoogleMobileBannerAdSlotRenderer();
 });
 final localVaultKeyServiceProvider = Provider(
   (ref) => LocalVaultKeyService(ref.watch(secureStorageProvider)),
@@ -356,7 +368,7 @@ final billingControllerProvider =
         billingService: ref.watch(billingServiceProvider),
         entitlementSyncService: ref.watch(entitlementSyncServiceProvider),
         sessionManager: ref.watch(backendAuthServiceProvider),
-        packageName: AppConstants.androidPackageName,
+        packageName: ref.watch(backendConfigProvider).playIntegrityPackageName,
         appVersion: AppConstants.appVersion,
       ),
     );

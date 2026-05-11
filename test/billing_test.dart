@@ -94,6 +94,8 @@ void main() {
             ),
           ],
           loadedAt: DateTime(2026, 3, 9),
+          monthlyBasePlanId: 'monthly',
+          yearlyBasePlanId: 'yearly',
         ),
         entitlement: EntitlementSnapshot.free(),
         message: null,
@@ -161,6 +163,8 @@ void main() {
         catalog: BillingCatalog(
           plans: const [],
           loadedAt: DateTime(2026, 3, 9),
+          monthlyBasePlanId: 'monthly',
+          yearlyBasePlanId: 'yearly',
         ),
         entitlement: EntitlementSnapshot.free(),
         message: 'Waiting for Google Play confirmation.',
@@ -302,6 +306,89 @@ void main() {
     ).called(1);
   });
 
+  test('billing catalog resolves configured monthly and yearly plan ids', () {
+    final catalog = BillingCatalog(
+      plans: [
+        BillingPlan(
+          productId: 'premium',
+          basePlanId: 'annual-plan',
+          offerToken: 'annual-token',
+          title: 'Premium',
+          description: 'Annual',
+          priceLabel: '\$39.99',
+          currencyCode: 'USD',
+          rawPrice: 39.99,
+          billingPeriod: 'year',
+          isHighlighted: true,
+          productDetails: ProductDetails(
+            id: 'premium',
+            title: 'Premium',
+            description: 'Annual',
+            price: '\$39.99',
+            rawPrice: 39.99,
+            currencyCode: 'USD',
+          ),
+        ),
+        BillingPlan(
+          productId: 'premium',
+          basePlanId: 'monthly-plan',
+          offerToken: 'monthly-token',
+          title: 'Premium',
+          description: 'Monthly',
+          priceLabel: '\$4.99',
+          currencyCode: 'USD',
+          rawPrice: 4.99,
+          billingPeriod: 'month',
+          isHighlighted: false,
+          productDetails: ProductDetails(
+            id: 'premium',
+            title: 'Premium',
+            description: 'Monthly',
+            price: '\$4.99',
+            rawPrice: 4.99,
+            currencyCode: 'USD',
+          ),
+        ),
+      ],
+      loadedAt: DateTime(2026, 3, 9),
+      monthlyBasePlanId: 'monthly-plan',
+      yearlyBasePlanId: 'annual-plan',
+    );
+
+    expect(catalog.yearlyPlan?.basePlanId, 'annual-plan');
+    expect(catalog.monthlyPlan?.basePlanId, 'monthly-plan');
+  });
+
+  testWidgets('premium screen shows product loading state', (tester) async {
+    final controller = _StaticBillingController(
+      BillingState(
+        status: BillingStatus.loadingProducts,
+        catalog: null,
+        entitlement: EntitlementSnapshot.free(),
+        message: null,
+        selectedPlanId: null,
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          subscriptionStateProvider.overrideWith(
+            (ref) => Stream.value(SubscriptionState.free()),
+          ),
+          entitlementRefreshProvider.overrideWith(
+            (ref) async => EntitlementSnapshot.free(),
+          ),
+          billingControllerProvider.overrideWith((ref) => controller),
+        ],
+        child: const MaterialApp(home: PremiumScreen()),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Loading plans from Google Play...'), findsOneWidget);
+  });
+
   test(
     'purchase verification does not use selected plan state as base plan id',
     () async {
@@ -382,8 +469,12 @@ class _FakeBillingService implements BillingService {
   Future<void> completePurchase(PurchaseDetails purchaseDetails) async {}
 
   @override
-  Future<BillingCatalog> loadCatalog() async =>
-      BillingCatalog(plans: const [], loadedAt: DateTime(2026, 3, 9));
+  Future<BillingCatalog> loadCatalog() async => BillingCatalog(
+    plans: const [],
+    loadedAt: DateTime(2026, 3, 9),
+    monthlyBasePlanId: 'monthly',
+    yearlyBasePlanId: 'yearly',
+  );
 
   @override
   Future<List<PurchaseAttempt>> queryOwnedPurchases() async => const [];
@@ -430,6 +521,8 @@ class _StreamingBillingService implements BillingService {
       ),
     ],
     loadedAt: DateTime(2026, 3, 9),
+    monthlyBasePlanId: 'monthly',
+    yearlyBasePlanId: 'yearly',
   );
 
   @override

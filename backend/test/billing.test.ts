@@ -13,7 +13,7 @@ class FakeBillingVerifier implements BillingVerifier {
     purchaseToken: string;
     packageName: string;
   }) {
-    const now = new Date('2026-03-09T00:00:00.000Z');
+    const now = new Date('2026-06-09T00:00:00.000Z');
     const status =
       input.purchaseToken === 'expired-token' ? 'expired' : 'active';
     return {
@@ -23,7 +23,7 @@ class FakeBillingVerifier implements BillingVerifier {
       billingProvider: 'google_play' as const,
       status,
       validUntil:
-        status === 'active' ? new Date('2026-04-09T00:00:00.000Z') : now,
+        status === 'active' ? new Date('2026-07-09T00:00:00.000Z') : now,
       autoRenewing: status === 'active',
       lastVerifiedAt: now,
       originalExternalId: `order-${input.purchaseToken}`,
@@ -194,6 +194,96 @@ describe('billing verification endpoints', () => {
     expect(capabilities.json().premium).toBe(true);
     expect(capabilities.json().entitlement.plan_id).toBe('yearly');
     expect(capabilities.json().entitlement.status).toBe('active');
+  });
+
+  test('restore clears stale premium entitlement when active purchases are gone', async () => {
+    const accessToken = await bootstrap('install-restore-expired');
+    await store.upsertEntitlement({
+      installId: 'install-restore-expired',
+      isPremium: true,
+      productId: 'premium',
+      planId: 'yearly',
+      billingProvider: 'google_play',
+      status: 'active',
+      validUntil: new Date('2026-04-09T00:00:00.000Z'),
+      autoRenewing: true,
+      lastVerifiedAt: new Date('2026-03-09T00:00:00.000Z'),
+      purchaseTokenHash: 'stale-token',
+      originalExternalId: 'order-stale',
+      features: [
+        'unlimitedScans',
+        'pdfImport',
+        'advancedReports',
+        'csvExport',
+        'scenarioSaving',
+        'advancedStrategyComparison',
+        'premiumThemes',
+      ],
+    });
+
+    const restore = await app.inject({
+      method: 'POST',
+      url: '/v1/billing/google-play/restore',
+      headers: { authorization: `Bearer ${accessToken}` },
+      payload: {
+        install_id: 'install-restore-expired',
+        package_name: 'com.debtdestroyer.app',
+        app_version: '1.0.0+1',
+        purchases: [
+          {
+            product_id: 'premium',
+            base_plan_id: 'monthly',
+            purchase_token: 'expired-token',
+            purchase_state: 'restored',
+            purchase_time: '2026-03-01T00:00:00.000Z',
+          },
+        ],
+      },
+    });
+
+    expect(restore.statusCode).toBe(200);
+    expect(restore.json().entitlement.is_premium).toBe(false);
+    expect(restore.json().entitlement.status).toBe('expired');
+    expect(restore.json().entitlement.features).toEqual([]);
+
+    const capabilities = await app.inject({
+      method: 'GET',
+      url: '/v1/mobile/me/capabilities',
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    expect(capabilities.statusCode).toBe(200);
+    expect(capabilities.json().premium).toBe(false);
+    expect(capabilities.json().entitlement.status).toBe('expired');
+  });
+
+  test('capabilities normalizes expired entitlement state', async () => {
+    const accessToken = await bootstrap('install-expired-capabilities');
+    await store.upsertEntitlement({
+      installId: 'install-expired-capabilities',
+      isPremium: true,
+      productId: 'premium',
+      planId: 'yearly',
+      billingProvider: 'google_play',
+      status: 'active',
+      validUntil: new Date('2025-01-01T00:00:00.000Z'),
+      autoRenewing: true,
+      lastVerifiedAt: new Date('2025-01-01T00:00:00.000Z'),
+      purchaseTokenHash: 'expired-token-hash',
+      originalExternalId: 'order-expired',
+      features: ['pdfImport'],
+    });
+
+    const capabilities = await app.inject({
+      method: 'GET',
+      url: '/v1/mobile/me/capabilities',
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+
+    expect(capabilities.statusCode).toBe(200);
+    expect(capabilities.json().premium).toBe(false);
+    expect(capabilities.json().entitlement.is_premium).toBe(false);
+    expect(capabilities.json().entitlement.status).toBe('expired');
+    expect(capabilities.json().entitlement.features).toEqual([]);
   });
 
   test('rejects unexpected billing product ids', async () => {

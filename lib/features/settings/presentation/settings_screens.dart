@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/widgets/app_widgets.dart';
+import '../../../core/widgets/monetization_widgets.dart';
 import '../../../shared/enums/app_enums.dart';
 import '../../../shared/models/backup_models.dart';
 import '../../../shared/models/billing_models.dart';
@@ -302,7 +303,12 @@ class _DataBackupsScreenState extends ConsumerState<DataBackupsScreen> {
         .guard(premium, PremiumFeature.csvExport);
     if (!allowed) {
       if (mounted) {
-        context.push('/premium');
+        await showPremiumUpsellSheet(
+          context,
+          title: 'CSV export is part of Premium',
+          message:
+              'Premium keeps full debt and payment exports available alongside advanced reports and unlimited secure scans.',
+        );
       }
       return;
     }
@@ -718,6 +724,12 @@ class PremiumScreen extends ConsumerWidget {
                   'Premium unlocks PDF parsing, advanced reports, scenario saving, export, and unlimited secure scans.',
                 ),
                 const SizedBox(height: 16),
+                if (billingState.status == BillingStatus.loadingProducts) ...[
+                  const Text('Loading plans from Google Play...'),
+                  const SizedBox(height: 12),
+                  const LinearProgressIndicator(),
+                  const SizedBox(height: 16),
+                ],
                 if (billingState.message != null) ...[
                   Text(billingState.message!),
                   const SizedBox(height: 12),
@@ -758,6 +770,17 @@ class PremiumScreen extends ConsumerWidget {
                             .restore(),
                   child: const Text('Restore purchases'),
                 ),
+                if (billingState.catalog == null &&
+                    billingState.status != BillingStatus.loadingProducts) ...[
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: () => ref
+                        .read(billingControllerProvider.notifier)
+                        .initialize(),
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Retry loading plans'),
+                  ),
+                ],
               ],
             ),
           ),
@@ -769,6 +792,12 @@ class PremiumScreen extends ConsumerWidget {
                 const Text('Current unlocks'),
                 const SizedBox(height: 8),
                 Text(unlocked.isEmpty ? 'None yet' : unlocked),
+                const SizedBox(height: 8),
+                Text(
+                  subscription.isActive
+                      ? 'Premium is active on this device.'
+                      : 'Premium will unlock after secure backend verification succeeds.',
+                ),
                 if (subscription.validUntil != null) ...[
                   const SizedBox(height: 8),
                   Text('Valid until ${subscription.validUntil}'),
@@ -789,6 +818,10 @@ class PremiumScreen extends ConsumerWidget {
                 SizedBox(height: 8),
                 Text(
                   'New purchases and restores require backend verification before premium access is granted.',
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Your financial records remain local and encrypted. Purchases are handled by Google Play.',
                 ),
               ],
             ),
@@ -819,7 +852,7 @@ class _PlanTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: highlighted
               ? Theme.of(context).colorScheme.primary

@@ -287,47 +287,52 @@ void main() {
     expect(csvService.sharedPaths, [csvFile.path]);
   });
 
-  testWidgets('reports screen routes free users to premium on csv export', (
-    tester,
-  ) async {
-    final debt = buildTestDebt(id: 'debt-free', dueDate: DateTime(2026, 3, 15));
-    final router = GoRouter(
-      routes: [
-        GoRoute(path: '/', builder: (_, __) => const ReportsScreen()),
-        GoRoute(
-          path: '/premium',
-          builder: (_, __) => const Scaffold(body: Text('Premium route')),
-        ),
-      ],
-    );
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          allDebtsProvider.overrideWith((_) => Stream.value([debt])),
-          allPaymentsProvider.overrideWith(
-            (_) => Stream.value([buildTestPayment(debtId: debt.id)]),
-          ),
-          userPreferencesProvider.overrideWith(
-            (_) => Stream.value(buildTestPreferences()),
-          ),
-          subscriptionStateProvider.overrideWith(
-            (_) => Stream.value(SubscriptionState.free()),
-          ),
-          entitlementRefreshProvider.overrideWith(
-            (_) async => EntitlementSnapshot.free(),
+  testWidgets(
+    'reports screen shows premium upsell on csv export for free users',
+    (tester) async {
+      final debt = buildTestDebt(
+        id: 'debt-free',
+        dueDate: DateTime(2026, 3, 15),
+      );
+      final router = GoRouter(
+        routes: [
+          GoRoute(path: '/', builder: (_, __) => const ReportsScreen()),
+          GoRoute(
+            path: '/premium',
+            builder: (_, __) => const Scaffold(body: Text('Premium route')),
           ),
         ],
-        child: MaterialApp.router(routerConfig: router),
-      ),
-    );
+      );
 
-    await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.ios_share_outlined));
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            allDebtsProvider.overrideWith((_) => Stream.value([debt])),
+            allPaymentsProvider.overrideWith(
+              (_) => Stream.value([buildTestPayment(debtId: debt.id)]),
+            ),
+            userPreferencesProvider.overrideWith(
+              (_) => Stream.value(buildTestPreferences()),
+            ),
+            subscriptionStateProvider.overrideWith(
+              (_) => Stream.value(SubscriptionState.free()),
+            ),
+            entitlementRefreshProvider.overrideWith(
+              (_) async => EntitlementSnapshot.free(),
+            ),
+          ],
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      );
 
-    expect(find.text('Premium route'), findsOneWidget);
-  });
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.ios_share_outlined));
+      await tester.pumpAndSettle();
+
+      expect(find.text('CSV export is part of Premium'), findsOneWidget);
+      expect(find.text('View premium plans'), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'reports screen defaults to full payment history from all-payments storage',
