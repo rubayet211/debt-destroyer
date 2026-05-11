@@ -83,15 +83,17 @@ describe('production hardening behavior', () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toEqual({
-      ok: true,
-      status: 'ready',
-      checks: {
-        postgres: 'ok',
-        redis: 'ok',
-        gemini: 'ok',
-      },
+    expect(response.json()).toEqual({ status: 'ok' });
+  });
+
+  test('reports live state with the Render-friendly payload', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/health/live',
     });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ status: 'ok' });
   });
 
   test('returns not_ready when gemini is not configured', async () => {
@@ -111,8 +113,7 @@ describe('production hardening behavior', () => {
 
       expect(response.statusCode).toBe(503);
       expect(response.json()).toEqual({
-        ok: false,
-        status: 'not_ready',
+        status: 'error',
         checks: {
           postgres: 'ok',
           redis: 'ok',

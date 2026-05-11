@@ -10,6 +10,11 @@ const defaultRefreshSecret = 'local-refresh-secret';
 const defaultIssuer = 'debt-destroyer-backend';
 const defaultAudience = 'debt-destroyer-mobile';
 const defaultGeminiModel = 'gemini-2.0-flash';
+const defaultPostgresPoolMax = 10;
+const defaultPostgresPoolMin = 0;
+const defaultPostgresIdleTimeoutMs = 30_000;
+const defaultPostgresConnectionTimeoutMs = 10_000;
+const defaultPostgresMaxLifetimeSeconds = 300;
 
 const configSchema = z
   .object({
@@ -21,6 +26,31 @@ const configSchema = z
       .optional(),
     TRUST_PROXY: z.coerce.boolean().default(false),
     POSTGRES_URL: z.string().optional(),
+    POSTGRES_POOL_MAX: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(defaultPostgresPoolMax),
+    POSTGRES_POOL_MIN: z.coerce
+      .number()
+      .int()
+      .nonnegative()
+      .default(defaultPostgresPoolMin),
+    POSTGRES_IDLE_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(defaultPostgresIdleTimeoutMs),
+    POSTGRES_CONNECTION_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(defaultPostgresConnectionTimeoutMs),
+    POSTGRES_MAX_LIFETIME_SECONDS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(defaultPostgresMaxLifetimeSeconds),
     REDIS_URL: z.string().optional(),
     JWT_SECRET: z.string().min(8).optional(),
     JWT_ACCESS_SECRET: z.string().min(8).optional(),
@@ -175,6 +205,13 @@ const configSchema = z
         message: 'CLEANUP_INTERVAL_MINUTES must be at least 5 minutes.',
       });
     }
+    if (env.POSTGRES_POOL_MIN > env.POSTGRES_POOL_MAX) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['POSTGRES_POOL_MIN'],
+        message: 'POSTGRES_POOL_MIN cannot be greater than POSTGRES_POOL_MAX.',
+      });
+    }
   });
 
 export type AppConfig = ReturnType<typeof loadConfig>;
@@ -191,6 +228,13 @@ export function loadConfig() {
     logLevel: env.LOG_LEVEL ?? (env.NODE_ENV === 'production' ? 'info' : 'debug'),
     trustProxy: env.TRUST_PROXY,
     postgresUrl: env.POSTGRES_URL,
+    postgresPool: {
+      max: env.POSTGRES_POOL_MAX,
+      min: env.POSTGRES_POOL_MIN,
+      idleTimeoutMs: env.POSTGRES_IDLE_TIMEOUT_MS,
+      connectionTimeoutMs: env.POSTGRES_CONNECTION_TIMEOUT_MS,
+      maxLifetimeSeconds: env.POSTGRES_MAX_LIFETIME_SECONDS,
+    },
     redisUrl: env.REDIS_URL,
     jwtAccessSecret: env.JWT_ACCESS_SECRET ?? env.JWT_SECRET ?? defaultAccessSecret,
     jwtRefreshSecret:

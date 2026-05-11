@@ -1,0 +1,86 @@
+services:
+  - type: web
+    name: debt-destroyer-backend
+    runtime: docker
+    rootDir: backend
+    dockerContext: ./backend
+    dockerfilePath: ./backend/Dockerfile
+    autoDeployTrigger: commit
+    healthCheckPath: /health/ready
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: PORT
+        value: "10000"
+      - key: TRUST_PROXY
+        value: "true"
+      - key: LOG_LEVEL
+        value: info
+      - key: NODE_OPTIONS
+        value: --max-old-space-size=512
+      - key: POSTGRES_POOL_MAX
+        value: "10"
+      - key: POSTGRES_POOL_MIN
+        value: "0"
+      - key: POSTGRES_IDLE_TIMEOUT_MS
+        value: "30000"
+      - key: POSTGRES_CONNECTION_TIMEOUT_MS
+        value: "10000"
+      - key: POSTGRES_MAX_LIFETIME_SECONDS
+        value: "300"
+      - key: POSTGRES_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GOOGLE_PLAY_PACKAGE_NAME
+        value: com.debtdestroyer.app
+      - key: GOOGLE_PLAY_SERVICE_ACCOUNT_JSON
+        sync: false
+      - key: PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER
+        sync: false
+      - key: PLAY_INTEGRITY_PACKAGE_NAME
+        value: com.debtdestroyer.app
+      - key: PREMIUM_PRODUCT_ID
+        value: premium
+      - key: PREMIUM_MONTHLY_BASE_PLAN_ID
+        value: monthly
+      - key: PREMIUM_YEARLY_BASE_PLAN_ID
+        value: yearly
+      - key: FREE_SCAN_LIMIT
+        value: "5"
+      - key: GEMINI_MODEL
+        value: gemini-2.0-flash
+      - key: GEMINI_API_VERSION
+        value: v1beta
+      - key: GEMINI_TIMEOUT_MS
+        value: "15000"
+      - key: RATE_LIMIT_BOOTSTRAP_CHALLENGE_PER_MINUTE
+        value: "20"
+      - key: RATE_LIMIT_BOOTSTRAP_VERIFY_PER_MINUTE
+        value: "20"
+      - key: RATE_LIMIT_TOKEN_REFRESH_PER_MINUTE
+        value: "20"
+      - key: RATE_LIMIT_BILLING_VERIFY_PER_MINUTE
+        value: "20"
+      - key: RATE_LIMIT_BILLING_RESTORE_PER_MINUTE
+        value: "10"
+      - key: RATE_LIMIT_EXTRACTION_INSTALL_PER_MINUTE
+        value: "20"
+      - key: RATE_LIMIT_EXTRACTION_IP_PER_MINUTE
+        value: "60"
+      - key: ENABLE_CLEANUP_JOBS
+        value: "false"
+      - key: CLEANUP_INTERVAL_MINUTES
+        value: "60"
+      - key: ALLOW_DEBUG_ATTESTATION
+        value: "false"
+      - key: DEBUG_ATTESTATION_SECRET
+        sync: false

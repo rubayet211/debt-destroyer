@@ -79,7 +79,12 @@ export async function createApp(options: CreateAppOptions = {}) {
     );
   }
   const store: AppStore =
-    options.store ?? (await createStore(config.postgresUrl, config.environment));
+    options.store ??
+    (await createStore(
+      config.postgresUrl,
+      config.environment,
+      config.postgresPool,
+    ));
   const provider = options.provider ?? new GeminiProvider(config);
   const billingVerifier =
     options.billingVerifier ?? createBillingVerifier(config);
@@ -93,6 +98,10 @@ export async function createApp(options: CreateAppOptions = {}) {
     trustProxy: config.trustProxy,
     logger: {
       level: config.logLevel,
+      base: {
+        service: 'debt-destroyer-backend',
+        environment: config.environment,
+      },
     },
   });
   const extractionAliasDeprecatedAt = new Date().toUTCString();
@@ -153,22 +162,17 @@ export async function createApp(options: CreateAppOptions = {}) {
     await rateLimiter.close?.();
   });
 
-  app.get("/health/live", async () => ({ ok: true, status: "live" }));
+  app.get("/health/live", async () => ({ status: "ok" }));
   app.get("/health/ready", async (_request, reply) => {
     const checks = await buildReadinessChecks(config, store, rateLimiter);
     const isReady = Object.values(checks).every((value) => value === "ok");
     if (!isReady) {
       return reply.status(503).send({
-        ok: false,
-        status: "not_ready",
+        status: "error",
         checks,
       });
     }
-    return reply.send({
-      ok: true,
-      status: "ready",
-      checks,
-    });
+    return reply.send({ status: "ok" });
   });
 
   app.post("/v1/mobile/bootstrap/challenge", async (request, reply) => {
@@ -821,6 +825,13 @@ function withRuntimeDefaults(config: AppConfig): AppConfig {
     logLevel:
       config.logLevel ?? (config.environment === "production" ? "info" : "debug"),
     trustProxy: config.trustProxy ?? false,
+    postgresPool: config.postgresPool ?? {
+      max: 10,
+      min: 0,
+      idleTimeoutMs: 30_000,
+      connectionTimeoutMs: 10_000,
+      maxLifetimeSeconds: 300,
+    },
     jwtIssuer: config.jwtIssuer ?? "debt-destroyer-backend",
     jwtAudience: config.jwtAudience ?? "debt-destroyer-mobile",
     geminiApiVersion: config.geminiApiVersion ?? "v1beta",

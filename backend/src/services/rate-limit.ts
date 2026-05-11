@@ -76,7 +76,11 @@ export class RedisRateLimiter implements RateLimiter {
   }
 
   async close() {
-    await this.redis.quit();
+    try {
+      await this.redis.quit();
+    } catch {
+      this.redis.disconnect();
+    }
   }
 
   async checkHealth(timeoutMs = 1200) {
@@ -105,7 +109,34 @@ export async function createRateLimiter(
     }
     return new MemoryRateLimiter();
   }
-  const redis = new Redis(redisUrl);
+  const redis = new Redis(redisUrl, {
+    lazyConnect: true,
+    enableReadyCheck: true,
+    maxRetriesPerRequest: 1,
+    connectTimeout: 10_000,
+    retryStrategy: (times) => Math.min(times * 250, 2_000),
+  });
+  redis.on('error', (error) => {
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        event: 'redis_error',
+        service: 'debt-destroyer-backend',
+        message: error.message,
+      }),
+    );
+  });
+  redis.on('reconnecting', (delay: number) => {
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        event: 'redis_reconnecting',
+        service: 'debt-destroyer-backend',
+        delay,
+      }),
+    );
+  });
+  await redis.connect();
   await redis.ping();
   return new RedisRateLimiter(redis);
 }

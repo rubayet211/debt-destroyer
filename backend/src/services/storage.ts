@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 
-import { Pool } from 'pg';
+import { Pool, type PoolConfig } from 'pg';
 
 import { makeId, sha256 } from './crypto.js';
 
@@ -130,6 +130,25 @@ export interface AppStore {
   cleanupExpiredData(referenceTime?: Date): Promise<CleanupSummary>;
   close?(): Promise<void>;
 }
+
+export type PostgresPoolSettings = {
+  max: number;
+  min: number;
+  idleTimeoutMs: number;
+  connectionTimeoutMs: number;
+  maxLifetimeSeconds: number;
+};
+
+const defaultPostgresPoolSettings: PostgresPoolSettings = {
+  max: 10,
+  min: 0,
+  idleTimeoutMs: 30_000,
+  connectionTimeoutMs: 10_000,
+  maxLifetimeSeconds: 300,
+};
+
+const startupRetryAttempts = 6;
+const startupRetryDelayMs = 1_500;
 
 export class MemoryAppStore implements AppStore {
   private readonly challenges = new Map<string, ChallengeRecord>();
@@ -378,11 +397,28 @@ export class MemoryAppStore implements AppStore {
 export class PostgresAppStore implements AppStore {
   constructor(private readonly pool: Pool) {}
 
-  static async create(connectionString: string) {
-    const pool = new Pool({ connectionString });
+  static async create(
+    connectionString: string,
+    poolSettings: Partial<PostgresPoolSettings> = {},
+  ) {
+    const pool = new Pool(
+      buildPostgresPoolConfig(connectionString, {
+        ...defaultPostgresPoolSettings,
+        ...poolSettings,
+      }),
+    );
+    bindPoolLogging(pool);
     const store = new PostgresAppStore(pool);
-    await store.ensureSchema();
-    return store;
+    try {
+      await withRetry(async () => {
+        await pool.query('select 1');
+        await store.ensureSchema();
+      });
+      return store;
+    } catch (error) {
+      await pool.end().catch(() => undefined);
+      throw error;
+    }
   }
 
   async ensureSchema() {
@@ -1088,9 +1124,28 @@ export class PostgresAppStore implements AppStore {
   }
 }
 
+export function buildPostgresPoolConfig(
+  connectionString: string,
+  settings: PostgresPoolSettings,
+): PoolConfig {
+  return {
+    connectionString,
+    max: settings.max,
+    min: settings.min,
+    idleTimeoutMillis: settings.idleTimeoutMs,
+    connectionTimeoutMillis: settings.connectionTimeoutMs,
+    maxLifetimeSeconds: settings.maxLifetimeSeconds,
+    allowExitOnIdle: false,
+    keepAlive: true,
+    application_name: 'debt-destroyer-backend',
+    enableChannelBinding: shouldEnableChannelBinding(connectionString),
+  } as PoolConfig;
+}
+
 export async function createStore(
   postgresUrl?: string,
   environment: string = 'development',
+  poolSettings: Partial<PostgresPoolSettings> = {},
 ) {
   const isLocalEnvironment =
     environment === 'development' || environment === 'test';
@@ -1102,7 +1157,7 @@ export async function createStore(
     }
     return new MemoryAppStore();
   }
-  return PostgresAppStore.create(postgresUrl);
+  return PostgresAppStore.create(postgresUrl, poolSettings);
 }
 
 export async function readSchemaSql() {
@@ -1118,6 +1173,82 @@ export function monthKeyFor(date: Date) {
 
 export function hashToken(token: string) {
   return sha256(token);
+}
+
+function bindPoolLogging(pool: Pool) {
+  pool.on('error', (error) => {
+    logOperationalEvent('error', 'postgres_pool_error', {
+      message: error.message,
+      name: error.name,
+    });
+  });
+}
+
+function shouldEnableChannelBinding(connectionString: string) {
+  try {
+    const url = new URL(connectionString);
+    const sslMode = url.searchParams.get('sslmode')?.toLowerCase();
+    const channelBinding = url.searchParams.get('channel_binding')?.toLowerCase();
+
+    if (channelBinding === 'require') {
+      return true;
+    }
+
+    return (
+      sslMode != null &&
+      sslMode !== 'disable' &&
+      sslMode !== 'allow' &&
+      sslMode !== 'prefer'
+    );
+  } catch {
+    return false;
+  }
+}
+
+async function withRetry<T>(operation: () => Promise<T>) {
+  let attempt = 0;
+  let lastError: unknown;
+
+  while (attempt < startupRetryAttempts) {
+    attempt += 1;
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      if (attempt >= startupRetryAttempts) {
+        break;
+      }
+
+      logOperationalEvent('warn', 'postgres_startup_retry', {
+        attempt,
+        remainingAttempts: startupRetryAttempts - attempt,
+        message: error instanceof Error ? error.message : 'unknown error',
+      });
+      await delay(startupRetryDelayMs * attempt);
+    }
+  }
+
+  throw lastError;
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function logOperationalEvent(
+  level: 'warn' | 'error',
+  event: string,
+  details: Record<string, unknown>,
+) {
+  const logger = level === 'error' ? console.error : console.warn;
+  logger(
+    JSON.stringify({
+      level,
+      event,
+      service: 'debt-destroyer-backend',
+      ...details,
+    }),
+  );
 }
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T) {

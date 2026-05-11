@@ -108,6 +108,28 @@ describe('backend config validation', () => {
 
     expect(() => loadConfig()).toThrow(/GEMINI_API_KEY/);
   });
+
+  test('loads pg pool settings for Render-friendly defaults and overrides', () => {
+    process.env.NODE_ENV = 'production';
+    setRequiredProductionEnv();
+    process.env.JWT_ACCESS_SECRET = 'prod-access-secret';
+    process.env.JWT_REFRESH_SECRET = 'prod-refresh-secret';
+    process.env.POSTGRES_POOL_MAX = '12';
+    process.env.POSTGRES_POOL_MIN = '1';
+    process.env.POSTGRES_IDLE_TIMEOUT_MS = '45000';
+    process.env.POSTGRES_CONNECTION_TIMEOUT_MS = '8000';
+    process.env.POSTGRES_MAX_LIFETIME_SECONDS = '600';
+
+    const config = loadConfig();
+
+    expect(config.postgresPool).toEqual({
+      max: 12,
+      min: 1,
+      idleTimeoutMs: 45000,
+      connectionTimeoutMs: 8000,
+      maxLifetimeSeconds: 600,
+    });
+  });
 });
 
 describe('schema loading', () => {
