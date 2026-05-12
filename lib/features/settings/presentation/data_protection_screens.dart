@@ -22,13 +22,13 @@ class PrivacyUpgradeScreen extends ConsumerWidget {
           const SizedBox(height: 12),
           const AppCard(
             child: Text(
-              'Balances, imported source documents, and retained OCR text are now protected with device-bound encryption. Deletion is best effort on mobile flash storage and may not guarantee forensic erasure.',
+              'Balances, imported source documents, and legacy extracted text are now protected with device-bound encryption. Deletion is best effort on mobile flash storage and may not guarantee forensic erasure.',
             ),
           ),
           const SizedBox(height: 16),
           const AppCard(
             child: Text(
-              'Raw OCR text is no longer kept by default after review. You can change retention and purge settings later from Security & privacy.',
+              'Cloud imports do not keep raw extracted text on this device by default. You can purge legacy retained text later from Security & privacy.',
             ),
           ),
           const Spacer(),
@@ -73,8 +73,58 @@ class DataProtectionRecoveryScreen extends ConsumerWidget {
             },
             child: const Text('Retry migration'),
           ),
+          const SizedBox(height: 8),
+          OutlinedButton(
+            onPressed: () => _confirmReset(context, ref),
+            child: const Text('Reset local data'),
+          ),
         ],
       ),
     );
+  }
+
+  Future<void> _confirmReset(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reset local data?'),
+        content: const Text(
+          'This deletes the local encrypted database, imported documents, and local protection keys on this device. Use this only when migration cannot recover.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Reset'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) {
+      return;
+    }
+    try {
+      await ref
+          .read(localProtectionResetServiceProvider)
+          .resetLocalEncryptedState();
+      ref.invalidate(appDatabaseProvider);
+      ref.invalidate(dataProtectionBootstrapProvider);
+      if (context.mounted) {
+        context.go('/');
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Reset failed. Clear app storage from Android settings, then reopen the app.',
+            ),
+          ),
+        );
+      }
+    }
   }
 }

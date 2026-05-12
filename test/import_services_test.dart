@@ -113,37 +113,29 @@ Minimum payment: \$75
           '${tempDir.path}${Platform.pathSeparator}statement.txt',
         )..writeAsStringSync('ACME BANK CREDIT CARD STATEMENT');
         final vaultService = _SealTrackingVaultService();
+        final extractionService = _RecordingAiExtractionService(
+          const ImportExtractionResult(
+            summary: StatementSummaryCandidate(
+              title: 'Acme Statement',
+              creditorName: 'Acme Bank',
+              debtType: DebtType.creditCard,
+              currentBalance: 1200,
+              minimumPayment: 35,
+              currency: 'USD',
+              confidence: 0.9,
+            ),
+            statementLineItems: <StatementLineItemCandidate>[],
+            warnings: <String>[],
+            documentSignals: <String>['credit_card_statement'],
+            errorMessage: null,
+            quotaSnapshot: null,
+          ),
+        );
         final coordinator = ImportCoordinator(
           documentVaultService: vaultService,
           preprocessService: PassthroughImagePreprocessService(),
-          ocrService: _StaticOcrService(
-            const OcrResult(
-              text: 'ACME BANK CREDIT CARD STATEMENT\nCurrent balance: \$1200',
-              lines: <String>[
-                'ACME BANK CREDIT CARD STATEMENT',
-                'Current balance: \$1200',
-              ],
-            ),
-          ),
           classifier: DocumentClassifier(),
-          aiExtractionService: const _StaticAiExtractionService(
-            ImportExtractionResult(
-              summary: StatementSummaryCandidate(
-                title: 'Acme Statement',
-                creditorName: 'Acme Bank',
-                debtType: DebtType.creditCard,
-                currentBalance: 1200,
-                minimumPayment: 35,
-                currency: 'USD',
-                confidence: 0.9,
-              ),
-              statementLineItems: <StatementLineItemCandidate>[],
-              warnings: <String>[],
-              documentSignals: <String>['credit_card_statement'],
-              errorMessage: null,
-              quotaSnapshot: null,
-            ),
-          ),
+          aiExtractionService: extractionService,
           validationService: ParseValidationService(),
           preferencesRepository: _StaticPreferencesRepository(
             UserPreferences.defaults(),
@@ -161,35 +153,66 @@ Minimum payment: \$75
         );
 
         expect(vaultService.sealImportCalls, 0);
+        expect(extractionService.lastFile?.path, source.path);
+        expect(extractionService.lastNormalizedText, isEmpty);
+        expect(bundle.normalizedText, isEmpty);
         expect(bundle.document.storageRef, isNull);
         expect(bundle.document.encryptedAt, isNull);
         expect(bundle.sourcePath, source.path);
       },
     );
+
+    test(
+      'stages import files into app-controlled storage with normalized jpeg mime',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp(
+          'import_stage_service',
+        );
+        addTearDown(() => tempDir.delete(recursive: true));
+        final source = File(
+          '${tempDir.path}${Platform.pathSeparator}statement.jpg',
+        )..writeAsStringSync('jpeg bytes');
+        final supportDir = Directory(
+          '${tempDir.path}${Platform.pathSeparator}app_support',
+        );
+        final service = LocalImportFileStagingService(
+          baseDirectoryLoader: () async => supportDir,
+        );
+
+        final staged = await service.stage(
+          sourcePath: source.path,
+          sourceType: DocumentSourceType.gallery,
+          mimeType: service.normalizedImageMimeType(source.path),
+        );
+
+        expect(staged.mimeType, 'image/jpeg');
+        expect(staged.path, isNot(source.path));
+        expect(await File(staged.path).exists(), isTrue);
+        expect(await File(staged.path).readAsString(), 'jpeg bytes');
+      },
+    );
   });
 }
 
-class _StaticOcrService implements OcrService {
-  const _StaticOcrService(this.result);
-
-  final OcrResult result;
-
-  @override
-  Future<OcrResult> extractText(FileReference file) async => result;
-}
-
-class _StaticAiExtractionService implements AiExtractionService {
-  const _StaticAiExtractionService(this.result);
+class _RecordingAiExtractionService implements AiExtractionService {
+  _RecordingAiExtractionService(this.result);
 
   final ImportExtractionResult result;
+  FileReference? lastFile;
+  String? lastNormalizedText;
 
   @override
   Future<ImportExtractionResult> extract({
     required DocumentClassification classification,
     required String normalizedText,
+    required FileReference file,
     required DocumentSourceType sourceType,
     required bool allowCloud,
-  }) async => result;
+  }) async {
+    lastFile = file;
+    lastNormalizedText = normalizedText;
+    return result;
+  }
 }
 
 class _StaticPreferencesRepository implements PreferencesRepository {

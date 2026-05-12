@@ -2,7 +2,7 @@ import type { DocumentClassification } from "../types.js";
 
 export function buildExtractionPrompt(
   classification: DocumentClassification,
-  normalizedText: string,
+  normalizedText?: string,
 ) {
   const classifierHint = {
     creditCardStatement: "credit card statement",
@@ -14,8 +14,14 @@ export function buildExtractionPrompt(
     unknown: "unknown finance document",
   }[classification];
 
+  const sourceBlock = normalizedText?.trim()
+    ? `OCR TEXT:
+${normalizedText.trim()}`
+    : `SOURCE DOCUMENT:
+Read the attached image or PDF directly. It may be a statement screenshot, camera photo, gallery image, or PDF.`;
+
   return `
-You extract debt and payment details from OCR text.
+You extract debt and payment details from financial documents.
 Return strict JSON only.
 Classification: ${classifierHint}
 Return a JSON object with keys:
@@ -45,7 +51,6 @@ For line_items:
 If no line items are present, return an empty array.
 Use null when uncertain.
 Never return prose.
-OCR TEXT:
-${normalizedText}
+${sourceBlock}
 `.trim();
 }

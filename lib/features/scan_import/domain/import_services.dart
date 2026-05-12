@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-import 'package:syncfusion_flutter_pdf/pdf.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/constants/app_constants.dart';
@@ -23,11 +23,80 @@ class FileReference {
   final String mimeType;
 }
 
-class OcrResult {
-  const OcrResult({required this.text, required this.lines});
+abstract class ImportFileStagingService {
+  Future<FileReference> stage({
+    required String sourcePath,
+    required DocumentSourceType sourceType,
+    required String mimeType,
+  });
 
-  final String text;
-  final List<String> lines;
+  String normalizedImageMimeType(String sourcePath);
+}
+
+class LocalImportFileStagingService implements ImportFileStagingService {
+  LocalImportFileStagingService({
+    Future<Directory> Function()? baseDirectoryLoader,
+    Uuid? uuid,
+  }) : _baseDirectoryLoader =
+           baseDirectoryLoader ?? getApplicationSupportDirectory,
+       _uuid = uuid ?? const Uuid();
+
+  final Future<Directory> Function() _baseDirectoryLoader;
+  final Uuid _uuid;
+
+  @override
+  Future<FileReference> stage({
+    required String sourcePath,
+    required DocumentSourceType sourceType,
+    required String mimeType,
+  }) async {
+    final sourceFile = File(sourcePath);
+    if (!await sourceFile.exists()) {
+      throw FileSystemException('Import file not found.', sourcePath);
+    }
+    final supportDirectory = await _baseDirectoryLoader();
+    final pendingImportsDirectory = Directory(
+      p.join(supportDirectory.path, 'pending_imports'),
+    );
+    if (!await pendingImportsDirectory.exists()) {
+      await pendingImportsDirectory.create(recursive: true);
+    }
+    final extension = _targetExtension(mimeType, sourcePath);
+    final stagedPath = p.join(
+      pendingImportsDirectory.path,
+      '${_uuid.v4()}$extension',
+    );
+    await sourceFile.copy(stagedPath);
+    return FileReference(
+      path: stagedPath,
+      sourceType: sourceType,
+      mimeType: mimeType,
+    );
+  }
+
+  @override
+  String normalizedImageMimeType(String sourcePath) {
+    return switch (p.extension(sourcePath).toLowerCase()) {
+      '.jpg' || '.jpeg' => 'image/jpeg',
+      '.png' => 'image/png',
+      '.webp' => 'image/webp',
+      _ => 'image/jpeg',
+    };
+  }
+
+  String _targetExtension(String mimeType, String sourcePath) {
+    final fallback = p.extension(sourcePath).toLowerCase();
+    if (fallback.isNotEmpty) {
+      return fallback;
+    }
+    return switch (mimeType) {
+      'image/jpeg' => '.jpg',
+      'image/png' => '.png',
+      'image/webp' => '.webp',
+      'application/pdf' => '.pdf',
+      _ => '',
+    };
+  }
 }
 
 abstract class ImagePreprocessService {
@@ -37,47 +106,6 @@ abstract class ImagePreprocessService {
 class PassthroughImagePreprocessService implements ImagePreprocessService {
   @override
   Future<FileReference> preprocess(FileReference input) async => input;
-}
-
-abstract class OcrService {
-  Future<OcrResult> extractText(FileReference file);
-}
-
-class MlKitOcrService implements OcrService {
-  MlKitOcrService()
-    : _recognizer = TextRecognizer(script: TextRecognitionScript.latin);
-
-  final TextRecognizer _recognizer;
-
-  @override
-  Future<OcrResult> extractText(FileReference file) async {
-    if (file.mimeType.contains('pdf')) {
-      final bytes = await File(file.path).readAsBytes();
-      final document = PdfDocument(inputBytes: bytes);
-      final extractor = PdfTextExtractor(document);
-      final text = extractor.extractText();
-      document.dispose();
-      final lines = text
-          .split('\n')
-          .map(_normalizeLine)
-          .where((line) => line.isNotEmpty)
-          .toList();
-      return OcrResult(text: text, lines: lines);
-    }
-
-    final recognized = await _recognizer.processImage(
-      InputImage.fromFilePath(file.path),
-    );
-    final lines = recognized.blocks
-        .expand((block) => block.lines)
-        .map((line) => _normalizeLine(line.text))
-        .where((line) => line.isNotEmpty)
-        .toList();
-    return OcrResult(text: recognized.text, lines: lines);
-  }
-
-  String _normalizeLine(String line) =>
-      line.replaceAll(RegExp(r'\s+'), ' ').trim();
 }
 
 class DocumentClassifier {
@@ -243,6 +271,7 @@ abstract class AiExtractionService {
   Future<ImportExtractionResult> extract({
     required DocumentClassification classification,
     required String normalizedText,
+    required FileReference file,
     required DocumentSourceType sourceType,
     required bool allowCloud,
   });
@@ -716,7 +745,6 @@ class ImportCoordinator {
   ImportCoordinator({
     required this.documentVaultService,
     required this.preprocessService,
-    required this.ocrService,
     required this.classifier,
     required this.aiExtractionService,
     required this.validationService,
@@ -726,7 +754,6 @@ class ImportCoordinator {
 
   final SecureDocumentVaultService documentVaultService;
   final ImagePreprocessService preprocessService;
-  final OcrService ocrService;
   final DocumentClassifier classifier;
   final AiExtractionService aiExtractionService;
   final ParseValidationService validationService;
@@ -739,20 +766,23 @@ class ImportCoordinator {
   }) async {
     final preferences = await preferencesRepository.loadPreferences();
     final preprocessed = await preprocessService.preprocess(input);
-    final ocr = await ocrService.extractText(preprocessed);
-    final multiline = _normalizeMultiline(ocr.lines, ocr.text);
-    final classification = classifier.classify(multiline);
     final extracted = validationService.validate(
       await aiExtractionService.extract(
-        classification: classification,
-        normalizedText: multiline,
+        classification: DocumentClassification.unknown,
+        normalizedText: '',
+        file: preprocessed,
         sourceType: input.sourceType,
         allowCloud: allowCloud,
       ),
     );
+    final fallbackClassification = classifier.classify(
+      extracted.documentSignals.join('\n'),
+    );
+    final classification = _classificationFor(
+      extracted,
+      fallbackClassification,
+    );
     final now = DateTime.now();
-    final retainRaw = retentionService.shouldRetainRawOcr(preferences);
-    final rawOcrExpiry = retentionService.rawOcrExpiry(preferences, now);
     final parseSucceeded =
         extracted.summary.confidence > 0 ||
         extracted.statementLineItems.isNotEmpty;
@@ -775,7 +805,7 @@ class ImportCoordinator {
         createdAt: now,
         lifecycleState: DocumentLifecycleState.processed,
         linkedDebtId: null,
-        rawOcrText: retainRaw ? multiline : null,
+        rawOcrText: null,
         parseStatus: parseSucceeded ? ParseStatus.success : ParseStatus.failed,
         parseVersion: AppConstants.aiPromptVersion,
         deleted: false,
@@ -786,16 +816,16 @@ class ImportCoordinator {
               : ParseStatus.failed,
           now: now,
         ),
-        rawOcrExpiresAt: retainRaw ? rawOcrExpiry : null,
+        rawOcrExpiresAt: null,
         processedAt: now,
         linkedAt: null,
         pendingDeletionAt: null,
         purgedAt: null,
         encryptedAt: null,
-        hasRawOcrText: retainRaw && multiline.isNotEmpty,
+        hasRawOcrText: false,
       ),
       classification: classification,
-      normalizedText: multiline,
+      normalizedText: '',
       candidate: candidate,
       summary: extracted.summary,
       statementLineItems: extracted.statementLineItems,
@@ -803,17 +833,33 @@ class ImportCoordinator {
       reviewMode: _reviewModeFor(classification, extracted),
       errorMessage:
           extracted.errorMessage ??
-          (!allowCloud ? 'Using local OCR parsing only.' : null),
+          (!allowCloud ? 'Cloud extraction was skipped.' : null),
       sourcePath: input.path,
     );
   }
 
-  String _normalizeMultiline(List<String> lines, String fallbackText) {
-    final normalizedLines = (lines.isEmpty ? fallbackText.split('\n') : lines)
-        .map((line) => line.replaceAll(RegExp(r'\s+'), ' ').trim())
-        .where((line) => line.isNotEmpty)
-        .toList();
-    return normalizedLines.join('\n').trim();
+  DocumentClassification _classificationFor(
+    ImportExtractionResult extracted,
+    DocumentClassification fallback,
+  ) {
+    if (extracted.summary.debtType == DebtType.creditCard) {
+      return DocumentClassification.creditCardStatement;
+    }
+    if (extracted.summary.debtType == DebtType.personalLoan ||
+        extracted.summary.debtType == DebtType.studentLoan ||
+        extracted.summary.debtType == DebtType.carLoan ||
+        extracted.summary.debtType == DebtType.mortgage ||
+        extracted.summary.debtType == DebtType.familyLoan) {
+      return DocumentClassification.loanStatement;
+    }
+    final signals = extracted.documentSignals.join(' ').toLowerCase();
+    if (signals.contains('credit')) {
+      return DocumentClassification.creditCardStatement;
+    }
+    if (signals.contains('loan')) {
+      return DocumentClassification.loanStatement;
+    }
+    return fallback;
   }
 
   ImportReviewMode _reviewModeFor(
@@ -852,12 +898,22 @@ class ImportCoordinator {
         ),
       );
     }
+    if (extraction.summary.confidence == 0 &&
+        extraction.statementLineItems.isEmpty &&
+        extraction.documentSignals.isEmpty) {
+      issues.add(
+        const ImportIssue(
+          code: 'empty_ocr',
+          message:
+              'No reliable text was extracted. Try a sharper image, crop closer to the statement, or enter details manually.',
+        ),
+      );
+    }
     if (!allowCloud) {
       issues.add(
         const ImportIssue(
-          code: 'local_only',
-          message:
-              'Cloud structuring was skipped. Local OCR results may need more manual edits.',
+          code: 'cloud_skipped',
+          message: 'Cloud extraction was skipped. Enter details manually.',
         ),
       );
     }
@@ -882,9 +938,19 @@ class ImportCoordinator {
       'ambiguous_date' =>
         'Some line item dates were incomplete and were left unset.',
       'quota_exhausted' =>
-        'Cloud extraction quota is exhausted. You can continue with local OCR only.',
+        'Cloud extraction quota is exhausted. Enter details manually or upgrade for unlimited scans.',
       'backend_unavailable' =>
-        'Secure cloud extraction is temporarily unavailable. Local OCR results are shown.',
+        'Secure cloud extraction is temporarily unavailable. Manual review is shown.',
+      'attestation_unavailable' =>
+        'Secure cloud extraction could not verify this device. Manual review is shown.',
+      'network_error' =>
+        'Backend network connection failed. Manual review is shown.',
+      'backend_timeout' =>
+        'Secure cloud extraction timed out. Manual review is shown.',
+      'file_unavailable' =>
+        'Selected file could not be read. Pick the file again or enter details manually.',
+      'empty_ocr' =>
+        'No reliable text was extracted. Try a sharper image or enter details manually.',
       _ => code.replaceAll('_', ' '),
     };
   }

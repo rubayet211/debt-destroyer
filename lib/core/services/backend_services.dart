@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter/services.dart';
@@ -455,6 +456,7 @@ class BackendAiExtractionService implements AiExtractionService {
   Future<ImportExtractionResult> extract({
     required DocumentClassification classification,
     required String normalizedText,
+    required FileReference file,
     required DocumentSourceType sourceType,
     required bool allowCloud,
   }) async {
@@ -465,14 +467,17 @@ class BackendAiExtractionService implements AiExtractionService {
 
     final installId = await sessionManager.getOrCreateInstallId();
     try {
-      final response = await client.postAuthorized('/v1/import/extract', {
+      final fileBytes = await File(file.path).readAsBytes();
+      final response = await client.postAuthorized('/v1/import/extract-file', {
         'request_id': const Uuid().v4(),
         'install_id': installId,
-        'document_classification': classification.name,
-        'normalized_ocr_text': normalizedText,
         'source_type': sourceType.name,
         'app_version': AppConstants.appVersion,
         'consented_at': DateTime.now().toIso8601String(),
+        'file': {
+          'mime_type': file.mimeType,
+          'data_base64': base64Encode(fileBytes),
+        },
       });
       final quota = _parseQuota(
         response['quota'] as Map<String, dynamic>? ?? const {},
@@ -520,6 +525,16 @@ class BackendAiExtractionService implements AiExtractionService {
         quotaSnapshot: quota is Map<String, dynamic>
             ? _parseQuota(quota)
             : null,
+      );
+    } on FileSystemException {
+      return ImportExtractionResult(
+        summary: local.summary,
+        statementLineItems: local.statementLineItems,
+        warnings: [...local.warnings, 'file_unavailable'],
+        documentSignals: [...local.documentSignals, 'local_fallback'],
+        errorMessage:
+            'Selected file could not be read. Pick the file again or enter details manually.',
+        quotaSnapshot: null,
       );
     } on AppException catch (error) {
       return ImportExtractionResult(
@@ -650,10 +665,10 @@ class BackendAiExtractionService implements AiExtractionService {
 
   String _backendErrorMessage(BackendHttpException error) {
     if (error.code == 'quota_exhausted') {
-      return 'Cloud extraction quota is exhausted. Continue with local OCR review.';
+      return 'Cloud extraction quota is exhausted. Enter details manually or upgrade for unlimited scans.';
     }
     if (error.code == 'network_error' || error.code == 'backend_timeout') {
-      return 'Network or backend timeout. Local OCR results are shown instead.';
+      return 'Network or backend timeout. Manual review is shown instead.';
     }
     return error.message;
   }

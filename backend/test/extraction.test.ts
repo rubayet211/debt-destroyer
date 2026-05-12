@@ -1,68 +1,68 @@
-import { afterAll, beforeAll, describe, expect, test } from 'vitest';
+import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
-import { createApp } from '../src/app.js';
-import { buildDebugAttestationToken } from '../src/services/attestation.js';
-import type { AiProvider } from '../src/services/provider.js';
-import { MemoryRateLimiter } from '../src/services/rate-limit.js';
+import { createApp } from "../src/app.js";
+import { buildDebugAttestationToken } from "../src/services/attestation.js";
+import type { AiProvider } from "../src/services/provider.js";
+import { MemoryRateLimiter } from "../src/services/rate-limit.js";
 import {
   MemoryAppStore,
   freeEntitlementRecord,
-} from '../src/services/storage.js';
+} from "../src/services/storage.js";
 
 class FakeProvider implements AiProvider {
-  readonly providerName = 'fake';
-  readonly modelName = 'fake-model';
+  readonly providerName = "fake";
+  readonly modelName = "fake-model";
 
   async extract() {
     return {
-      issuer_name: 'Acme Bank',
-      title: 'Acme Statement',
-      debt_type: 'credit card',
+      issuer_name: "Acme Bank",
+      title: "Acme Statement",
+      debt_type: "credit card",
       current_balance: 1240.55,
       original_balance: 1600,
       apr_percentage: 19.9,
       minimum_payment: 75,
-      due_date: '2026-03-15',
+      due_date: "2026-03-15",
       payment_date: null,
       payment_amount: null,
-      currency: 'usd',
-      notes: 'Validated by test',
+      currency: "usd",
+      notes: "Validated by test",
       confidence: 0.92,
-      last4: '1234',
-      raw_detected_labels: ['statement'],
-      statement_start_date: '2026-02-01',
-      statement_end_date: '2026-02-28',
+      last4: "1234",
+      raw_detected_labels: ["statement"],
+      statement_start_date: "2026-02-01",
+      statement_end_date: "2026-02-28",
       line_items: [
         {
-          date: '2026-02-05',
-          description: 'ONLINE PAYMENT THANK YOU',
+          date: "2026-02-05",
+          description: "ONLINE PAYMENT THANK YOU",
           amount: 250,
-          type: 'payment',
+          type: "payment",
           confidence: 0.88,
-          currency: 'usd',
+          currency: "usd",
           warnings: [],
         },
         {
           description: null,
           amount: 40.5,
-          type: 'fee',
+          type: "fee",
         },
       ],
-      document_signals: ['statement', 'line_items_detected'],
+      document_signals: ["statement", "line_items_detected"],
     };
   }
 }
 
 class SlowProvider implements AiProvider {
-  readonly providerName = 'slow';
-  readonly modelName = 'slow-model';
+  readonly providerName = "slow";
+  readonly modelName = "slow-model";
 
   async extract() {
     await new Promise((resolve) => setTimeout(resolve, 40));
     return {
-      issuer_name: 'Slow Bank',
-      title: 'Slow Statement',
-      debt_type: 'credit card',
+      issuer_name: "Slow Bank",
+      title: "Slow Statement",
+      debt_type: "credit card",
       current_balance: 88,
       original_balance: 100,
       apr_percentage: 10,
@@ -70,7 +70,7 @@ class SlowProvider implements AiProvider {
       due_date: null,
       payment_date: null,
       payment_amount: null,
-      currency: 'usd',
+      currency: "usd",
       notes: null,
       confidence: 0.8,
       last4: null,
@@ -80,39 +80,48 @@ class SlowProvider implements AiProvider {
 }
 
 class FailingProvider implements AiProvider {
-  readonly providerName = 'failing';
-  readonly modelName = 'failing-model';
+  readonly providerName = "failing";
+  readonly modelName = "failing-model";
 
   async extract() {
-    throw new Error('provider failed');
+    throw new Error("provider failed");
   }
 }
 
-describe('extraction endpoint', () => {
+class CaptureProvider extends FakeProvider {
+  lastInput: Parameters<AiProvider["extract"]>[0] | null = null;
+
+  override async extract(input: Parameters<AiProvider["extract"]>[0]) {
+    this.lastInput = input;
+    return super.extract(input);
+  }
+}
+
+describe("extraction endpoint", () => {
   const store = new MemoryAppStore();
   const appPromise = createApp({
     config: {
-      environment: 'test',
+      environment: "test",
       port: 0,
       postgresUrl: undefined,
       redisUrl: undefined,
-      jwtAccessSecret: 'test-access-secret',
-      jwtRefreshSecret: 'test-refresh-secret',
+      jwtAccessSecret: "test-access-secret",
+      jwtRefreshSecret: "test-refresh-secret",
       geminiApiKey: undefined,
-      geminiModel: 'gemini-2.0-flash',
+      geminiModel: "gemini-2.0-flash",
       freeScanLimit: 1,
       accessTokenTtlSeconds: 900,
       refreshTokenTtlDays: 30,
       requestTimeoutMs: 15000,
       allowDebugAttestation: true,
-      debugAttestationSecret: 'debug-secret',
-      googlePlayPackageName: 'com.debtdestroyer.app',
+      debugAttestationSecret: "debug-secret",
+      googlePlayPackageName: "com.debtdestroyer.app",
       googlePlayServiceAccountJson: undefined,
-      playIntegrityCloudProjectNumber: '123456789',
-      playIntegrityPackageName: 'com.debtdestroyer.app',
-      premiumProductId: 'premium',
-      premiumMonthlyBasePlanId: 'monthly',
-      premiumYearlyBasePlanId: 'yearly',
+      playIntegrityCloudProjectNumber: "123456789",
+      playIntegrityPackageName: "com.debtdestroyer.app",
+      premiumProductId: "premium",
+      premiumMonthlyBasePlanId: "monthly",
+      premiumYearlyBasePlanId: "yearly",
     },
     store,
     rateLimiter: new MemoryRateLimiter(),
@@ -131,113 +140,113 @@ describe('extraction endpoint', () => {
 
   async function bootstrap(installId: string) {
     const challenge = await app.inject({
-      method: 'POST',
-      url: '/v1/mobile/bootstrap/challenge',
+      method: "POST",
+      url: "/v1/mobile/bootstrap/challenge",
       payload: {
-        app_version: '1.0.0+1',
-        platform: 'android',
+        app_version: "1.0.0+1",
+        platform: "android",
         install_id: installId,
       },
     });
     const body = challenge.json();
     const verify = await app.inject({
-      method: 'POST',
-      url: '/v1/mobile/bootstrap/verify',
+      method: "POST",
+      url: "/v1/mobile/bootstrap/verify",
       payload: {
         challenge_id: body.challenge_id,
         install_id: installId,
         attestation_token: buildDebugAttestationToken({
-          secret: 'debug-secret',
+          secret: "debug-secret",
           installId,
           nonce: body.nonce,
         }),
         device: {
-          platform: 'android',
-          app_version: '1.0.0+1',
-          build_mode: 'debug',
+          platform: "android",
+          app_version: "1.0.0+1",
+          build_mode: "debug",
         },
       },
     });
     return verify.json().access_token as string;
   }
 
-  test('returns normalized extraction payload', async () => {
-    const accessToken = await bootstrap('install-2');
+  test("returns normalized extraction payload", async () => {
+    const accessToken = await bootstrap("install-2");
     const response = await app.inject({
-      method: 'POST',
-      url: '/v1/import/extract',
+      method: "POST",
+      url: "/v1/import/extract",
       headers: {
         authorization: `Bearer ${accessToken}`,
       },
       payload: {
-        request_id: 'req-1',
-        install_id: 'install-2',
-        document_classification: 'creditCardStatement',
+        request_id: "req-1",
+        install_id: "install-2",
+        document_classification: "creditCardStatement",
         normalized_ocr_text:
-          'Acme Bank\nCurrent balance: $1,240.55\nMinimum payment: $75',
-        source_type: 'gallery',
-        app_version: '1.0.0+1',
+          "Acme Bank\nCurrent balance: $1,240.55\nMinimum payment: $75",
+        source_type: "gallery",
+        app_version: "1.0.0+1",
         consented_at: new Date().toISOString(),
       },
     });
 
     expect(response.statusCode).toBe(200);
-    expect(response.json().extraction.currency).toBe('USD');
-    expect(response.json().summary.statement_start_date).toBe('2026-02-01');
+    expect(response.json().extraction.currency).toBe("USD");
+    expect(response.json().summary.statement_start_date).toBe("2026-02-01");
     expect(response.json().line_items).toHaveLength(1);
-    expect(response.json().line_items[0].type).toBe('payment');
-    expect(response.json().document_signals).toContain('line_items_detected');
-    expect(response.json().warnings).toContain('dropped_malformed_line_items');
+    expect(response.json().line_items[0].type).toBe("payment");
+    expect(response.json().document_signals).toContain("line_items_detected");
+    expect(response.json().warnings).toContain("dropped_malformed_line_items");
     expect(response.json().quota.remaining_free_scans).toBe(0);
   });
 
-  test('returns quota denial before provider call when exhausted', async () => {
-    const accessToken = await bootstrap('install-2');
+  test("returns quota denial before provider call when exhausted", async () => {
+    const accessToken = await bootstrap("install-2");
     const response = await app.inject({
-      method: 'POST',
-      url: '/v1/import/extract',
+      method: "POST",
+      url: "/v1/import/extract",
       headers: {
         authorization: `Bearer ${accessToken}`,
       },
       payload: {
-        request_id: 'req-2',
-        install_id: 'install-2',
-        document_classification: 'creditCardStatement',
-        normalized_ocr_text: 'Another OCR body',
-        source_type: 'gallery',
-        app_version: '1.0.0+1',
+        request_id: "req-2",
+        install_id: "install-2",
+        document_classification: "creditCardStatement",
+        normalized_ocr_text: "Another OCR body",
+        source_type: "gallery",
+        app_version: "1.0.0+1",
         consented_at: new Date().toISOString(),
       },
     });
 
     expect(response.statusCode).toBe(429);
-    expect(response.json().error).toBe('quota_exhausted');
+    expect(response.json().error).toBe("quota_exhausted");
   });
 
-  test('enforces quota atomically for concurrent requests', async () => {
+  test("enforces quota atomically for concurrent requests", async () => {
     const concurrentApp = await createApp({
       config: {
-        environment: 'test',
+        environment: "test",
         port: 0,
         postgresUrl: undefined,
         redisUrl: undefined,
-        jwtAccessSecret: 'test-access-secret',
-        jwtRefreshSecret: 'test-refresh-secret',
+        jwtAccessSecret: "test-access-secret",
+        jwtRefreshSecret: "test-refresh-secret",
         geminiApiKey: undefined,
-        geminiModel: 'gemini-2.0-flash',
+        geminiModel: "gemini-2.0-flash",
         freeScanLimit: 1,
         accessTokenTtlSeconds: 900,
         refreshTokenTtlDays: 30,
         requestTimeoutMs: 15000,
         allowDebugAttestation: true,
-        debugAttestationSecret: 'debug-secret',
-        googlePlayPackageName: 'com.debtdestroyer.app',
+        debugAttestationSecret: "debug-secret",
+        googlePlayPackageName: "com.debtdestroyer.app",
         googlePlayServiceAccountJson: undefined,
-        playIntegrityCloudProjectNumber: '123456789',
-        playIntegrityPackageName: 'com.debtdestroyer.app',
-        premiumProductId: 'premium',
-        premiumMonthlyBasePlanId: 'monthly',
-        premiumYearlyBasePlanId: 'yearly',
+        playIntegrityCloudProjectNumber: "123456789",
+        playIntegrityPackageName: "com.debtdestroyer.app",
+        premiumProductId: "premium",
+        premiumMonthlyBasePlanId: "monthly",
+        premiumYearlyBasePlanId: "yearly",
       },
       store: new MemoryAppStore(),
       rateLimiter: new MemoryRateLimiter(),
@@ -245,60 +254,60 @@ describe('extraction endpoint', () => {
     });
     try {
       const challenge = await concurrentApp.inject({
-        method: 'POST',
-        url: '/v1/mobile/bootstrap/challenge',
+        method: "POST",
+        url: "/v1/mobile/bootstrap/challenge",
         payload: {
-          app_version: '1.0.0+1',
-          platform: 'android',
-          install_id: 'install-race',
+          app_version: "1.0.0+1",
+          platform: "android",
+          install_id: "install-race",
         },
       });
       const challengeBody = challenge.json();
       const verify = await concurrentApp.inject({
-        method: 'POST',
-        url: '/v1/mobile/bootstrap/verify',
+        method: "POST",
+        url: "/v1/mobile/bootstrap/verify",
         payload: {
           challenge_id: challengeBody.challenge_id,
-          install_id: 'install-race',
+          install_id: "install-race",
           attestation_token: buildDebugAttestationToken({
-            secret: 'debug-secret',
-            installId: 'install-race',
+            secret: "debug-secret",
+            installId: "install-race",
             nonce: challengeBody.nonce,
           }),
           device: {
-            platform: 'android',
-            app_version: '1.0.0+1',
-            build_mode: 'debug',
+            platform: "android",
+            app_version: "1.0.0+1",
+            build_mode: "debug",
           },
         },
       });
       const accessToken = verify.json().access_token as string;
       const payload = {
-        document_classification: 'creditCardStatement',
-        normalized_ocr_text: 'Concurrent OCR body',
-        source_type: 'gallery',
-        app_version: '1.0.0+1',
+        document_classification: "creditCardStatement",
+        normalized_ocr_text: "Concurrent OCR body",
+        source_type: "gallery",
+        app_version: "1.0.0+1",
         consented_at: new Date().toISOString(),
       };
 
       const [first, second] = await Promise.all([
         concurrentApp.inject({
-          method: 'POST',
-          url: '/v1/import/extract',
+          method: "POST",
+          url: "/v1/import/extract",
           headers: { authorization: `Bearer ${accessToken}` },
           payload: {
-            request_id: 'req-race-1',
-            install_id: 'install-race',
+            request_id: "req-race-1",
+            install_id: "install-race",
             ...payload,
           },
         }),
         concurrentApp.inject({
-          method: 'POST',
-          url: '/v1/import/extract',
+          method: "POST",
+          url: "/v1/import/extract",
           headers: { authorization: `Bearer ${accessToken}` },
           payload: {
-            request_id: 'req-race-2',
-            install_id: 'install-race',
+            request_id: "req-race-2",
+            install_id: "install-race",
             ...payload,
           },
         }),
@@ -311,30 +320,30 @@ describe('extraction endpoint', () => {
     }
   });
 
-  test('releases reserved quota after provider failure', async () => {
+  test("releases reserved quota after provider failure", async () => {
     const failingApp = await createApp({
       config: {
-        environment: 'test',
+        environment: "test",
         port: 0,
         postgresUrl: undefined,
         redisUrl: undefined,
-        jwtAccessSecret: 'test-access-secret',
-        jwtRefreshSecret: 'test-refresh-secret',
+        jwtAccessSecret: "test-access-secret",
+        jwtRefreshSecret: "test-refresh-secret",
         geminiApiKey: undefined,
-        geminiModel: 'gemini-2.0-flash',
+        geminiModel: "gemini-2.0-flash",
         freeScanLimit: 1,
         accessTokenTtlSeconds: 900,
         refreshTokenTtlDays: 30,
         requestTimeoutMs: 15000,
         allowDebugAttestation: true,
-        debugAttestationSecret: 'debug-secret',
-        googlePlayPackageName: 'com.debtdestroyer.app',
+        debugAttestationSecret: "debug-secret",
+        googlePlayPackageName: "com.debtdestroyer.app",
         googlePlayServiceAccountJson: undefined,
-        playIntegrityCloudProjectNumber: '123456789',
-        playIntegrityPackageName: 'com.debtdestroyer.app',
-        premiumProductId: 'premium',
-        premiumMonthlyBasePlanId: 'monthly',
-        premiumYearlyBasePlanId: 'yearly',
+        playIntegrityCloudProjectNumber: "123456789",
+        playIntegrityPackageName: "com.debtdestroyer.app",
+        premiumProductId: "premium",
+        premiumMonthlyBasePlanId: "monthly",
+        premiumYearlyBasePlanId: "yearly",
       },
       store: new MemoryAppStore(),
       rateLimiter: new MemoryRateLimiter(),
@@ -342,59 +351,59 @@ describe('extraction endpoint', () => {
     });
     try {
       const challenge = await failingApp.inject({
-        method: 'POST',
-        url: '/v1/mobile/bootstrap/challenge',
+        method: "POST",
+        url: "/v1/mobile/bootstrap/challenge",
         payload: {
-          app_version: '1.0.0+1',
-          platform: 'android',
-          install_id: 'install-fail',
+          app_version: "1.0.0+1",
+          platform: "android",
+          install_id: "install-fail",
         },
       });
       const challengeBody = challenge.json();
       const verify = await failingApp.inject({
-        method: 'POST',
-        url: '/v1/mobile/bootstrap/verify',
+        method: "POST",
+        url: "/v1/mobile/bootstrap/verify",
         payload: {
           challenge_id: challengeBody.challenge_id,
-          install_id: 'install-fail',
+          install_id: "install-fail",
           attestation_token: buildDebugAttestationToken({
-            secret: 'debug-secret',
-            installId: 'install-fail',
+            secret: "debug-secret",
+            installId: "install-fail",
             nonce: challengeBody.nonce,
           }),
           device: {
-            platform: 'android',
-            app_version: '1.0.0+1',
-            build_mode: 'debug',
+            platform: "android",
+            app_version: "1.0.0+1",
+            build_mode: "debug",
           },
         },
       });
       const accessToken = verify.json().access_token as string;
       const first = await failingApp.inject({
-        method: 'POST',
-        url: '/v1/ai/extractions',
+        method: "POST",
+        url: "/v1/ai/extractions",
         headers: { authorization: `Bearer ${accessToken}` },
         payload: {
-          request_id: 'req-fail-1',
-          install_id: 'install-fail',
-          document_classification: 'creditCardStatement',
-          normalized_ocr_text: 'Failure OCR body',
-          source_type: 'gallery',
-          app_version: '1.0.0+1',
+          request_id: "req-fail-1",
+          install_id: "install-fail",
+          document_classification: "creditCardStatement",
+          normalized_ocr_text: "Failure OCR body",
+          source_type: "gallery",
+          app_version: "1.0.0+1",
           consented_at: new Date().toISOString(),
         },
       });
       expect(first.statusCode).toBe(500);
-      expect(Number.isNaN(Date.parse(first.headers.deprecation as string))).toBe(
-        false,
-      );
+      expect(
+        Number.isNaN(Date.parse(first.headers.deprecation as string)),
+      ).toBe(false);
       expect(Number.isNaN(Date.parse(first.headers.sunset as string))).toBe(
         false,
       );
 
       const capabilities = await failingApp.inject({
-        method: 'GET',
-        url: '/v1/mobile/me/capabilities',
+        method: "GET",
+        url: "/v1/mobile/me/capabilities",
         headers: { authorization: `Bearer ${accessToken}` },
       });
       expect(capabilities.statusCode).toBe(200);
@@ -404,30 +413,121 @@ describe('extraction endpoint', () => {
     }
   });
 
-  test('allows 5 free monthly cloud scans, then blocks 6th', async () => {
-    const freeApp = await createApp({
+  test("extracts directly from uploaded image file", async () => {
+    const provider = new CaptureProvider();
+    const fileApp = await createApp({
       config: {
-        environment: 'test',
+        environment: "test",
         port: 0,
         postgresUrl: undefined,
         redisUrl: undefined,
-        jwtAccessSecret: 'test-access-secret',
-        jwtRefreshSecret: 'test-refresh-secret',
+        jwtAccessSecret: "test-access-secret",
+        jwtRefreshSecret: "test-refresh-secret",
         geminiApiKey: undefined,
-        geminiModel: 'gemini-2.0-flash',
+        geminiModel: "gemini-2.0-flash",
         freeScanLimit: 5,
         accessTokenTtlSeconds: 900,
         refreshTokenTtlDays: 30,
         requestTimeoutMs: 15000,
         allowDebugAttestation: true,
-        debugAttestationSecret: 'debug-secret',
-        googlePlayPackageName: 'com.debtdestroyer.app',
+        debugAttestationSecret: "debug-secret",
+        googlePlayPackageName: "com.debtdestroyer.app",
         googlePlayServiceAccountJson: undefined,
-        playIntegrityCloudProjectNumber: '123456789',
-        playIntegrityPackageName: 'com.debtdestroyer.app',
-        premiumProductId: 'premium',
-        premiumMonthlyBasePlanId: 'monthly',
-        premiumYearlyBasePlanId: 'yearly',
+        playIntegrityCloudProjectNumber: "123456789",
+        playIntegrityPackageName: "com.debtdestroyer.app",
+        premiumProductId: "premium",
+        premiumMonthlyBasePlanId: "monthly",
+        premiumYearlyBasePlanId: "yearly",
+      },
+      store: new MemoryAppStore(),
+      rateLimiter: new MemoryRateLimiter(),
+      provider,
+    });
+    try {
+      const challenge = await fileApp.inject({
+        method: "POST",
+        url: "/v1/mobile/bootstrap/challenge",
+        payload: {
+          app_version: "1.0.0+1",
+          platform: "android",
+          install_id: "install-file",
+        },
+      });
+      const body = challenge.json();
+      const verify = await fileApp.inject({
+        method: "POST",
+        url: "/v1/mobile/bootstrap/verify",
+        payload: {
+          challenge_id: body.challenge_id,
+          install_id: "install-file",
+          attestation_token: buildDebugAttestationToken({
+            secret: "debug-secret",
+            installId: "install-file",
+            nonce: body.nonce,
+          }),
+          device: {
+            platform: "android",
+            app_version: "1.0.0+1",
+            build_mode: "debug",
+          },
+        },
+      });
+      const accessToken = verify.json().access_token as string;
+
+      const response = await fileApp.inject({
+        method: "POST",
+        url: "/v1/import/extract-file",
+        headers: { authorization: `Bearer ${accessToken}` },
+        payload: {
+          request_id: "req-file-1",
+          install_id: "install-file",
+          source_type: "gallery",
+          app_version: "1.0.0+1",
+          consented_at: new Date().toISOString(),
+          file: {
+            mime_type: "image/png",
+            data_base64: Buffer.from("fake-png-bytes").toString("base64"),
+          },
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json().summary.issuer_name).toBe("Acme Bank");
+      expect(provider.lastInput?.normalizedText).toBeUndefined();
+      expect(provider.lastInput?.document).toEqual({
+        mimeType: "image/png",
+        dataBase64: Buffer.from("fake-png-bytes").toString("base64"),
+      });
+      expect(provider.lastInput?.classification).toBe("unknown");
+    } finally {
+      await fileApp.close();
+    }
+  });
+
+  test("allows 5 free monthly cloud scans, then blocks 6th", async () => {
+    const freeApp = await createApp({
+      config: {
+        environment: "test",
+        port: 0,
+        postgresUrl: undefined,
+        redisUrl: undefined,
+        jwtAccessSecret: "test-access-secret",
+        jwtRefreshSecret: "test-refresh-secret",
+        geminiApiKey: undefined,
+        geminiModel: "gemini-2.0-flash",
+        freeScanLimit: 5,
+        accessTokenTtlSeconds: 900,
+        refreshTokenTtlDays: 30,
+        requestTimeoutMs: 15000,
+        allowDebugAttestation: true,
+        debugAttestationSecret: "debug-secret",
+        googlePlayPackageName: "com.debtdestroyer.app",
+        googlePlayServiceAccountJson: undefined,
+        playIntegrityCloudProjectNumber: "123456789",
+        playIntegrityPackageName: "com.debtdestroyer.app",
+        premiumProductId: "premium",
+        premiumMonthlyBasePlanId: "monthly",
+        premiumYearlyBasePlanId: "yearly",
       },
       store: new MemoryAppStore(),
       rateLimiter: new MemoryRateLimiter(),
@@ -436,30 +536,30 @@ describe('extraction endpoint', () => {
     try {
       const accessToken = await (async () => {
         const challenge = await freeApp.inject({
-          method: 'POST',
-          url: '/v1/mobile/bootstrap/challenge',
+          method: "POST",
+          url: "/v1/mobile/bootstrap/challenge",
           payload: {
-            app_version: '1.0.0+1',
-            platform: 'android',
-            install_id: 'install-free-5',
+            app_version: "1.0.0+1",
+            platform: "android",
+            install_id: "install-free-5",
           },
         });
         const body = challenge.json();
         const verify = await freeApp.inject({
-          method: 'POST',
-          url: '/v1/mobile/bootstrap/verify',
+          method: "POST",
+          url: "/v1/mobile/bootstrap/verify",
           payload: {
             challenge_id: body.challenge_id,
-            install_id: 'install-free-5',
+            install_id: "install-free-5",
             attestation_token: buildDebugAttestationToken({
-              secret: 'debug-secret',
-              installId: 'install-free-5',
+              secret: "debug-secret",
+              installId: "install-free-5",
               nonce: body.nonce,
             }),
             device: {
-              platform: 'android',
-              app_version: '1.0.0+1',
-              build_mode: 'debug',
+              platform: "android",
+              app_version: "1.0.0+1",
+              build_mode: "debug",
             },
           },
         });
@@ -468,16 +568,16 @@ describe('extraction endpoint', () => {
 
       for (let index = 1; index <= 5; index += 1) {
         const response = await freeApp.inject({
-          method: 'POST',
-          url: '/v1/import/extract',
+          method: "POST",
+          url: "/v1/import/extract",
           headers: { authorization: `Bearer ${accessToken}` },
           payload: {
             request_id: `req-free-${index}`,
-            install_id: 'install-free-5',
-            document_classification: 'creditCardStatement',
+            install_id: "install-free-5",
+            document_classification: "creditCardStatement",
             normalized_ocr_text: `Free OCR body ${index}`,
-            source_type: 'gallery',
-            app_version: '1.0.0+1',
+            source_type: "gallery",
+            app_version: "1.0.0+1",
             consented_at: new Date().toISOString(),
           },
         });
@@ -486,51 +586,51 @@ describe('extraction endpoint', () => {
       }
 
       const blocked = await freeApp.inject({
-        method: 'POST',
-        url: '/v1/import/extract',
+        method: "POST",
+        url: "/v1/import/extract",
         headers: { authorization: `Bearer ${accessToken}` },
         payload: {
-          request_id: 'req-free-6',
-          install_id: 'install-free-5',
-          document_classification: 'creditCardStatement',
-          normalized_ocr_text: 'Free OCR body 6',
-          source_type: 'gallery',
-          app_version: '1.0.0+1',
+          request_id: "req-free-6",
+          install_id: "install-free-5",
+          document_classification: "creditCardStatement",
+          normalized_ocr_text: "Free OCR body 6",
+          source_type: "gallery",
+          app_version: "1.0.0+1",
           consented_at: new Date().toISOString(),
         },
       });
       expect(blocked.statusCode).toBe(429);
-      expect(blocked.json().error).toBe('quota_exhausted');
+      expect(blocked.json().error).toBe("quota_exhausted");
     } finally {
       await freeApp.close();
     }
   });
 
-  test('premium subscriber gets unlimited cloud scans', async () => {
+  test("premium subscriber gets unlimited cloud scans", async () => {
     const premiumStore = new MemoryAppStore();
     const premiumApp = await createApp({
       config: {
-        environment: 'test',
+        environment: "test",
         port: 0,
         postgresUrl: undefined,
         redisUrl: undefined,
-        jwtAccessSecret: 'test-access-secret',
-        jwtRefreshSecret: 'test-refresh-secret',
+        jwtAccessSecret: "test-access-secret",
+        jwtRefreshSecret: "test-refresh-secret",
         geminiApiKey: undefined,
-        geminiModel: 'gemini-2.0-flash',
+        geminiModel: "gemini-2.0-flash",
         freeScanLimit: 5,
         accessTokenTtlSeconds: 900,
         refreshTokenTtlDays: 30,
         requestTimeoutMs: 15000,
         allowDebugAttestation: true,
-        debugAttestationSecret: 'debug-secret',
-        googlePlayPackageName: 'com.debtdestroyer.app',
+        debugAttestationSecret: "debug-secret",
+        googlePlayPackageName: "com.debtdestroyer.app",
         googlePlayServiceAccountJson: undefined,
-        playIntegrityCloudProjectNumber: '123456789',
-        playIntegrityPackageName: 'com.debtdestroyer.app',
-        premiumProductId: 'premium',
-        premiumMonthlyBasePlanId: 'monthly',
-        premiumYearlyBasePlanId: 'yearly',
+        playIntegrityCloudProjectNumber: "123456789",
+        playIntegrityPackageName: "com.debtdestroyer.app",
+        premiumProductId: "premium",
+        premiumMonthlyBasePlanId: "monthly",
+        premiumYearlyBasePlanId: "yearly",
       },
       store: premiumStore,
       rateLimiter: new MemoryRateLimiter(),
@@ -539,30 +639,30 @@ describe('extraction endpoint', () => {
     try {
       const accessToken = await (async () => {
         const challenge = await premiumApp.inject({
-          method: 'POST',
-          url: '/v1/mobile/bootstrap/challenge',
+          method: "POST",
+          url: "/v1/mobile/bootstrap/challenge",
           payload: {
-            app_version: '1.0.0+1',
-            platform: 'android',
-            install_id: 'install-premium-scan',
+            app_version: "1.0.0+1",
+            platform: "android",
+            install_id: "install-premium-scan",
           },
         });
         const body = challenge.json();
         const verify = await premiumApp.inject({
-          method: 'POST',
-          url: '/v1/mobile/bootstrap/verify',
+          method: "POST",
+          url: "/v1/mobile/bootstrap/verify",
           payload: {
             challenge_id: body.challenge_id,
-            install_id: 'install-premium-scan',
+            install_id: "install-premium-scan",
             attestation_token: buildDebugAttestationToken({
-              secret: 'debug-secret',
-              installId: 'install-premium-scan',
+              secret: "debug-secret",
+              installId: "install-premium-scan",
               nonce: body.nonce,
             }),
             device: {
-              platform: 'android',
-              app_version: '1.0.0+1',
-              build_mode: 'debug',
+              platform: "android",
+              app_version: "1.0.0+1",
+              build_mode: "debug",
             },
           },
         });
@@ -570,30 +670,30 @@ describe('extraction endpoint', () => {
       })();
 
       await premiumStore.upsertEntitlement({
-        ...freeEntitlementRecord('install-premium-scan'),
+        ...freeEntitlementRecord("install-premium-scan"),
         isPremium: true,
-        productId: 'premium',
-        planId: 'monthly',
-        billingProvider: 'google_play',
-        status: 'active',
-        validUntil: new Date('2026-07-01T00:00:00.000Z'),
+        productId: "premium",
+        planId: "monthly",
+        billingProvider: "google_play",
+        status: "active",
+        validUntil: new Date("2026-07-01T00:00:00.000Z"),
         autoRenewing: true,
-        lastVerifiedAt: new Date('2026-06-01T00:00:00.000Z'),
-        features: ['unlimitedScans'],
+        lastVerifiedAt: new Date("2026-06-01T00:00:00.000Z"),
+        features: ["unlimitedScans"],
       });
 
       for (let index = 1; index <= 7; index += 1) {
         const response = await premiumApp.inject({
-          method: 'POST',
-          url: '/v1/import/extract',
+          method: "POST",
+          url: "/v1/import/extract",
           headers: { authorization: `Bearer ${accessToken}` },
           payload: {
             request_id: `req-premium-${index}`,
-            install_id: 'install-premium-scan',
-            document_classification: 'creditCardStatement',
+            install_id: "install-premium-scan",
+            document_classification: "creditCardStatement",
             normalized_ocr_text: `Premium OCR body ${index}`,
-            source_type: 'gallery',
-            app_version: '1.0.0+1',
+            source_type: "gallery",
+            app_version: "1.0.0+1",
             consented_at: new Date().toISOString(),
           },
         });

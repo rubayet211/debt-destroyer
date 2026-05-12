@@ -26,4 +26,4 @@ These can be supplied through `.env` for local work or `--dart-define` for CI/re
 ## Logging policy
 - Info logs are suppressed in release builds.
 - Error logs remain structured and redacted.
-- Do not log raw OCR text, balances, document paths, or tokens to analytics/crash metadata.
+- Do not log extracted document text, balances, document paths, or tokens to analytics/crash metadata.

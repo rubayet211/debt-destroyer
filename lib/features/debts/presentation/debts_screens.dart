@@ -39,6 +39,7 @@ class _DebtsListScreenState extends ConsumerState<DebtsListScreen> {
     return AppPage(
       title: 'Debts',
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'debts_add_fab',
         onPressed: () => context.push('/debts/add'),
         icon: const Icon(Icons.add),
         label: const Text('Add debt'),
@@ -247,6 +248,7 @@ class DebtDetailsScreen extends ConsumerWidget {
         ),
       ],
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'debt_details_add_payment_$debtId',
         onPressed: () => context.push('/debts/$debtId/add-payment'),
         icon: const Icon(Icons.add_card_rounded),
         label: const Text('Add payment'),

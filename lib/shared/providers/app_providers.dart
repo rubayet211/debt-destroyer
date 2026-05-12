@@ -254,6 +254,16 @@ final dataProtectionBootstrapServiceProvider =
         protectedPreferencesStore: ref.watch(protectedPreferencesStoreProvider),
       ),
     );
+final localProtectionResetServiceProvider =
+    Provider<LocalProtectionResetService>(
+      (ref) => LocalProtectionResetService(
+        database: ref.watch(appDatabaseProvider),
+        keyService: ref.watch(localVaultKeyServiceProvider),
+        documentVaultService: ref.watch(secureDocumentVaultServiceProvider),
+        protectedPreferencesStore: ref.watch(protectedPreferencesStoreProvider),
+        appSecuritySessionStore: ref.watch(appSecuritySessionStoreProvider),
+      ),
+    );
 final portfolioProjectionServiceProvider = Provider(
   (ref) => const PortfolioProjectionService(),
 );
@@ -304,7 +314,9 @@ final subscriptionRepositoryProvider = Provider<SubscriptionRepository>(
 final imagePreprocessServiceProvider = Provider<ImagePreprocessService>(
   (ref) => PassthroughImagePreprocessService(),
 );
-final ocrServiceProvider = Provider<OcrService>((ref) => MlKitOcrService());
+final importFileStagingServiceProvider = Provider<ImportFileStagingService>(
+  (ref) => LocalImportFileStagingService(),
+);
 final documentClassifierProvider = Provider((ref) => DocumentClassifier());
 final heuristicParserProvider = Provider((ref) => HeuristicExtractionParser());
 final aiExtractionServiceProvider = Provider<AiExtractionService>(
@@ -322,7 +334,6 @@ final importCoordinatorProvider = Provider(
   (ref) => ImportCoordinator(
     documentVaultService: ref.watch(secureDocumentVaultServiceProvider),
     preprocessService: ref.watch(imagePreprocessServiceProvider),
-    ocrService: ref.watch(ocrServiceProvider),
     classifier: ref.watch(documentClassifierProvider),
     aiExtractionService: ref.watch(aiExtractionServiceProvider),
     validationService: ref.watch(parseValidationServiceProvider),

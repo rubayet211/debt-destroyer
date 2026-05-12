@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -61,6 +62,11 @@ void main() {
         final candidate = await service.extract(
           classification: DocumentClassification.creditCardStatement,
           normalizedText: 'Current balance: \$1200\nMinimum payment: \$40',
+          file: const FileReference(
+            path: 'unused.png',
+            sourceType: DocumentSourceType.gallery,
+            mimeType: 'image/png',
+          ),
           sourceType: DocumentSourceType.gallery,
           allowCloud: false,
         );
@@ -73,26 +79,27 @@ void main() {
     test(
       'returns fallback with quota warning when backend denies quota',
       () async {
+        final httpClient = _SequenceClient([
+          http.Response(
+            jsonEncode({
+              'error': 'quota_exhausted',
+              'message': 'No cloud extraction quota remaining',
+              'details': {
+                'quota': {
+                  'allowed': false,
+                  'remaining_free_scans': 0,
+                  'premium_required': true,
+                  'unlimited': false,
+                  'reset_at': '2026-04-01T00:00:00.000Z',
+                },
+              },
+            }),
+            429,
+          ),
+        ]);
         final service = BackendAiExtractionService(
           client: BackendApiClient(
-            httpClient: _SequenceClient([
-              http.Response(
-                jsonEncode({
-                  'error': 'quota_exhausted',
-                  'message': 'No cloud extraction quota remaining',
-                  'details': {
-                    'quota': {
-                      'allowed': false,
-                      'remaining_free_scans': 0,
-                      'premium_required': true,
-                      'unlimited': false,
-                      'reset_at': '2026-04-01T00:00:00.000Z',
-                    },
-                  },
-                }),
-                429,
-              ),
-            ]),
+            httpClient: httpClient,
             config: _backendConfig,
             sessionManager: _FakeSessionManager(),
           ),
@@ -104,12 +111,17 @@ void main() {
         final candidate = await service.extract(
           classification: DocumentClassification.creditCardStatement,
           normalizedText: 'Current balance: \$900',
+          file: await _createImportFile(),
           sourceType: DocumentSourceType.gallery,
           allowCloud: true,
         );
 
         expect(candidate.warnings, contains('quota_exhausted'));
         expect(candidate.quotaSnapshot?.premiumRequired, true);
+        expect(httpClient.requests.single.url.path, '/v1/import/extract-file');
+        final payload = jsonDecode(httpClient.requestBodies.single) as Map;
+        expect(payload['normalized_ocr_text'], isNull);
+        expect(payload['file'], isA<Map>());
       },
     );
 
@@ -174,6 +186,7 @@ void main() {
 ACME CREDIT CARD STATEMENT
 02/05/2026 ONLINE PAYMENT THANK YOU 250.00
 ''',
+          file: await _createImportFile(),
           sourceType: DocumentSourceType.gallery,
           allowCloud: true,
         );
@@ -229,12 +242,45 @@ ACME CREDIT CARD STATEMENT
       final result = await service.extract(
         classification: DocumentClassification.creditCardStatement,
         normalizedText: 'Current balance: \$900',
+        file: await _createImportFile(),
         sourceType: DocumentSourceType.gallery,
         allowCloud: true,
       );
 
       expect(result.quotaSnapshot?.unlimited, true);
       expect(result.quotaSnapshot?.remainingFreeScans, 0);
+    });
+
+    test('falls back when selected file cannot be read', () async {
+      final httpClient = _SequenceClient([]);
+      final service = BackendAiExtractionService(
+        client: BackendApiClient(
+          httpClient: httpClient,
+          config: _backendConfig,
+          sessionManager: _FakeSessionManager(),
+        ),
+        sessionManager: _FakeSessionManager(),
+        config: _backendConfig,
+        parser: HeuristicExtractionParser(),
+      );
+      final missingPath =
+          '${Directory.systemTemp.path}${Platform.pathSeparator}missing-${DateTime.now().microsecondsSinceEpoch}.png';
+
+      final result = await service.extract(
+        classification: DocumentClassification.creditCardStatement,
+        normalizedText: 'Current balance: \$900',
+        file: FileReference(
+          path: missingPath,
+          sourceType: DocumentSourceType.gallery,
+          mimeType: 'image/png',
+        ),
+        sourceType: DocumentSourceType.gallery,
+        allowCloud: true,
+      );
+
+      expect(result.warnings, contains('file_unavailable'));
+      expect(result.errorMessage, contains('could not be read'));
+      expect(httpClient.requests, isEmpty);
     });
   });
 
@@ -276,6 +322,20 @@ ACME CREDIT CARD STATEMENT
   });
 }
 
+Future<FileReference> _createImportFile() async {
+  final directory = await Directory.systemTemp.createTemp(
+    'backend_client_import',
+  );
+  addTearDown(() => directory.delete(recursive: true));
+  final file = File('${directory.path}${Platform.pathSeparator}statement.png');
+  await file.writeAsBytes(utf8.encode('fake image bytes'));
+  return FileReference(
+    path: file.path,
+    sourceType: DocumentSourceType.gallery,
+    mimeType: 'image/png',
+  );
+}
+
 class _FakeSessionManager implements BackendSessionManager {
   int refreshCount = 0;
 
@@ -313,10 +373,16 @@ class _SequenceClient extends http.BaseClient {
   _SequenceClient(this.responses);
 
   final List<http.Response> responses;
+  final List<http.BaseRequest> requests = [];
+  final List<String> requestBodies = [];
   int _index = 0;
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    requests.add(request);
+    if (request is http.Request) {
+      requestBodies.add(request.body);
+    }
     final response = responses.isEmpty
         ? http.Response('{}', 200)
         : responses[_index++ % responses.length];

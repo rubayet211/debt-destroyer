@@ -1056,7 +1056,7 @@ export class PostgresAppStore implements AppStore {
         `
           delete from attestation_challenges
           where expires_at <= $1
-             or (consumed_at is not null and consumed_at <= $1 - interval '7 days')
+             or (consumed_at is not null and consumed_at <= $1::timestamptz - interval '7 days')
         `,
         [referenceTime],
       );
@@ -1065,7 +1065,7 @@ export class PostgresAppStore implements AppStore {
         `
           delete from refresh_tokens
           where expires_at <= $1
-             or (revoked_at is not null and revoked_at <= $1 - interval '30 days')
+             or (revoked_at is not null and revoked_at <= $1::timestamptz - interval '30 days')
         `,
         [referenceTime],
       );
@@ -1084,7 +1084,7 @@ export class PostgresAppStore implements AppStore {
         `
           delete from quota_reservations
           where status in ('released', 'committed')
-            and coalesce(released_at, committed_at, expires_at) <= $1 - interval '30 days'
+            and coalesce(released_at, committed_at, expires_at) <= $1::timestamptz - interval '30 days'
         `,
         [referenceTime],
       );
@@ -1092,7 +1092,7 @@ export class PostgresAppStore implements AppStore {
       const oldRateLimitEvents = await client.query(
         `
           delete from rate_limit_events
-          where created_at <= $1 - interval '14 days'
+          where created_at <= $1::timestamptz - interval '14 days'
         `,
         [referenceTime],
       );
@@ -1100,7 +1100,7 @@ export class PostgresAppStore implements AppStore {
       const oldAuditEvents = await client.query(
         `
           delete from audit_events
-          where created_at <= $1 - interval '30 days'
+          where created_at <= $1::timestamptz - interval '30 days'
         `,
         [referenceTime],
       );
@@ -1108,7 +1108,7 @@ export class PostgresAppStore implements AppStore {
       const oldExtractionAudits = await client.query(
         `
           delete from extraction_requests
-          where created_at <= $1 - interval '90 days'
+          where created_at <= $1::timestamptz - interval '90 days'
         `,
         [referenceTime],
       );

@@ -110,6 +110,15 @@ class LocalVaultKeyService {
     return (await _storage.read(key: _upgradeExplainerPendingKey)) == 'true';
   }
 
+  Future<void> resetLocalProtectionKeys() async {
+    await Future.wait([
+      _delete(_rootKeyKey),
+      _delete(_migrationStageKey),
+      _delete(_migrationFailureKey),
+      _delete(_upgradeExplainerPendingKey),
+    ]);
+  }
+
   Future<List<int>> _deriveKey(String context) async {
     final root = await ensureRootKey();
     final hkdf = Hkdf(hmac: Hmac.sha256(), outputLength: 32);
@@ -119,6 +128,14 @@ class LocalVaultKeyService {
       info: utf8.encode(context),
     );
     return secretKey.extractBytes();
+  }
+
+  Future<void> _delete(String key) async {
+    try {
+      await _storage.delete(key: key);
+    } on MissingPluginException {
+      return;
+    }
   }
 }
 
@@ -241,6 +258,19 @@ class ProtectedPreferencesStore {
     ]);
   }
 
+  Future<void> clear() async {
+    await Future.wait([
+      _delete(_hideBalancesKey),
+      _delete(_appLockEnabledKey),
+      _delete(_aiConsentEnabledKey),
+      _delete(_relockTimeoutKey),
+      _delete(_screenshotProtectionKey),
+      _delete(_privacyShieldKey),
+      _delete(_migrationKey),
+      _delete(_extendedMigrationKey),
+    ]);
+  }
+
   Future<UserPreferences> mergeInto(UserPreferences preferences) async {
     final protected = await read();
     return preferences.copyWith(
@@ -305,6 +335,14 @@ class ProtectedPreferencesStore {
       await _storage.write(key: key, value: value);
     } on MissingPluginException {
       _memoryFallback[key] = value;
+    }
+  }
+
+  Future<void> _delete(String key) async {
+    try {
+      await _storage.delete(key: key);
+    } on MissingPluginException {
+      _memoryFallback.remove(key);
     }
   }
 
@@ -576,6 +614,14 @@ class SecureDocumentVaultService {
       await file.writeAsBytes(List<int>.filled(length, 0), flush: true);
     }
     await file.delete();
+  }
+
+  Future<void> purgeVaultDirectory() async {
+    final base = await _baseDirectoryLoader();
+    final dir = Directory(p.join(base.path, 'secure_vault'));
+    if (await dir.exists()) {
+      await dir.delete(recursive: true);
+    }
   }
 
   Future<Directory> _vaultDirectory() async {

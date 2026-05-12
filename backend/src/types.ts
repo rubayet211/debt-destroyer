@@ -125,6 +125,23 @@ export const extractionRequestSchema = z.object({
   consented_at: z.string().min(1),
 });
 
+export const extractionFileRequestSchema = z.object({
+  request_id: z.string().min(1),
+  install_id: z.string().min(1),
+  source_type: sourceTypeSchema,
+  app_version: z.string().min(1),
+  consented_at: z.string().min(1),
+  file: z.object({
+    mime_type: z.enum([
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "application/pdf",
+    ]),
+    data_base64: z.string().min(1),
+  }),
+});
+
 export const billingVerifyRequestSchema = z.object({
   install_id: z.string().min(1),
   product_id: z.string().min(1),
@@ -169,6 +186,7 @@ export type BootstrapVerifyRequest = z.infer<
 >;
 export type TokenRefreshRequest = z.infer<typeof tokenRefreshRequestSchema>;
 export type ExtractionRequest = z.infer<typeof extractionRequestSchema>;
+export type ExtractionFileRequest = z.infer<typeof extractionFileRequestSchema>;
 export type BillingVerifyRequest = z.infer<typeof billingVerifyRequestSchema>;
 export type BillingRestoreRequest = z.infer<typeof billingRestoreRequestSchema>;
 export type EntitlementSnapshot = z.infer<typeof entitlementSnapshotSchema>;

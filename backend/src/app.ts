@@ -12,9 +12,11 @@ import {
   bootstrapVerifyRequestSchema,
   billingRestoreRequestSchema,
   billingVerifyRequestSchema,
+  extractionFileRequestSchema,
   entitlementResponseSchema,
   extractionRequestSchema,
   extractionResponseSchema,
+  type DocumentClassification,
   tokenRefreshRequestSchema,
   type ExtractionPayload,
 } from "./types.js";
@@ -98,10 +100,11 @@ export async function createApp(options: CreateAppOptions = {}) {
 
   const app = Fastify({
     trustProxy: config.trustProxy,
+    bodyLimit: 8 * 1024 * 1024,
     logger: {
       level: config.logLevel,
       base: {
-        service: 'debt-destroyer-backend',
+        service: "debt-destroyer-backend",
         environment: config.environment,
       },
     },
@@ -116,7 +119,8 @@ export async function createApp(options: CreateAppOptions = {}) {
       return reply.status(error.statusCode).send({
         error: error.code,
         message: error.message,
-        details: config.environment === "production" ? undefined : error.details,
+        details:
+          config.environment === "production" ? undefined : error.details,
       });
     }
     if (error instanceof ZodError) {
@@ -517,7 +521,8 @@ export async function createApp(options: CreateAppOptions = {}) {
       }
     }
 
-    const normalizedBestEntitlement = normalizeEntitlementRecord(bestEntitlement);
+    const normalizedBestEntitlement =
+      normalizeEntitlementRecord(bestEntitlement);
     await store.upsertEntitlement(normalizedBestEntitlement);
 
     return reply.send(
@@ -527,16 +532,25 @@ export async function createApp(options: CreateAppOptions = {}) {
     );
   });
 
-  const handleExtraction = async (
-    request: FastifyRequest,
-    reply: FastifyReply,
-  ) => {
-    const installId = await requireInstallId(request, config);
-    const body = extractionRequestSchema.parse(request.body);
-    if (body.install_id !== installId) {
-      throw new AppError(403, "install_mismatch", "Install id mismatch");
-    }
-
+  const runExtraction = async ({
+    request,
+    reply,
+    installId,
+    requestId,
+    classification,
+    providerInput,
+    auditHashSource,
+    auditPreview,
+  }: {
+    request: FastifyRequest;
+    reply: FastifyReply;
+    installId: string;
+    requestId: string;
+    classification: DocumentClassification;
+    providerInput: Parameters<AiProvider["extract"]>[0];
+    auditHashSource: string;
+    auditPreview: string;
+  }) => {
     await enforceRateLimit({
       rateLimiter,
       store,
@@ -583,14 +597,11 @@ export async function createApp(options: CreateAppOptions = {}) {
     const reservationId = reservedQuota?.reservationId ?? null;
     let rawResult: Record<string, unknown>;
     try {
-      rawResult = await provider.extract({
-        classification: body.document_classification,
-        normalizedText: body.normalized_ocr_text,
-      });
+      rawResult = await provider.extract(providerInput);
     } catch (error) {
       await store.saveAuditEvent({
         installId,
-        requestId: body.request_id,
+        requestId,
         eventType: "extraction.provider.failed",
         payload: {
           message: error instanceof Error ? error.message : "unknown",
@@ -607,24 +618,24 @@ export async function createApp(options: CreateAppOptions = {}) {
       const durationMs = Date.now() - startedAt;
 
       await store.saveExtractionAudit({
-        requestId: body.request_id,
+        requestId,
         installId,
-        classification: body.document_classification,
+        classification,
         provider: provider.providerName,
         model: provider.modelName,
         status: "success",
         latencyMs: durationMs,
-        ocrHash: sha256(body.normalized_ocr_text),
-        ocrPreview: redactTextPreview(body.normalized_ocr_text),
+        ocrHash: sha256(auditHashSource),
+        ocrPreview: auditPreview,
         warnings: normalized.warnings,
       });
 
       await store.saveAuditEvent({
         installId,
-        requestId: body.request_id,
+        requestId,
         eventType: "extraction.completed",
         payload: {
-          classification: body.document_classification,
+          classification,
           durationMs,
           warnings: normalized.warnings,
         },
@@ -654,10 +665,10 @@ export async function createApp(options: CreateAppOptions = {}) {
         warnings: normalized.warnings,
         quota: nextQuota,
         meta: {
-          request_id: body.request_id,
+          request_id: requestId,
           provider: provider.providerName,
           model: provider.modelName,
-          classification: body.document_classification,
+          classification,
           duration_ms: durationMs,
         },
       });
@@ -671,7 +682,74 @@ export async function createApp(options: CreateAppOptions = {}) {
     }
   };
 
+  const handleExtraction = async (
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ) => {
+    const installId = await requireInstallId(request, config);
+    const body = extractionRequestSchema.parse(request.body);
+    if (body.install_id !== installId) {
+      throw new AppError(403, "install_mismatch", "Install id mismatch");
+    }
+
+    return runExtraction({
+      request,
+      reply,
+      installId,
+      requestId: body.request_id,
+      classification: body.document_classification,
+      providerInput: {
+        classification: body.document_classification,
+        normalizedText: body.normalized_ocr_text,
+      },
+      auditHashSource: body.normalized_ocr_text,
+      auditPreview: redactTextPreview(body.normalized_ocr_text),
+    });
+  };
+
+  const handleFileExtraction = async (
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ) => {
+    const installId = await requireInstallId(request, config);
+    const body = extractionFileRequestSchema.parse(request.body);
+    if (body.install_id !== installId) {
+      throw new AppError(403, "install_mismatch", "Install id mismatch");
+    }
+
+    const fileBytes = Buffer.from(body.file.data_base64, "base64");
+    if (fileBytes.length === 0) {
+      throw new AppError(400, "empty_file", "Import file is empty");
+    }
+    if (fileBytes.length > 6 * 1024 * 1024) {
+      throw new AppError(
+        413,
+        "file_too_large",
+        "Import files must be 6 MB or smaller",
+      );
+    }
+
+    const classification: DocumentClassification = "unknown";
+    return runExtraction({
+      request,
+      reply,
+      installId,
+      requestId: body.request_id,
+      classification,
+      providerInput: {
+        classification,
+        document: {
+          mimeType: body.file.mime_type,
+          dataBase64: body.file.data_base64,
+        },
+      },
+      auditHashSource: body.file.data_base64,
+      auditPreview: `[file:${body.file.mime_type}:${fileBytes.length}]`,
+    });
+  };
+
   app.post("/v1/import/extract", handleExtraction);
+  app.post("/v1/import/extract-file", handleFileExtraction);
   app.post("/v1/ai/extractions", async (request, reply) => {
     reply.header("Deprecation", extractionAliasDeprecatedAt);
     reply.header("Sunset", extractionAliasSunsetAt);
@@ -720,14 +798,10 @@ async function requireInstallId(
   }
   const token = authHeader.slice("Bearer ".length);
   try {
-    const payload = jwt.verify(
-      token,
-      config.jwtAccessSecret,
-      {
-        issuer: config.jwtIssuer,
-        audience: config.jwtAudience,
-      },
-    ) as AccessTokenPayload;
+    const payload = jwt.verify(token, config.jwtAccessSecret, {
+      issuer: config.jwtIssuer,
+      audience: config.jwtAudience,
+    }) as AccessTokenPayload;
     const subject = (payload as { sub?: unknown }).sub;
     if (
       payload.type !== "access" ||
@@ -822,7 +896,8 @@ function withRuntimeDefaults(config: AppConfig): AppConfig {
     ...config,
     host: config.host ?? "0.0.0.0",
     logLevel:
-      config.logLevel ?? (config.environment === "production" ? "info" : "debug"),
+      config.logLevel ??
+      (config.environment === "production" ? "info" : "debug"),
     trustProxy: config.trustProxy ?? false,
     postgresPool: config.postgresPool ?? {
       max: 10,
@@ -920,8 +995,11 @@ function shouldReplaceEntitlement(
   if (!candidate.isPremium && current.isPremium) {
     return false;
   }
-  if (current.status === 'free' && candidate.status !== 'free') {
+  if (current.status === "free" && candidate.status !== "free") {
     return true;
   }
-  return (candidate.validUntil?.getTime() ?? 0) > (current.validUntil?.getTime() ?? 0);
+  return (
+    (candidate.validUntil?.getTime() ?? 0) >
+    (current.validUntil?.getTime() ?? 0)
+  );
 }

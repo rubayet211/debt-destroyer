@@ -30,6 +30,7 @@ class HomeDashboardScreen extends ConsumerWidget {
         ),
       ],
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'dashboard_scan_fab',
         onPressed: () => context.push('/scan'),
         icon: const Icon(Icons.document_scanner_outlined),
         label: const Text('Scan'),

@@ -14,73 +14,88 @@ import '../shared/providers/app_providers.dart';
 import 'app.dart';
 
 Future<void> bootstrap() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  tz.initializeTimeZones();
+  await (runZonedGuarded<Future<void>>(
+        () async {
+          WidgetsFlutterBinding.ensureInitialized();
+          tz.initializeTimeZones();
 
-  try {
-    await dotenv.load(fileName: '.env');
-  } catch (_) {
-    AppLogger.instance.info(
-      'dotenv.missing',
-      context: const {'category': 'bootstrap', 'status': 'local_defaults'},
-    );
-  }
+          try {
+            await dotenv.load(fileName: '.env');
+          } catch (_) {
+            AppLogger.instance.info(
+              'dotenv.missing',
+              context: const {
+                'category': 'bootstrap',
+                'status': 'local_defaults',
+              },
+            );
+          }
 
-  await AdMobBootstrap.initialize(AdMobConfig.fromEnvironment(dotenv.env));
+          await AdMobBootstrap.initialize(
+            AdMobConfig.fromEnvironment(dotenv.env),
+          );
 
-  final cameras = await _loadAvailableCameras();
-  final telemetryConfig = TelemetryConfig.fromEnvironment();
-  await TelemetryRuntime.instance.initialize(telemetryConfig);
+          final cameras = await _loadAvailableCameras();
+          final telemetryConfig = TelemetryConfig.fromEnvironment();
+          await TelemetryRuntime.instance.initialize(telemetryConfig);
 
-  FlutterError.onError = (details) {
-    FlutterError.presentError(details);
-    AppLogger.instance.error(
-      'flutter.framework_error',
-      details.exception,
-      details.stack ?? StackTrace.current,
-      context: const {'category': 'telemetry', 'status': 'captured'},
-    );
-    unawaited(
-      TelemetryRuntime.instance.crashReporter.recordError(
-        details.exception,
-        details.stack ?? StackTrace.current,
-      ),
-    );
-  };
-  WidgetsBinding.instance.platformDispatcher.onError = (error, stackTrace) {
-    AppLogger.instance.error(
-      'flutter.platform_error',
-      error,
-      stackTrace,
-      context: const {'category': 'telemetry', 'status': 'captured'},
-    );
-    unawaited(
-      TelemetryRuntime.instance.crashReporter.recordError(error, stackTrace),
-    );
-    return true;
-  };
+          FlutterError.onError = (details) {
+            FlutterError.presentError(details);
+            AppLogger.instance.error(
+              'flutter.framework_error',
+              details.exception,
+              details.stack ?? StackTrace.current,
+              context: const {'category': 'telemetry', 'status': 'captured'},
+            );
+            unawaited(
+              TelemetryRuntime.instance.crashReporter.recordError(
+                details.exception,
+                details.stack ?? StackTrace.current,
+              ),
+            );
+          };
+          WidgetsBinding
+              .instance
+              .platformDispatcher
+              .onError = (error, stackTrace) {
+            AppLogger.instance.error(
+              'flutter.platform_error',
+              error,
+              stackTrace,
+              context: const {'category': 'telemetry', 'status': 'captured'},
+            );
+            unawaited(
+              TelemetryRuntime.instance.crashReporter.recordError(
+                error,
+                stackTrace,
+              ),
+            );
+            return true;
+          };
 
-  runZonedGuarded(
-    () {
-      runApp(
-        ProviderScope(
-          overrides: [availableCamerasProvider.overrideWithValue(cameras)],
-          child: const DebtDestroyerApp(),
-        ),
-      );
-    },
-    (error, stackTrace) {
-      AppLogger.instance.error(
-        'flutter.uncaught_zone_error',
-        error,
-        stackTrace,
-        context: const {'category': 'telemetry', 'status': 'captured'},
-      );
-      unawaited(
-        TelemetryRuntime.instance.crashReporter.recordError(error, stackTrace),
-      );
-    },
-  );
+          runApp(
+            ProviderScope(
+              overrides: [availableCamerasProvider.overrideWithValue(cameras)],
+              child: const DebtDestroyerApp(),
+            ),
+          );
+        },
+        (error, stackTrace) {
+          AppLogger.instance.error(
+            'flutter.uncaught_zone_error',
+            error,
+            stackTrace,
+            context: const {'category': 'telemetry', 'status': 'captured'},
+          );
+          unawaited(
+            TelemetryRuntime.instance.crashReporter.recordError(
+              error,
+              stackTrace,
+            ),
+          );
+        },
+      ) ??
+      Future<void>.value());
 }
 
 Future<List<CameraDescription>> _loadAvailableCameras() async {

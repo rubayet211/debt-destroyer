@@ -71,7 +71,7 @@ We use information to:
 - store and display debts, payments, reminders, and reports
 - calculate payoff projections and budgeting views
 - import and review financial documents
-- run local OCR and optional cloud-assisted extraction
+- run optional cloud-assisted extraction
 - verify device integrity and protect backend services from abuse
 - process subscriptions and restore premium entitlement
 - send reminders and operational notifications
@@ -89,7 +89,7 @@ The app is designed so that the most sensitive data stays on your device wheneve
 In particular:
 
 - debts, payments, preferences, reminders, and scenarios are stored locally by default
-- OCR runs locally first when you import a document
+- imported documents stay on device unless you choose cloud-assisted extraction
 - imported documents are reviewed before anything is saved from the import flow
 - cloud-assisted extraction only happens when you explicitly allow it for a specific import
 - imported documents are never auto-saved after upload without a review step
@@ -106,7 +106,7 @@ If you choose cloud-assisted extraction:
 - the backend validates and normalizes the response before returning it to the app
 - the app shows the results to you for review before any data is stored
 
-We use this process to improve extraction quality when local OCR is not enough.
+We use this process to read the selected document on the backend and return structured fields for review.
 
 ## 6. Subscriptions and Payments
 
@@ -202,7 +202,7 @@ If these features are enabled:
 
 - we may collect app usage events and crash diagnostics
 - we may collect limited device and app metadata
-- we do not intend to log raw OCR text, balances, document paths, tokens, or other sensitive financial content in telemetry data
+- we do not intend to log extracted document text, balances, document paths, tokens, or other sensitive financial content in telemetry data
 
 If these features are disabled or not configured, the app can still run with no telemetry.
 

@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -76,7 +78,7 @@ class ScanImportHubScreen extends ConsumerWidget {
                 ? const EmptyStateView(
                     title: 'No scans yet',
                     message:
-                        'Imported documents will appear here with OCR and review status.',
+                        'Imported documents will appear here with extraction and review status.',
                     icon: Icons.document_scanner_outlined,
                   )
                 : Column(
@@ -125,16 +127,6 @@ class ScanImportHubScreen extends ConsumerWidget {
     ImageSource source,
     DocumentSourceType type,
   ) async {
-    final permission = await Permission.photos.request();
-    if (!permission.isGranted && source == ImageSource.gallery) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Gallery permission denied.')),
-        );
-      }
-      return;
-    }
-
     final picker = ImagePicker();
     final file = await picker.pickImage(source: source, imageQuality: 92);
     if (file == null || !context.mounted) {
@@ -145,17 +137,25 @@ class ScanImportHubScreen extends ConsumerWidget {
     if (!context.mounted) {
       return;
     }
+    final stagedFile = await _stageImportFile(
+      context,
+      ref,
+      sourcePath: file.path,
+      sourceType: type,
+      mimeType: ref
+          .read(importFileStagingServiceProvider)
+          .normalizedImageMimeType(file.path),
+    );
+    if (!context.mounted || stagedFile == null) {
+      return;
+    }
 
     context.push(
       Uri(
         path: '/scan/processing',
         queryParameters: {'cloud': allowCloud.toString()},
       ).toString(),
-      extra: FileReference(
-        path: file.path,
-        sourceType: type,
-        mimeType: 'image/${file.path.split('.').last}',
-      ),
+      extra: stagedFile,
     );
   }
 
@@ -189,17 +189,23 @@ class ScanImportHubScreen extends ConsumerWidget {
     if (!context.mounted) {
       return;
     }
+    final stagedFile = await _stageImportFile(
+      context,
+      ref,
+      sourcePath: path,
+      sourceType: DocumentSourceType.pdf,
+      mimeType: 'application/pdf',
+    );
+    if (!context.mounted || stagedFile == null) {
+      return;
+    }
 
     context.push(
       Uri(
         path: '/scan/processing',
         queryParameters: {'cloud': allowCloud.toString()},
       ).toString(),
-      extra: FileReference(
-        path: path,
-        sourceType: DocumentSourceType.pdf,
-        mimeType: 'application/pdf',
-      ),
+      extra: stagedFile,
     );
   }
 }
@@ -209,16 +215,53 @@ Future<bool> _requestCloudExtractionChoice(
   WidgetRef ref,
 ) async {
   BackendCapabilities? capabilities;
+  var showedLoading = false;
   try {
     final config = ref.read(backendConfigProvider);
     if (config.isConfigured) {
+      showedLoading = true;
+      unawaited(
+        showDialog<void>(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const AlertDialog(
+            content: Row(
+              children: [
+                SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                SizedBox(width: 16),
+                Expanded(child: Text('Checking cloud scan quota...')),
+              ],
+            ),
+          ),
+        ),
+      );
       capabilities = await ref
           .read(backendCapabilitiesServiceProvider)
           .loadCapabilities();
     }
-  } catch (_) {
+  } catch (error) {
+    if (showedLoading && context.mounted) {
+      Navigator.of(context, rootNavigator: true).pop();
+      showedLoading = false;
+    }
     if (!context.mounted) {
       return false;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Cloud extraction is unavailable: ${_cloudErrorMessage(error)}. Opening manual review.',
+        ),
+      ),
+    );
+    return false;
+  } finally {
+    if (showedLoading && context.mounted) {
+      Navigator.of(context, rootNavigator: true).pop();
     }
   }
 
@@ -239,10 +282,10 @@ Future<bool> _requestCloudExtractionChoice(
   }
 
   final quotaMessage = capabilities == null
-      ? 'Local OCR runs on-device. Cloud extraction is processed by DEBT DESTROYER secure servers only if you allow it for this import.'
+      ? 'Secure cloud extraction sends this document to DEBT DESTROYER servers for AI reading only if you allow it for this import.'
       : capabilities.premium
-      ? 'Premium is active. Secure cloud extraction is unlimited for this account. Local OCR still runs on-device first.'
-      : 'Free plan includes 5 secure cloud scans per month. ${capabilities.freeScanRemaining} remaining this month. Local OCR still runs on-device first.';
+      ? 'Premium is active. Secure cloud extraction is unlimited for this account.'
+      : 'Free plan includes 5 secure cloud scans per month. ${capabilities.freeScanRemaining} remaining this month.';
 
   final choice = await showModalBottomSheet<bool>(
     context: context,
@@ -262,12 +305,12 @@ Future<bool> _requestCloudExtractionChoice(
             const SizedBox(height: 16),
             FilledButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Use local OCR + secure cloud extraction'),
+              child: const Text('Use secure cloud extraction'),
             ),
             const SizedBox(height: 8),
             OutlinedButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Use local OCR only'),
+              child: const Text('Manual entry instead'),
             ),
           ],
         ),
@@ -281,6 +324,52 @@ Future<bool> _requestCloudExtractionChoice(
     prefs.copyWith(aiConsentEnabled: choice ?? false),
   );
   return choice ?? false;
+}
+
+String _cloudErrorMessage(Object error) {
+  final message = error.toString();
+  if (message.contains('attestation_unavailable')) {
+    return 'device attestation is not configured for this build';
+  }
+  if (message.contains('network_error')) {
+    return 'backend network connection failed';
+  }
+  if (message.contains('backend_timeout')) {
+    return 'backend request timed out';
+  }
+  return message
+      .replaceFirst('Exception: ', '')
+      .replaceFirst('AppException: ', '')
+      .replaceFirst('BackendHttpException: ', '');
+}
+
+Future<FileReference?> _stageImportFile(
+  BuildContext context,
+  WidgetRef ref, {
+  required String sourcePath,
+  required DocumentSourceType sourceType,
+  required String mimeType,
+}) async {
+  try {
+    return await ref
+        .read(importFileStagingServiceProvider)
+        .stage(
+          sourcePath: sourcePath,
+          sourceType: sourceType,
+          mimeType: mimeType,
+        );
+  } on FileSystemException catch (error) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Selected file is unavailable: ${error.path ?? sourcePath}. Pick the file again.',
+          ),
+        ),
+      );
+    }
+    return null;
+  }
 }
 
 class CameraCaptureScreen extends ConsumerStatefulWidget {
@@ -374,16 +463,22 @@ class _CameraCaptureScreenState extends ConsumerState<CameraCaptureScreen> {
     if (!mounted) {
       return;
     }
+    final stagedFile = await _stageImportFile(
+      context,
+      ref,
+      sourcePath: file.path,
+      sourceType: DocumentSourceType.camera,
+      mimeType: 'image/jpeg',
+    );
+    if (!mounted || stagedFile == null) {
+      return;
+    }
     context.push(
       Uri(
         path: '/scan/processing',
         queryParameters: {'cloud': allowCloud.toString()},
       ).toString(),
-      extra: FileReference(
-        path: file.path,
-        sourceType: DocumentSourceType.camera,
-        mimeType: 'image/jpeg',
-      ),
+      extra: stagedFile,
     );
   }
 }
@@ -429,11 +524,12 @@ class _OCRProcessingScreenState extends ConsumerState<OCRProcessingScreen> {
         },
         error: (error, _) => AppErrorState(
           message:
-              'OCR failed. Try another document or enter the debt manually.',
+              'Cloud extraction failed. Try again or enter the debt manually.',
           onRetry: _process,
         ),
-        loading: () =>
-            const LoadingPane(message: 'Running OCR and extraction...'),
+        loading: () => const LoadingPane(
+          message: 'Uploading document for secure AI extraction...',
+        ),
       ),
     );
   }
@@ -468,6 +564,7 @@ class _ParsedReviewConfirmScreenState
   DebtType _type = DebtType.other;
   ImportActionType _action = ImportActionType.createDebt;
   String? _selectedDebtId;
+  bool _saving = false;
 
   @override
   void initState() {
@@ -731,13 +828,13 @@ class _ParsedReviewConfirmScreenState
           ],
           const SizedBox(height: 12),
           ExpansionTile(
-            title: const Text('Raw OCR text'),
+            title: const Text('Extracted text'),
             children: [
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Text(
                   widget.bundle.normalizedText.isEmpty
-                      ? 'No OCR text.'
+                      ? 'No extracted text is stored for cloud imports.'
                       : widget.bundle.normalizedText,
                 ),
               ),
@@ -762,8 +859,8 @@ class _ParsedReviewConfirmScreenState
               const SizedBox(width: 12),
               Expanded(
                 child: FilledButton(
-                  onPressed: () => _save(context),
-                  child: const Text('Save'),
+                  onPressed: _saving ? null : () => _save(context),
+                  child: Text(_saving ? 'Saving...' : 'Save'),
                 ),
               ),
             ],
@@ -774,179 +871,204 @@ class _ParsedReviewConfirmScreenState
   }
 
   Future<void> _save(BuildContext context) async {
+    if (_saving) {
+      return;
+    }
+    setState(() => _saving = true);
     final prefs = ref.read(userPreferencesProvider).valueOrNull;
     final finalizationService = ref.read(importFinalizationServiceProvider);
 
-    if (_action == ImportActionType.createDebt) {
-      final debtId = const Uuid().v4();
-      final debt = Debt(
-        id: debtId,
-        title: _title.text.trim().isEmpty
-            ? 'Imported debt'
-            : _title.text.trim(),
-        creditorName: _creditor.text.trim().isEmpty
-            ? 'Unknown creditor'
-            : _creditor.text.trim(),
-        type: _type,
-        currency:
-            widget.bundle.candidate.currency ?? prefs?.currencyCode ?? 'USD',
-        originalBalance: Parsers.parseMoney(_balance.text),
-        currentBalance: Parsers.parseMoney(_balance.text),
-        apr: Parsers.parseMoney(_apr.text),
-        minimumPayment: Parsers.parseMoney(_minimum.text),
-        dueDate: widget.bundle.candidate.dueDate,
-        paymentFrequency: PaymentFrequency.monthly,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-        notes: _notes.text.trim(),
-        tags: const ['imported'],
-        status: DebtStatus.active,
-        remindersEnabled: true,
-        customPriority: 99,
-      );
-      await finalizationService.finalize(
-        document: widget.bundle.document,
-        extraction: _buildParsedExtraction(),
-        linkedDebtId: debtId,
-        sourcePath: widget.bundle.sourcePath,
-        debtToCreate: debt,
-      );
-    } else if (_action == ImportActionType.addPayment) {
-      final debtId = _selectedDebtId;
-      if (debtId == null) {
-        if (!context.mounted) {
-          return;
-        }
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Choose a debt to attach this payment to.'),
-          ),
+    try {
+      if (_action == ImportActionType.createDebt) {
+        final debtId = const Uuid().v4();
+        final debt = Debt(
+          id: debtId,
+          title: _title.text.trim().isEmpty
+              ? 'Imported debt'
+              : _title.text.trim(),
+          creditorName: _creditor.text.trim().isEmpty
+              ? 'Unknown creditor'
+              : _creditor.text.trim(),
+          type: _type,
+          currency:
+              widget.bundle.candidate.currency ?? prefs?.currencyCode ?? 'USD',
+          originalBalance: Parsers.parseMoney(_balance.text),
+          currentBalance: Parsers.parseMoney(_balance.text),
+          apr: Parsers.parseMoney(_apr.text),
+          minimumPayment: Parsers.parseMoney(_minimum.text),
+          dueDate: widget.bundle.candidate.dueDate,
+          paymentFrequency: PaymentFrequency.monthly,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+          notes: _notes.text.trim(),
+          tags: const ['imported'],
+          status: DebtStatus.active,
+          remindersEnabled: true,
+          customPriority: 99,
         );
-        return;
-      }
-      final selectedPaymentItem = _lineItems.firstWhere(
-        (item) => item.isSelected && item.isPaymentLike,
-        orElse: () => StatementLineItemCandidate(
-          id: '',
-          description: '',
-          amount: 0,
-          type: StatementLineItemType.other,
-          confidence: 0,
-        ),
-      );
-      final amount = Parsers.parseMoney(_paymentAmount.text) > 0
-          ? Parsers.parseMoney(_paymentAmount.text)
-          : selectedPaymentItem.amount.abs();
-      if (amount <= 0) {
-        if (!context.mounted) {
-          return;
-        }
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Enter a payment amount or select a payment-like line item.',
+        await finalizationService.finalize(
+          document: widget.bundle.document,
+          extraction: _buildParsedExtraction(),
+          linkedDebtId: debtId,
+          sourcePath: widget.bundle.sourcePath,
+          debtToCreate: debt,
+        );
+      } else if (_action == ImportActionType.addPayment) {
+        final debtId = _selectedDebtId;
+        if (debtId == null) {
+          setState(() => _saving = false);
+          if (!context.mounted) {
+            return;
+          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Choose a debt to attach this payment to.'),
             ),
-          ),
-        );
-        return;
-      }
-      final payment = Payment(
-        id: const Uuid().v4(),
-        debtId: debtId,
-        amount: amount,
-        date:
-            selectedPaymentItem.date ??
-            widget.bundle.candidate.paymentDate ??
-            DateTime.now(),
-        method: 'Imported',
-        sourceType: PaymentSourceType.scan,
-        notes: _notes.text.trim(),
-        tags: const ['scan'],
-        createdAt: DateTime.now(),
-      );
-      await finalizationService.finalize(
-        document: widget.bundle.document,
-        extraction: _buildParsedExtraction(),
-        linkedDebtId: debtId,
-        sourcePath: widget.bundle.sourcePath,
-        payments: [payment],
-      );
-    } else {
-      final debtId = _selectedDebtId;
-      if (debtId == null) {
-        if (!context.mounted) {
+          );
           return;
         }
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Choose a debt before importing statement payments.'),
+        final selectedPaymentItem = _lineItems.firstWhere(
+          (item) => item.isSelected && item.isPaymentLike,
+          orElse: () => StatementLineItemCandidate(
+            id: '',
+            description: '',
+            amount: 0,
+            type: StatementLineItemType.other,
+            confidence: 0,
           ),
         );
-        return;
-      }
-      final selectedItems = _lineItems
-          .where((item) => item.isSelected && item.isPaymentLike)
-          .toList();
-      if (selectedItems.isEmpty) {
-        if (!context.mounted) {
-          return;
-        }
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Select at least one payment-like line item.'),
-          ),
-        );
-        return;
-      }
-      if (selectedItems.any((item) => item.date == null)) {
-        if (!context.mounted) {
-          return;
-        }
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Some selected line items do not have reliable dates. Deselect them or use single-payment import.',
+        final amount = Parsers.parseMoney(_paymentAmount.text) > 0
+            ? Parsers.parseMoney(_paymentAmount.text)
+            : selectedPaymentItem.amount.abs();
+        if (amount <= 0) {
+          setState(() => _saving = false);
+          if (!context.mounted) {
+            return;
+          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Enter a payment amount or select a payment-like line item.',
+              ),
             ),
-          ),
+          );
+          return;
+        }
+        final payment = Payment(
+          id: const Uuid().v4(),
+          debtId: debtId,
+          amount: amount,
+          date:
+              selectedPaymentItem.date ??
+              widget.bundle.candidate.paymentDate ??
+              DateTime.now(),
+          method: 'Imported',
+          sourceType: PaymentSourceType.scan,
+          notes: _notes.text.trim(),
+          tags: const ['scan'],
+          createdAt: DateTime.now(),
         );
-        return;
-      }
-      final paymentsRepository = ref.read(paymentsRepositoryProvider);
-      final existingPayments = await paymentsRepository.loadPaymentsForDebt(
-        debtId,
-      );
-      final payments = <Payment>[];
-      for (final item in selectedItems) {
-        payments.add(
-          Payment(
-            id: const Uuid().v4(),
-            debtId: debtId,
-            amount: item.amount.abs(),
-            date: item.date!,
-            method: 'Statement import',
-            sourceType: PaymentSourceType.scan,
-            notes: [
-              _notes.text.trim(),
-              if (_duplicateWarningFor(item, existingPayments) != null)
-                'Potential duplicate flagged during review',
-            ].where((part) => part.isNotEmpty).join(' • '),
-            tags: const ['scan', 'statement'],
-            createdAt: DateTime.now(),
-          ),
+        await finalizationService.finalize(
+          document: widget.bundle.document,
+          extraction: _buildParsedExtraction(),
+          linkedDebtId: debtId,
+          sourcePath: widget.bundle.sourcePath,
+          payments: [payment],
+        );
+      } else {
+        final debtId = _selectedDebtId;
+        if (debtId == null) {
+          setState(() => _saving = false);
+          if (!context.mounted) {
+            return;
+          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Choose a debt before importing statement payments.',
+              ),
+            ),
+          );
+          return;
+        }
+        final selectedItems = _lineItems
+            .where((item) => item.isSelected && item.isPaymentLike)
+            .toList();
+        if (selectedItems.isEmpty) {
+          setState(() => _saving = false);
+          if (!context.mounted) {
+            return;
+          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Select at least one payment-like line item.'),
+            ),
+          );
+          return;
+        }
+        if (selectedItems.any((item) => item.date == null)) {
+          setState(() => _saving = false);
+          if (!context.mounted) {
+            return;
+          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Some selected line items do not have reliable dates. Deselect them or use single-payment import.',
+              ),
+            ),
+          );
+          return;
+        }
+        final paymentsRepository = ref.read(paymentsRepositoryProvider);
+        final existingPayments = await paymentsRepository.loadPaymentsForDebt(
+          debtId,
+        );
+        final payments = <Payment>[];
+        for (final item in selectedItems) {
+          payments.add(
+            Payment(
+              id: const Uuid().v4(),
+              debtId: debtId,
+              amount: item.amount.abs(),
+              date: item.date!,
+              method: 'Statement import',
+              sourceType: PaymentSourceType.scan,
+              notes: [
+                _notes.text.trim(),
+                if (_duplicateWarningFor(item, existingPayments) != null)
+                  'Potential duplicate flagged during review',
+              ].where((part) => part.isNotEmpty).join(' • '),
+              tags: const ['scan', 'statement'],
+              createdAt: DateTime.now(),
+            ),
+          );
+        }
+        await finalizationService.finalize(
+          document: widget.bundle.document,
+          extraction: _buildParsedExtraction(),
+          linkedDebtId: debtId,
+          sourcePath: widget.bundle.sourcePath,
+          payments: payments,
         );
       }
-      await finalizationService.finalize(
-        document: widget.bundle.document,
-        extraction: _buildParsedExtraction(),
-        linkedDebtId: debtId,
-        sourcePath: widget.bundle.sourcePath,
-        payments: payments,
-      );
-    }
 
-    ref.read(scanImportStateProvider.notifier).clear();
-    if (context.mounted) {
-      context.go('/dashboard');
+      ref.read(scanImportStateProvider.notifier).clear();
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Import saved.')));
+        context.go('/dashboard');
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Save failed: ${_cloudErrorMessage(error)}')),
+        );
+      }
     }
   }
 

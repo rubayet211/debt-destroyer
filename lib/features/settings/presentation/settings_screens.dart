@@ -955,7 +955,7 @@ class SecurityPrivacyScreen extends ConsumerWidget {
             value: preferences.aiConsentEnabled,
             title: const Text('Allow secure cloud extraction'),
             subtitle: const Text(
-              'This is still confirmed on each import; local OCR remains available without backend access.',
+              'This is still confirmed on each import; manual entry remains available without backend access.',
             ),
             onChanged: (value) async {
               await ref
@@ -965,24 +965,12 @@ class SecurityPrivacyScreen extends ConsumerWidget {
                   );
             },
           ),
-          SwitchListTile.adaptive(
-            value: preferences.rawOcrRetentionEnabled,
-            title: const Text('Temporarily retain OCR text'),
+          const ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text('Cloud import text storage'),
             subtitle: Text(
-              preferences.rawOcrRetentionEnabled
-                  ? 'OCR text is kept for ${preferences.rawOcrRetentionHours} hour(s) after review.'
-                  : 'OCR text is removed after review by default.',
+              'Cloud imports do not store raw extracted text on this device by default.',
             ),
-            onChanged: (value) async {
-              await ref
-                  .read(preferencesRepositoryProvider)
-                  .savePreferences(
-                    preferences.copyWith(
-                      rawOcrRetentionEnabled: value,
-                      rawOcrRetentionHours: value ? 24 : 0,
-                    ),
-                  );
-            },
           ),
           ListTile(
             contentPadding: EdgeInsets.zero,
@@ -997,16 +985,18 @@ class SecurityPrivacyScreen extends ConsumerWidget {
           ),
           ListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('Purge saved OCR text now'),
+            title: const Text('Purge saved extracted text now'),
             subtitle: const Text(
-              'Remove retained OCR text from local storage.',
+              'Remove any legacy retained extracted text from local storage.',
             ),
             trailing: FilledButton.tonal(
               onPressed: () async {
                 await ref.read(documentsRepositoryProvider).purgeAllRawOcr();
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Stored OCR text removed')),
+                    const SnackBar(
+                      content: Text('Stored extracted text removed'),
+                    ),
                   );
                 }
               },
@@ -1181,11 +1171,11 @@ class HelpAboutScreen extends StatelessWidget {
               Text('DEBT DESTROYER'),
               SizedBox(height: 12),
               Text(
-                'Privacy-first debt tracking with local storage, on-device OCR, and optional secure server-side extraction.',
+                'Privacy-first debt tracking with local storage and secure server-side AI extraction.',
               ),
               SizedBox(height: 12),
               Text(
-                'Manual fallback is always available if OCR or AI extraction fails.',
+                'Manual fallback is always available if cloud extraction fails.',
               ),
               SizedBox(height: 12),
               Text(

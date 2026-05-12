@@ -1,6 +1,9 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 
-import { buildPostgresPoolConfig } from '../src/services/storage.js';
+import {
+  PostgresAppStore,
+  buildPostgresPoolConfig,
+} from '../src/services/storage.js';
 
 describe('postgres pool configuration', () => {
   test('builds a pooled Neon-friendly pg config from POSTGRES_URL', () => {
@@ -40,5 +43,30 @@ describe('postgres pool configuration', () => {
     );
 
     expect(config.enableChannelBinding).toBe(false);
+  });
+
+  test('casts cleanup reference time before interval subtraction', async () => {
+    const queries: string[] = [];
+    const client = {
+      query: vi.fn(async (sql: string) => {
+        queries.push(sql);
+        return { rowCount: 0 };
+      }),
+      release: vi.fn(),
+    };
+    const pool = {
+      connect: vi.fn(async () => client),
+    } as unknown as ConstructorParameters<typeof PostgresAppStore>[0];
+
+    const store = new PostgresAppStore(pool);
+    await store.cleanupExpiredData(new Date('2026-05-12T00:00:00.000Z'));
+
+    const staleReservationQuery = queries.find((sql) =>
+      sql.includes('delete from quota_reservations'),
+    );
+    expect(staleReservationQuery).toBeTruthy();
+    expect(staleReservationQuery).toContain(
+      "coalesce(released_at, committed_at, expires_at) <= $1::timestamptz - interval '30 days'",
+    );
   });
 });

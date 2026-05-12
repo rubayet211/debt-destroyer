@@ -15,92 +15,95 @@ import 'package:debt_destroyer/shared/models/user_preferences.dart';
 import 'package:debt_destroyer/shared/providers/app_providers.dart';
 
 void main() {
-  testWidgets('processing screen prepares review without persisting documents', (
-    tester,
-  ) async {
-    final coordinator = _SuccessfulImportCoordinator();
-    final documentsRepository = _RecordingDocumentsRepository();
+  testWidgets(
+    'processing screen prepares review without persisting documents',
+    (tester) async {
+      final coordinator = _SuccessfulImportCoordinator();
+      final documentsRepository = _RecordingDocumentsRepository();
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          importCoordinatorProvider.overrideWith((_) => coordinator),
-          documentsRepositoryProvider.overrideWithValue(documentsRepository),
-        ],
-        child: MaterialApp.router(
-          routerConfig: GoRouter(
-            routes: [
-              GoRoute(
-                path: '/',
-                builder: (context, state) => OCRProcessingScreen(
-                  fileReference: const FileReference(
-                    path: 'test.png',
-                    sourceType: DocumentSourceType.gallery,
-                    mimeType: 'image/png',
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            importCoordinatorProvider.overrideWith((_) => coordinator),
+            documentsRepositoryProvider.overrideWithValue(documentsRepository),
+          ],
+          child: MaterialApp.router(
+            routerConfig: GoRouter(
+              routes: [
+                GoRoute(
+                  path: '/',
+                  builder: (context, state) => OCRProcessingScreen(
+                    fileReference: const FileReference(
+                      path: 'test.png',
+                      sourceType: DocumentSourceType.gallery,
+                      mimeType: 'image/png',
+                    ),
+                    allowCloud: false,
                   ),
-                  allowCloud: false,
                 ),
-              ),
-              GoRoute(
-                path: '/scan/review',
-                builder: (context, state) => const Scaffold(
-                  body: Text('Review'),
+                GoRoute(
+                  path: '/scan/review',
+                  builder: (context, state) =>
+                      const Scaffold(body: Text('Review')),
                 ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-
-    await tester.pump();
-    await tester.pumpAndSettle();
-
-    expect(documentsRepository.savedDocuments, isEmpty);
-  });
-
-  testWidgets('processing screen shows retry state after OCR failure', (
-    tester,
-  ) async {
-    final coordinator = _FailingImportCoordinator();
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          importCoordinatorProvider.overrideWith((_) => coordinator),
-          documentsRepositoryProvider.overrideWithValue(
-            _NoopDocumentsRepository(),
-          ),
-        ],
-        child: MaterialApp(
-          home: OCRProcessingScreen(
-            fileReference: const FileReference(
-              path: 'test.png',
-              sourceType: DocumentSourceType.gallery,
-              mimeType: 'image/png',
+              ],
             ),
-            allowCloud: false,
           ),
         ),
-      ),
-    );
+      );
 
-    await tester.pump();
-    await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pumpAndSettle();
 
-    expect(find.text('Something went wrong'), findsOneWidget);
-    expect(
-      find.text('OCR failed. Try another document or enter the debt manually.'),
-      findsOneWidget,
-    );
-    expect(coordinator.calls, 1);
+      expect(documentsRepository.savedDocuments, isEmpty);
+    },
+  );
 
-    await tester.tap(find.text('Retry'));
-    await tester.pump();
-    await tester.pumpAndSettle();
+  testWidgets(
+    'processing screen shows retry state after cloud extraction failure',
+    (tester) async {
+      final coordinator = _FailingImportCoordinator();
 
-    expect(coordinator.calls, 2);
-  });
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            importCoordinatorProvider.overrideWith((_) => coordinator),
+            documentsRepositoryProvider.overrideWithValue(
+              _NoopDocumentsRepository(),
+            ),
+          ],
+          child: MaterialApp(
+            home: OCRProcessingScreen(
+              fileReference: const FileReference(
+                path: 'test.png',
+                sourceType: DocumentSourceType.gallery,
+                mimeType: 'image/png',
+              ),
+              allowCloud: false,
+            ),
+          ),
+        ),
+      );
+
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Something went wrong'), findsOneWidget);
+      expect(
+        find.text(
+          'Cloud extraction failed. Try again or enter the debt manually.',
+        ),
+        findsOneWidget,
+      );
+      expect(coordinator.calls, 1);
+
+      await tester.tap(find.text('Retry'));
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(coordinator.calls, 2);
+    },
+  );
 }
 
 class _FailingImportCoordinator extends ImportCoordinator {
@@ -108,7 +111,6 @@ class _FailingImportCoordinator extends ImportCoordinator {
     : super(
         documentVaultService: _DummyVaultService(),
         preprocessService: _DummyPreprocessService(),
-        ocrService: _DummyOcrService(),
         classifier: DocumentClassifier(),
         aiExtractionService: _DummyAiExtractionService(),
         validationService: ParseValidationService(),
@@ -133,7 +135,6 @@ class _SuccessfulImportCoordinator extends ImportCoordinator {
     : super(
         documentVaultService: _DummyVaultService(),
         preprocessService: _DummyPreprocessService(),
-        ocrService: _DummyOcrService(),
         classifier: DocumentClassifier(),
         aiExtractionService: _DummyAiExtractionService(),
         validationService: ParseValidationService(),
@@ -255,17 +256,12 @@ class _DummyPreprocessService implements ImagePreprocessService {
   Future<FileReference> preprocess(FileReference input) async => input;
 }
 
-class _DummyOcrService implements OcrService {
-  @override
-  Future<OcrResult> extractText(FileReference file) async =>
-      const OcrResult(text: '', lines: []);
-}
-
 class _DummyAiExtractionService implements AiExtractionService {
   @override
   Future<ImportExtractionResult> extract({
     required DocumentClassification classification,
     required String normalizedText,
+    required FileReference file,
     required DocumentSourceType sourceType,
     required bool allowCloud,
   }) async {

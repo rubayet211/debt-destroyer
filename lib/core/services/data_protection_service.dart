@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:drift/drift.dart' as drift;
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 import '../../shared/data/local/app_database.dart';
 import '../../shared/enums/app_enums.dart';
@@ -313,5 +316,49 @@ class DataProtectionBootstrapService {
             ),
           ),
         );
+  }
+}
+
+class LocalProtectionResetService {
+  LocalProtectionResetService({
+    required this.database,
+    required this.keyService,
+    required this.documentVaultService,
+    required this.protectedPreferencesStore,
+    required this.appSecuritySessionStore,
+  });
+
+  final AppDatabase database;
+  final LocalVaultKeyService keyService;
+  final SecureDocumentVaultService documentVaultService;
+  final ProtectedPreferencesStore protectedPreferencesStore;
+  final AppSecuritySessionStore appSecuritySessionStore;
+
+  Future<void> resetLocalEncryptedState() async {
+    await database.close();
+    await _deleteDatabaseFiles();
+    await documentVaultService.purgeVaultDirectory();
+    await Future.wait([
+      keyService.resetLocalProtectionKeys(),
+      protectedPreferencesStore.clear(),
+      appSecuritySessionStore.clear(),
+    ]);
+  }
+
+  Future<void> _deleteDatabaseFiles() async {
+    final supportDirectory = await getApplicationSupportDirectory();
+    final documentsDirectory = await getApplicationDocumentsDirectory();
+    final paths = <String>{
+      p.join(supportDirectory.path, 'debt_destroyer.sqlite'),
+      p.join(documentsDirectory.path, 'debt_destroyer.sqlite'),
+    };
+    for (final path in paths) {
+      for (final suffix in ['', '-wal', '-shm', '.plaintext.bak']) {
+        final file = File('$path$suffix');
+        if (await file.exists()) {
+          await file.delete();
+        }
+      }
+    }
   }
 }
