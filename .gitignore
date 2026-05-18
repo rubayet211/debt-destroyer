@@ -57,3 +57,6 @@ app.*.map.json
 /backend/dist/
 /backend/test/*.js
 /.worktrees/
+
+/backend/.env
+/backend/.env.*

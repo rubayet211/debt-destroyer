@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../app/theme/app_colors.dart';
+import '../../../app/theme/app_radius.dart';
+import '../../../app/theme/app_spacing.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/utils/parsers.dart';
 import '../../../core/widgets/app_widgets.dart';
@@ -78,113 +81,152 @@ class _StrategySimulatorScreenState
             )
           : ListView(
               children: [
-                DropdownButtonFormField<StrategyType>(
-                  initialValue: _strategy,
-                  decoration: const InputDecoration(labelText: 'Strategy'),
-                  items: StrategyType.values
-                      .map(
-                        (strategy) => DropdownMenuItem(
-                          value: strategy,
-                          child: Text(Formatters.strategyLabel(strategy)),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) =>
-                      setState(() => _strategy = value ?? _strategy),
+                const SectionHeader(
+                  title: 'Strategy Simulator',
+                  subtitle:
+                      'Adjust your monthly budget to compare payoff timing.',
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _budgetController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: const InputDecoration(
-                    labelText: 'Monthly budget',
-                  ),
-                  onChanged: (_) => setState(() {}),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _extraController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: const InputDecoration(
-                    labelText: 'Extra monthly payment',
-                  ),
-                  onChanged: (_) => setState(() {}),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _lumpSumController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: const InputDecoration(
-                    labelText: 'One-time lump sum',
-                  ),
-                  onChanged: (_) => setState(() {}),
-                ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.md),
                 AppCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Debt-free date',
+                        'Monthly Budget',
                         style: Theme.of(context).textTheme.labelLarge,
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        Formatters.date(result.payoffDate),
-                        style: Theme.of(context).textTheme.headlineSmall,
+                      const SizedBox(height: AppSpacing.sm),
+                      TextField(
+                        controller: _budgetController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: const InputDecoration(
+                          labelText: 'Monthly budget',
+                          prefixIcon: Icon(Icons.attach_money_rounded),
+                        ),
+                        onChanged: (_) => setState(() {}),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: AppSpacing.md),
                       Row(
                         children: [
                           Expanded(
-                            child: _SummaryMetric(
-                              label: 'Months',
-                              value: result.monthsToPayoff.toString(),
+                            child: TextField(
+                              controller: _extraController,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                              decoration: const InputDecoration(
+                                labelText: 'Extra monthly',
+                                prefixIcon: Icon(Icons.add_card_outlined),
+                              ),
+                              onChanged: (_) => setState(() {}),
                             ),
                           ),
+                          const SizedBox(width: 12),
                           Expanded(
-                            child: _SummaryMetric(
-                              label: 'Interest paid',
-                              value: Formatters.currency(
-                                result.totalInterestPaid,
-                                currencyCode: currency,
+                            child: TextField(
+                              controller: _lumpSumController,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                              decoration: const InputDecoration(
+                                labelText: 'Lump sum',
+                                prefixIcon: Icon(Icons.savings_outlined),
                               ),
-                            ),
-                          ),
-                          Expanded(
-                            child: _SummaryMetric(
-                              label: 'Saved vs baseline',
-                              value: Formatters.currency(
-                                result.totalInterestSaved,
-                                currencyCode: currency,
-                              ),
+                              onChanged: (_) => setState(() {}),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
-                      _SummaryMetric(
-                        label: 'Minimum required',
-                        value: Formatters.currency(
-                          result.minimumRequiredPerCycle,
-                          currencyCode: currency,
-                        ),
-                      ),
-                      if (result.budgetShortfall > 0) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          'Budget shortfall this cycle: ${Formatters.currency(result.budgetShortfall, currencyCode: currency)}',
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                      ],
                     ],
                   ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                SegmentedButton<StrategyType>(
+                  segments: StrategyType.values
+                      .map(
+                        (strategy) => ButtonSegment(
+                          value: strategy,
+                          label: Text(Formatters.strategyLabel(strategy)),
+                        ),
+                      )
+                      .toList(),
+                  selected: {_strategy},
+                  onSelectionChanged: (selection) =>
+                      setState(() => _strategy = selection.first),
+                  style: ButtonStyle(
+                    visualDensity: VisualDensity.compact,
+                    shape: WidgetStatePropertyAll(
+                      RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.pill),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  _strategyDescription(_strategy),
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                HeroFinanceCard(
+                  label: 'Projected Payoff',
+                  value: Text(Formatters.date(result.payoffDate)),
+                  subtitle:
+                      '${result.monthsToPayoff} months with ${Formatters.strategyLabel(_strategy)}',
+                  trailing: AppStatusBadge(
+                    label: '${result.monthsToPayoff} mos',
+                    color: AppColors.secondaryContainer,
+                    icon: Icons.trending_down_rounded,
+                  ),
+                  children: [
+                    _SummaryMetric(
+                      label: 'Total Interest Saved',
+                      value: Formatters.currency(
+                        result.totalInterestSaved,
+                        currencyCode: currency,
+                      ),
+                      textColor: AppColors.secondaryContainer,
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _SummaryMetric(
+                            label: 'Interest paid',
+                            value: Formatters.currency(
+                              result.totalInterestPaid,
+                              currencyCode: currency,
+                            ),
+                            textColor: Colors.white,
+                          ),
+                        ),
+                        Expanded(
+                          child: _SummaryMetric(
+                            label: 'Minimum required',
+                            value: Formatters.currency(
+                              result.minimumRequiredPerCycle,
+                              currencyCode: currency,
+                            ),
+                            textColor: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (result.budgetShortfall > 0) ...[
+                      const SizedBox(height: AppSpacing.md),
+                      Text(
+                        'Budget shortfall this cycle: ${Formatters.currency(result.budgetShortfall, currencyCode: currency)}',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.8),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 if (result.warnings.isNotEmpty) ...[
                   const SizedBox(height: 16),
@@ -207,7 +249,7 @@ class _StrategySimulatorScreenState
                     ),
                   ),
                 ],
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 AppCard(
                   child: SizedBox(
                     height: 220,
@@ -236,6 +278,15 @@ class _StrategySimulatorScreenState
                         lineBarsData: [
                           LineChartBarData(
                             isCurved: true,
+                            barWidth: 3,
+                            color: AppColors.primaryContainer,
+                            dotData: const FlDotData(show: false),
+                            belowBarData: BarAreaData(
+                              show: true,
+                              color: AppColors.primaryFixed.withValues(
+                                alpha: 0.35,
+                              ),
+                            ),
                             spots: result.schedule
                                 .map(
                                   (month) => FlSpot(
@@ -250,9 +301,9 @@ class _StrategySimulatorScreenState
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 SectionHeader(
-                  title: 'Payoff order',
+                  title: 'Actionable Roadmap',
                   trailing: FilledButton.tonal(
                     onPressed: () async {
                       final premium = subscription ?? SubscriptionState.free();
@@ -300,16 +351,52 @@ class _StrategySimulatorScreenState
                   ),
                 ),
                 const SizedBox(height: 12),
-                ...result.payoffOrder.map(
-                  (debt) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
+                ...result.payoffOrder.indexed.map(
+                  (entry) => Padding(
+                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                     child: AppCard(
-                      child: ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(debt.title),
-                        subtitle: Text(
-                          '${Formatters.debtType(debt.type)} • ${Formatters.percent(debt.apr)}',
-                        ),
+                      radius: AppRadius.lg,
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 17,
+                            backgroundColor: entry.$1 == 0
+                                ? AppColors.primaryContainer
+                                : AppColors.surfaceHighest,
+                            child: Text(
+                              '${entry.$1 + 1}',
+                              style: Theme.of(context).textTheme.labelMedium
+                                  ?.copyWith(
+                                    color: entry.$1 == 0
+                                        ? Colors.white
+                                        : AppColors.primary,
+                                  ),
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.md),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  entry.$2.title,
+                                  style: Theme.of(context).textTheme.titleSmall,
+                                ),
+                                Text(
+                                  '${Formatters.debtType(entry.$2.type)} • ${Formatters.percent(entry.$2.apr)} APR',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ],
+                            ),
+                          ),
+                          Text(
+                            Formatters.currency(
+                              entry.$2.currentBalance,
+                              currencyCode: entry.$2.currency,
+                            ),
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -321,21 +408,48 @@ class _StrategySimulatorScreenState
 }
 
 class _SummaryMetric extends StatelessWidget {
-  const _SummaryMetric({required this.label, required this.value});
+  const _SummaryMetric({
+    required this.label,
+    required this.value,
+    this.textColor,
+  });
 
   final String label;
   final String value;
+  final Color? textColor;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: textColor?.withValues(alpha: 0.72),
+          ),
+        ),
         const SizedBox(height: 4),
-        Text(value, style: Theme.of(context).textTheme.titleMedium),
+        Text(
+          value,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            color: textColor,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
       ],
     );
+  }
+}
+
+String _strategyDescription(StrategyType strategy) {
+  switch (strategy) {
+    case StrategyType.snowball:
+      return 'Snowball focuses on quick wins by paying the smallest balance first.';
+    case StrategyType.avalanche:
+      return 'Avalanche targets highest APR first to reduce projected interest.';
+    case StrategyType.customPriority:
+      return 'Custom follows your priority order from each debt profile.';
   }
 }
 

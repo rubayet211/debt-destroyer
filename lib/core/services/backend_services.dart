@@ -100,7 +100,7 @@ abstract class BackendSessionManager {
 }
 
 class BackendAuthService implements BackendSessionManager {
-  const BackendAuthService({
+  BackendAuthService({
     required this.storage,
     required this.httpClient,
     required this.config,
@@ -115,14 +115,23 @@ class BackendAuthService implements BackendSessionManager {
   static const _installIdKey = 'backend_install_id';
   static const _sessionKey = 'backend_install_session';
 
+  String? _cachedInstallId;
+  InstallSession? _cachedSession;
+  Future<InstallSession?>? _ongoingSessionTask;
+
   @override
   Future<String> getOrCreateInstallId() async {
+    if (_cachedInstallId != null) {
+      return _cachedInstallId!;
+    }
     final existing = await storage.read(key: _installIdKey);
     if (existing != null && existing.isNotEmpty) {
+      _cachedInstallId = existing;
       return existing;
     }
     final next = const Uuid().v4();
     await storage.write(key: _installIdKey, value: next);
+    _cachedInstallId = next;
     return next;
   }
 
@@ -131,6 +140,16 @@ class BackendAuthService implements BackendSessionManager {
     if (!config.isConfigured) {
       return null;
     }
+    if (_ongoingSessionTask != null) {
+      return _ongoingSessionTask;
+    }
+    _ongoingSessionTask = _ensureSessionInternal().whenComplete(() {
+      _ongoingSessionTask = null;
+    });
+    return _ongoingSessionTask;
+  }
+
+  Future<InstallSession?> _ensureSessionInternal() async {
     final session = await _readSession();
     if (session != null &&
         session.expiresAt.isAfter(
@@ -168,6 +187,7 @@ class BackendAuthService implements BackendSessionManager {
 
   @override
   Future<void> clearSession() async {
+    _cachedSession = null;
     await storage.delete(key: _sessionKey);
   }
 
@@ -229,22 +249,27 @@ class BackendAuthService implements BackendSessionManager {
   }
 
   Future<InstallSession?> _readSession() async {
+    if (_cachedSession != null) {
+      return _cachedSession;
+    }
     final raw = await storage.read(key: _sessionKey);
     if (raw == null || raw.isEmpty) {
       return null;
     }
     final json = jsonDecode(raw) as Map<String, dynamic>;
-    return InstallSession(
+    _cachedSession = InstallSession(
       installId: json['installId'] as String,
       accessToken: json['accessToken'] as String,
       refreshToken: json['refreshToken'] as String,
       expiresAt: DateTime.parse(json['expiresAt'] as String),
       attestationStatus: json['attestationStatus'] as String,
     );
+    return _cachedSession;
   }
 
-  Future<void> _writeSession(InstallSession session) {
-    return storage.write(
+  Future<void> _writeSession(InstallSession session) async {
+    _cachedSession = session;
+    await storage.write(
       key: _sessionKey,
       value: jsonEncode({
         'installId': session.installId,
@@ -288,9 +313,15 @@ class BackendApiClient {
 
   Future<Map<String, dynamic>> postAuthorized(
     String path,
-    Map<String, dynamic> body,
-  ) {
-    return _sendAuthorized(method: 'POST', path: path, body: body);
+    Map<String, dynamic> body, {
+    Duration? timeout,
+  }) {
+    return _sendAuthorized(
+      method: 'POST',
+      path: path,
+      body: body,
+      timeout: timeout,
+    );
   }
 
   Future<Map<String, dynamic>> _sendAuthorized({
@@ -299,6 +330,7 @@ class BackendApiClient {
     required Map<String, dynamic>? body,
     bool refreshed = false,
     int transientRetry = 0,
+    Duration? timeout,
   }) async {
     final session = await sessionManager.ensureSession();
     if (session == null) {
@@ -309,6 +341,7 @@ class BackendApiClient {
       );
     }
 
+    final effectiveTimeout = timeout ?? config.requestTimeout;
     try {
       final requestUri = Uri.parse('${config.baseUrl}$path');
       final response = await () {
@@ -323,7 +356,7 @@ class BackendApiClient {
           headers: _headers(session.accessToken),
           body: jsonEncode(body),
         );
-      }().timeout(config.requestTimeout);
+      }().timeout(effectiveTimeout);
 
       final decoded = response.body.isEmpty
           ? <String, dynamic>{}
@@ -336,6 +369,7 @@ class BackendApiClient {
           body: body,
           refreshed: true,
           transientRetry: transientRetry,
+          timeout: timeout,
         );
       }
       if ((response.statusCode >= 500 || response.statusCode == 429) &&
@@ -350,6 +384,7 @@ class BackendApiClient {
           body: body,
           refreshed: refreshed,
           transientRetry: transientRetry + 1,
+          timeout: timeout,
         );
       }
       if (response.statusCode >= 400) {
@@ -372,6 +407,7 @@ class BackendApiClient {
           body: body,
           refreshed: refreshed,
           transientRetry: transientRetry + 1,
+          timeout: timeout,
         );
       }
       throw const BackendHttpException(
@@ -397,13 +433,28 @@ class BackendApiClient {
 }
 
 class BackendCapabilitiesService {
-  const BackendCapabilitiesService(this.client);
+  BackendCapabilitiesService(this.client);
 
   final BackendApiClient client;
+  BackendCapabilities? _cached;
+  Future<BackendCapabilities>? _ongoingTask;
 
-  Future<BackendCapabilities> loadCapabilities() async {
+  Future<BackendCapabilities> loadCapabilities() {
+    if (_cached != null) {
+      return Future.value(_cached!);
+    }
+    if (_ongoingTask != null) {
+      return _ongoingTask!;
+    }
+    _ongoingTask = _loadInternal().whenComplete(() {
+      _ongoingTask = null;
+    });
+    return _ongoingTask!;
+  }
+
+  Future<BackendCapabilities> _loadInternal() async {
     final response = await client.getAuthorized('/v1/mobile/me/capabilities');
-    return BackendCapabilities(
+    _cached = BackendCapabilities(
       premium: response['premium'] as bool? ?? false,
       features: (response['features'] as List<dynamic>? ?? const [])
           .map((item) => item.toString())
@@ -414,6 +465,7 @@ class BackendCapabilitiesService {
         response['entitlement'] as Map<String, dynamic>?,
       ),
     );
+    return _cached!;
   }
 
   BackendEntitlement? _parseEntitlement(Map<String, dynamic>? json) {
@@ -462,11 +514,21 @@ class BackendAiExtractionService implements AiExtractionService {
   }) async {
     final local = parser.parse(classification, normalizedText);
     if (!allowCloud || !config.isConfigured) {
+      AppLogger.instance.info(
+        'cloud_extraction_skipped',
+        context: {
+          'warning': allowCloud
+              ? 'Backend not configured'
+              : 'Cloud extraction declined by user',
+          'allowCloud': allowCloud,
+          'isConfigured': config.isConfigured,
+        },
+      );
       return local;
     }
 
-    final installId = await sessionManager.getOrCreateInstallId();
     try {
+      final installId = await sessionManager.getOrCreateInstallId();
       final fileBytes = await File(file.path).readAsBytes();
       final response = await client.postAuthorized('/v1/import/extract-file', {
         'request_id': const Uuid().v4(),
@@ -478,7 +540,7 @@ class BackendAiExtractionService implements AiExtractionService {
           'mime_type': file.mimeType,
           'data_base64': base64Encode(fileBytes),
         },
-      });
+      }, timeout: config.extractionTimeout);
       final quota = _parseQuota(
         response['quota'] as Map<String, dynamic>? ?? const {},
       );
@@ -543,6 +605,21 @@ class BackendAiExtractionService implements AiExtractionService {
         warnings: [...local.warnings, error.code ?? 'backend_error'],
         documentSignals: [...local.documentSignals, 'local_fallback'],
         errorMessage: error.message,
+        quotaSnapshot: null,
+      );
+    } catch (error, stack) {
+      AppLogger.instance.error(
+        'cloud_extraction_unexpected_error',
+        error,
+        stack,
+        context: {'mimeType': file.mimeType, 'sourceType': sourceType.name},
+      );
+      return ImportExtractionResult(
+        summary: local.summary,
+        statementLineItems: local.statementLineItems,
+        warnings: [...local.warnings, if (error is Exception) 'backend_error'],
+        documentSignals: [...local.documentSignals, 'local_fallback'],
+        errorMessage: error.toString(),
         quotaSnapshot: null,
       );
     }
@@ -669,6 +746,10 @@ class BackendAiExtractionService implements AiExtractionService {
     }
     if (error.code == 'network_error' || error.code == 'backend_timeout') {
       return 'Network or backend timeout. Manual review is shown instead.';
+    }
+    if (error.code == 'file_too_large' ||
+        error.code == 'provider_file_too_large') {
+      return 'Document is too large for secure cloud extraction. Crop the image or upload a smaller file.';
     }
     return error.message;
   }

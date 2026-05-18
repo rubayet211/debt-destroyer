@@ -6,6 +6,7 @@ class BackendConfig {
     required this.playIntegrityPackageName,
     required this.debugAttestationSecret,
     required this.requestTimeout,
+    required this.extractionTimeout,
     required this.premiumProductId,
     required this.premiumMonthlyBasePlanId,
     required this.premiumYearlyBasePlanId,
@@ -17,6 +18,7 @@ class BackendConfig {
   final String playIntegrityPackageName;
   final String? debugAttestationSecret;
   final Duration requestTimeout;
+  final Duration extractionTimeout;
   final String premiumProductId;
   final String premiumMonthlyBasePlanId;
   final String premiumYearlyBasePlanId;
@@ -30,6 +32,7 @@ class BackendConfig {
     String? playIntegrityPackageName,
     String? debugAttestationSecret,
     Duration? requestTimeout,
+    Duration? extractionTimeout,
     String? premiumProductId,
     String? premiumMonthlyBasePlanId,
     String? premiumYearlyBasePlanId,
@@ -45,6 +48,7 @@ class BackendConfig {
       debugAttestationSecret:
           debugAttestationSecret ?? this.debugAttestationSecret,
       requestTimeout: requestTimeout ?? this.requestTimeout,
+      extractionTimeout: extractionTimeout ?? this.extractionTimeout,
       premiumProductId: premiumProductId ?? this.premiumProductId,
       premiumMonthlyBasePlanId:
           premiumMonthlyBasePlanId ?? this.premiumMonthlyBasePlanId,

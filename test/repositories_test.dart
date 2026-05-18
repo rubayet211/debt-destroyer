@@ -18,10 +18,13 @@ import 'package:debt_destroyer/shared/models/payment.dart';
 import 'package:debt_destroyer/shared/providers/app_providers.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   late AppDatabase database;
   late DriftDebtsRepository debtsRepository;
   late DriftPaymentsRepository paymentsRepository;
   late DriftDocumentsRepository documentsRepository;
+  late DriftPreferencesRepository preferencesRepository;
   late DriftSubscriptionRepository subscriptionRepository;
   late Directory tempDir;
   late SecureDocumentVaultService vaultService;
@@ -36,6 +39,10 @@ void main() {
     debtsRepository = DriftDebtsRepository(database, vaultService);
     paymentsRepository = DriftPaymentsRepository(database);
     documentsRepository = DriftDocumentsRepository(database, vaultService);
+    preferencesRepository = DriftPreferencesRepository(
+      database,
+      ProtectedPreferencesStore(),
+    );
     subscriptionRepository = DriftSubscriptionRepository(database);
   });
 
@@ -84,6 +91,32 @@ void main() {
     final updated = await debtsRepository.loadDebts();
     expect(updated.single.currentBalance, 750);
     expect(updated.single.status, DebtStatus.active);
+  });
+
+  test('preferences load ignores stale extra singleton rows', () async {
+    await database
+        .into(database.appPreferencesTable)
+        .insert(
+          AppPreferencesTableCompanion.insert(
+            key: const Value(1),
+            currencyCode: const Value('USD'),
+            defaultStrategy: const Value('avalanche'),
+          ),
+        );
+    await database
+        .into(database.appPreferencesTable)
+        .insert(
+          AppPreferencesTableCompanion.insert(
+            key: const Value(2),
+            currencyCode: const Value('BDT'),
+            defaultStrategy: const Value('snowball'),
+          ),
+        );
+
+    final preferences = await preferencesRepository.loadPreferences();
+
+    expect(preferences.currencyCode, 'USD');
+    expect(preferences.defaultStrategy, StrategyType.avalanche);
   });
 
   test(

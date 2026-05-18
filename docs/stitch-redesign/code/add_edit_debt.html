@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>DEBT DESTROYER - Add Debt</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-primary-fixed-variant": "#314863",
+                      "on-secondary-fixed-variant": "#00522f",
+                      "primary": "#00152a",
+                      "primary-fixed": "#d1e4ff",
+                      "tertiary": "#001716",
+                      "surface-container-high": "#d8eaff",
+                      "inverse-primary": "#b0c9e8",
+                      "secondary-fixed": "#7afbb1",
+                      "surface-container-highest": "#cee5ff",
+                      "surface-variant": "#cee5ff",
+                      "error-container": "#ffdad6",
+                      "tertiary-fixed-dim": "#66d8d2",
+                      "surface-container": "#e3efff",
+                      "on-tertiary-fixed-variant": "#00504d",
+                      "secondary": "#006d40",
+                      "secondary-container": "#7afbb1",
+                      "surface": "#f7f9ff",
+                      "on-tertiary-fixed": "#00201e",
+                      "on-primary": "#ffffff",
+                      "on-secondary-container": "#007444",
+                      "error": "#ba1a1a",
+                      "on-tertiary-container": "#19a09a",
+                      "on-primary-container": "#7a92b0",
+                      "tertiary-fixed": "#84f5ee",
+                      "outline": "#74777e",
+                      "on-secondary": "#ffffff",
+                      "inverse-surface": "#16334a",
+                      "on-error-container": "#93000a",
+                      "outline-variant": "#c3c6ce",
+                      "surface-bright": "#f7f9ff",
+                      "primary-container": "#102a43",
+                      "on-tertiary": "#ffffff",
+                      "background": "#f7f9ff",
+                      "surface-tint": "#49607c",
+                      "inverse-on-surface": "#e8f2ff",
+                      "on-error": "#ffffff",
+                      "on-background": "#001d32",
+                      "surface-container-lowest": "#ffffff",
+                      "secondary-fixed-dim": "#5cde97",
+                      "on-primary-fixed": "#011d35",
+                      "on-secondary-fixed": "#002110",
+                      "surface-dim": "#c1ddfb",
+                      "on-surface": "#001d32",
+                      "tertiary-container": "#002e2c",
+                      "primary-fixed-dim": "#b0c9e8",
+                      "surface-container-low": "#edf4ff",
+                      "on-surface-variant": "#43474d"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "margin-mobile": "20px",
+                      "gutter-mobile": "16px",
+                      "lg": "24px",
+                      "xs": "4px",
+                      "2xl": "48px",
+                      "md": "16px",
+                      "unit": "4px",
+                      "sm": "8px",
+                      "xl": "32px"
+              },
+              "fontFamily": {
+                      "body-md": ["Manrope"],
+                      "label-lg": ["Manrope"],
+                      "headline-sm": ["Manrope"],
+                      "display-lg-mobile": ["Manrope"],
+                      "body-lg": ["Manrope"],
+                      "headline-lg": ["Manrope"],
+                      "label-md": ["Manrope"],
+                      "headline-md": ["Manrope"],
+                      "display-lg": ["Manrope"]
+              },
+              "fontSize": {
+                      "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                      "label-lg": ["14px", {"lineHeight": "20px", "letterSpacing": "0.1px", "fontWeight": "600"}],
+                      "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                      "display-lg-mobile": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "800"}],
+                      "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                      "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "700"}],
+                      "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "500"}],
+                      "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                      "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "800"}]
+              }
+            }
+          }
+        }
+    </script>
+<style>
+        body { font-family: 'Manrope', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .icon-filled { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        
+        /* Custom input styling for the modern fintech look */
+        .fintech-input {
+            background-color: transparent;
+            border: 1px solid #74777e; /* outline color */
+            transition: all 0.2s ease-in-out;
+        }
+        .fintech-input:focus {
+            background-color: #FFFFFF;
+            border: 2px solid #00152a; /* primary */
+            outline: none;
+            box-shadow: 0 4px 20px 0 rgba(0,0,0,0.04);
+        }
+        .fintech-input:focus:not(select) {
+            padding-left: calc(1rem - 1px);
+        }
+        .fintech-input.pl-8:focus:not(select) {
+            padding-left: calc(2rem - 1px);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-background text-on-background min-h-screen pb-24">
+<!-- TopAppBar -->
+<header class="flex justify-between items-center px-margin-mobile py-md w-full bg-surface shadow-sm docked full-width top-0 z-10 sticky">
+<button class="text-on-surface-variant hover:bg-surface-container-high transition-colors active:scale-95 duration-200 p-2 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined">close</span>
+</button>
+<h1 class="font-headline-md text-headline-md font-extrabold tracking-tight text-primary">Add Debt</h1>
+<div class="w-10"></div> <!-- Spacer for centering -->
+</header>
+<main class="px-margin-mobile pt-xl max-w-3xl mx-auto">
+<!-- Progress Steps -->
+<div class="mb-xl">
+<div class="flex items-center justify-between relative">
+<div class="absolute left-0 top-1/2 w-full h-1 bg-surface-container-high -z-10 rounded-full transform -translate-y-1/2"></div>
+<div class="absolute left-0 top-1/2 w-1/3 h-1 bg-secondary -z-10 rounded-full transform -translate-y-1/2"></div>
+<div class="flex flex-col items-center">
+<div class="w-8 h-8 rounded-full bg-secondary text-on-secondary flex items-center justify-center font-label-lg text-label-lg shadow-sm">1</div>
+<span class="mt-2 font-label-md text-label-md text-secondary">Basic Info</span>
+</div>
+<div class="flex flex-col items-center">
+<div class="w-8 h-8 rounded-full bg-surface-container-highest text-on-surface-variant flex items-center justify-center font-label-lg text-label-lg">2</div>
+<span class="mt-2 font-label-md text-label-md text-on-surface-variant">Balance</span>
+</div>
+<div class="flex flex-col items-center">
+<div class="w-8 h-8 rounded-full bg-surface-container-highest text-on-surface-variant flex items-center justify-center font-label-lg text-label-lg">3</div>
+<span class="mt-2 font-label-md text-label-md text-on-surface-variant">Schedule</span>
+</div>
+</div>
+</div>
+<form>
+<!-- Basic Info Card -->
+<section class="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-lg mb-xl shadow-[0_4px_20px_0_rgba(0,0,0,0.04)]">
+<h2 class="font-headline-sm text-headline-sm text-primary mb-lg">Basic Info</h2>
+<div class="space-y-md">
+<div>
+<label class="block font-label-lg text-label-lg text-on-surface-variant mb-xs" for="debtName">Debt Name</label>
+<input class="w-full h-12 px-4 rounded-lg fintech-input font-body-md text-body-md text-on-surface" id="debtName" placeholder="e.g. Chase Sapphire" type="text"/>
+</div>
+<div>
+<label class="block font-label-lg text-label-lg text-on-surface-variant mb-xs" for="debtType">Debt Type</label>
+<div class="relative">
+<select class="w-full h-12 px-4 appearance-none rounded-lg fintech-input font-body-md text-body-md text-on-surface" id="debtType">
+<option disabled="" selected="" value="">Select category</option>
+<option value="credit">Credit Card</option>
+<option value="student">Student Loan</option>
+<option value="auto">Auto Loan</option>
+<option value="personal">Personal Loan</option>
+<option value="mortgage">Mortgage</option>
+</select>
+<span class="material-symbols-outlined absolute right-4 top-1/2 transform -translate-y-1/2 text-on-surface-variant pointer-events-none">expand_more</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Balance & Rates Card -->
+<section class="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-lg mb-xl shadow-[0_4px_20px_0_rgba(0,0,0,0.04)]">
+<h2 class="font-headline-sm text-headline-sm text-primary mb-lg">Balance &amp; Rates</h2>
+<div class="space-y-md">
+<div>
+<label class="block font-label-lg text-label-lg text-on-surface-variant mb-xs" for="currentBalance">Current Balance</label>
+<div class="relative">
+<span class="absolute left-4 top-1/2 transform -translate-y-1/2 font-body-md text-body-md text-on-surface-variant">$</span>
+<input class="w-full h-12 pl-8 pr-4 rounded-lg fintech-input font-body-md text-body-md text-on-surface" id="currentBalance" placeholder="0.00" type="number"/>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-md">
+<div>
+<label class="block font-label-lg text-label-lg text-on-surface-variant mb-xs flex items-center" for="interestRate">Interest Rate (APR) <span class="material-symbols-outlined text-[16px] ml-1 cursor-help" title="Annual Percentage Rate">info</span></label>
+<div class="relative">
+<input class="w-full h-12 pr-8 pl-4 rounded-lg fintech-input font-body-md text-body-md text-on-surface" id="interestRate" placeholder="0.00" type="number"/>
+<span class="absolute right-4 top-1/2 transform -translate-y-1/2 font-body-md text-body-md text-on-surface-variant">%</span>
+</div>
+<p class="mt-1 font-label-md text-label-md text-on-surface-variant">Annual Percentage Rate</p>
+</div>
+<div>
+<label class="block font-label-lg text-label-lg text-on-surface-variant mb-xs" for="minPayment">Minimum Payment</label>
+<div class="relative">
+<span class="absolute left-4 top-1/2 transform -translate-y-1/2 font-body-md text-body-md text-on-surface-variant">$</span>
+<input class="w-full h-12 pl-8 pr-4 rounded-lg fintech-input font-body-md text-body-md text-on-surface" id="minPayment" placeholder="0.00" type="number"/>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Advanced Terms (Optional) -->
+<section class="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-lg mb-2xl shadow-[0_4px_20px_0_rgba(0,0,0,0.04)]">
+<div class="flex justify-between items-center cursor-pointer group" onclick="document.getElementById('advancedContent').classList.toggle('hidden'); const icon = document.getElementById('advancedIcon'); icon.innerText = icon.innerText === 'keyboard_arrow_down' ? 'keyboard_arrow_up' : 'keyboard_arrow_down';">
+<div>
+<h2 class="font-headline-sm text-headline-sm text-primary group-hover:text-secondary transition-colors">Advanced Terms</h2>
+<p class="font-label-md text-label-md text-on-surface-variant mt-1">Optional details like promo rates or specific due dates.</p>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant transition-transform" id="advancedIcon">keyboard_arrow_down</span>
+</div>
+<div class="hidden mt-lg space-y-md pt-md border-t border-surface-container-highest" id="advancedContent">
+<div>
+<label class="block font-label-lg text-label-lg text-on-surface-variant mb-xs" for="dueDate">Next Due Date</label>
+<input class="w-full h-12 px-4 rounded-lg fintech-input font-body-md text-body-md text-on-surface" id="dueDate" type="date"/>
+</div>
+<div>
+<label class="block font-label-lg text-label-lg text-on-surface-variant mb-xs flex items-center" for="promoRate">Promotional Rate <span class="material-symbols-outlined text-[16px] ml-1 cursor-help" title="Temporary promotional APR">info</span></label>
+<div class="relative">
+<input class="w-full h-12 pr-8 pl-4 rounded-lg fintech-input font-body-md text-body-md text-on-surface" id="promoRate" placeholder="0.00" type="number"/>
+<span class="absolute right-4 top-1/2 transform -translate-y-1/2 font-body-md text-body-md text-on-surface-variant">%</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Fixed Bottom Action Area -->
+<div class="fixed bottom-0 left-0 w-full bg-surface-container-lowest p-margin-mobile shadow-[0_-4px_20px_0_rgba(0,0,0,0.04)] z-40 border-t border-outline-variant/10">
+<div class="max-w-3xl mx-auto">
+<button class="w-full h-[56px] bg-primary text-on-primary rounded-lg font-label-lg text-label-lg flex items-center justify-center hover:bg-primary-container transition-colors active:scale-95 duration-200" type="button">
+                        Continue to Schedule
+                        <span class="material-symbols-outlined ml-2">arrow_forward</span>
+</button>
+</div>
+</div>
+</form>
+</main>
+</body></html>

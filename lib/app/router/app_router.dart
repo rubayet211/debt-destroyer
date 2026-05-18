@@ -148,31 +148,52 @@ class _AppShell extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: navigationShell,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: navigationShell.currentIndex,
-        onDestinationSelected: (index) => navigationShell.goBranch(index),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            label: 'Dashboard',
+      bottomNavigationBar: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 20,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          child: NavigationBar(
+            selectedIndex: navigationShell.currentIndex,
+            onDestinationSelected: (index) => navigationShell.goBranch(index),
+            destinations: const [
+              NavigationDestination(
+                selectedIcon: Icon(Icons.dashboard_rounded),
+                icon: Icon(Icons.dashboard_outlined),
+                label: 'Dashboard',
+              ),
+              NavigationDestination(
+                selectedIcon: Icon(Icons.payments_rounded),
+                icon: Icon(Icons.payments_outlined),
+                label: 'Debts',
+              ),
+              NavigationDestination(
+                selectedIcon: Icon(Icons.document_scanner_rounded),
+                icon: Icon(Icons.document_scanner_outlined),
+                label: 'Scan',
+              ),
+              NavigationDestination(
+                selectedIcon: Icon(Icons.query_stats_rounded),
+                icon: Icon(Icons.query_stats_outlined),
+                label: 'Strategy',
+              ),
+              NavigationDestination(
+                selectedIcon: Icon(Icons.settings_rounded),
+                icon: Icon(Icons.settings_outlined),
+                label: 'Settings',
+              ),
+            ],
           ),
-          NavigationDestination(
-            icon: Icon(Icons.account_balance_wallet_outlined),
-            label: 'Debts',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.document_scanner_outlined),
-            label: 'Scan',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.auto_graph_outlined),
-            label: 'Strategy',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            label: 'Settings',
-          ),
-        ],
+        ),
       ),
     );
   }

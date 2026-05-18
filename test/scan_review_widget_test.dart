@@ -377,9 +377,8 @@ void main() {
               ),
               GoRoute(
                 path: '/dashboard',
-                builder: (context, state) => const Scaffold(
-                  body: Text('Dashboard'),
-                ),
+                builder: (context, state) =>
+                    const Scaffold(body: Text('Dashboard')),
               ),
             ],
           ),

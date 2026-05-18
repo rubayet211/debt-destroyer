@@ -50,6 +50,9 @@ import {
 } from "./services/storage.js";
 import { normalizeExtraction } from "./services/schema.js";
 
+const maxImportFileBytes = 8 * 1024 * 1024;
+const maxImportBodyBytes = 12 * 1024 * 1024;
+
 type CreateAppOptions = {
   config?: AppConfig;
   store?: AppStore;
@@ -100,7 +103,7 @@ export async function createApp(options: CreateAppOptions = {}) {
 
   const app = Fastify({
     trustProxy: config.trustProxy,
-    bodyLimit: 8 * 1024 * 1024,
+    bodyLimit: maxImportBodyBytes,
     logger: {
       level: config.logLevel,
       base: {
@@ -115,6 +118,13 @@ export async function createApp(options: CreateAppOptions = {}) {
   ).toUTCString();
 
   app.setErrorHandler(async (error, request, reply) => {
+    const errorCode = (error as { code?: string }).code;
+    if (errorCode === "FST_ERR_CTP_BODY_TOO_LARGE") {
+      return reply.status(413).send({
+        error: "file_too_large",
+        message: "Import files must be 8 MB or smaller",
+      });
+    }
     if (error instanceof AppError) {
       return reply.status(error.statusCode).send({
         error: error.code,
@@ -721,11 +731,11 @@ export async function createApp(options: CreateAppOptions = {}) {
     if (fileBytes.length === 0) {
       throw new AppError(400, "empty_file", "Import file is empty");
     }
-    if (fileBytes.length > 6 * 1024 * 1024) {
+    if (fileBytes.length > maxImportFileBytes) {
       throw new AppError(
         413,
         "file_too_large",
-        "Import files must be 6 MB or smaller",
+        "Import files must be 8 MB or smaller",
       );
     }
 

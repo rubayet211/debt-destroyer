@@ -237,9 +237,11 @@ class DataProtectionBootstrapService {
   }
 
   Future<UserPreferences> _loadPreferences() async {
-    final row = await database
-        .select(database.appPreferencesTable)
-        .getSingleOrNull();
+    final query = database.select(database.appPreferencesTable)
+      ..where((tbl) => tbl.key.equals(1))
+      ..limit(1);
+    final rows = await query.get();
+    final row = rows.isEmpty ? null : rows.first;
     if (row == null) {
       final defaults = UserPreferences.defaults();
       await protectedPreferencesStore.migrateFromLegacy(defaults);
@@ -287,35 +289,55 @@ class DataProtectionBootstrapService {
             preferences.privacyShieldOnAppSwitcherEnabled,
       ),
     );
-    await database
-        .into(database.appPreferencesTable)
-        .insertOnConflictUpdate(
-          AppPreferencesTableCompanion.insert(
-            themeMode: drift.Value(preferences.themeMode.name),
-            currencyCode: drift.Value(preferences.currencyCode),
-            localeCode: drift.Value(preferences.localeCode),
-            defaultStrategy: drift.Value(preferences.defaultStrategy.name),
-            hideBalances: const drift.Value(false),
-            appLockEnabled: const drift.Value(false),
-            aiConsentEnabled: const drift.Value(false),
-            notificationsEnabled: drift.Value(preferences.notificationsEnabled),
-            onboardingCompleted: drift.Value(preferences.onboardingCompleted),
-            weeklySummaryEnabled: drift.Value(preferences.weeklySummaryEnabled),
-            rawOcrRetentionEnabled: drift.Value(
-              preferences.rawOcrRetentionEnabled,
+    await database.transaction(() async {
+      await database.delete(database.appPreferencesTable).go();
+      await database
+          .into(database.appPreferencesTable)
+          .insert(
+            AppPreferencesTableCompanion.insert(
+              key: const drift.Value(1),
+              themeMode: drift.Value(preferences.themeMode.name),
+              currencyCode: drift.Value(preferences.currencyCode),
+              localeCode: drift.Value(preferences.localeCode),
+              defaultStrategy: drift.Value(preferences.defaultStrategy.name),
+              hideBalances: const drift.Value(false),
+              appLockEnabled: const drift.Value(false),
+              aiConsentEnabled: const drift.Value(false),
+              notificationsEnabled: drift.Value(
+                preferences.notificationsEnabled,
+              ),
+              dueRemindersEnabled: drift.Value(preferences.dueRemindersEnabled),
+              overdueRemindersEnabled: drift.Value(
+                preferences.overdueRemindersEnabled,
+              ),
+              milestoneNotificationsEnabled: drift.Value(
+                preferences.milestoneNotificationsEnabled,
+              ),
+              onboardingCompleted: drift.Value(preferences.onboardingCompleted),
+              weeklySummaryEnabled: drift.Value(
+                preferences.weeklySummaryEnabled,
+              ),
+              dueReminderLeadDays: drift.Value(
+                preferences.dueReminderLeadDays.clamp(1, 3),
+              ),
+              rawOcrRetentionEnabled: drift.Value(
+                preferences.rawOcrRetentionEnabled,
+              ),
+              rawOcrRetentionHours: drift.Value(
+                preferences.rawOcrRetentionHours,
+              ),
+              documentRetentionMode: drift.Value(
+                preferences.documentRetentionMode.name,
+              ),
+              purgeFailedImportsAfterHours: drift.Value(
+                preferences.purgeFailedImportsAfterHours,
+              ),
+              dataProtectionExplainerSeen: drift.Value(
+                preferences.dataProtectionExplainerSeen,
+              ),
             ),
-            rawOcrRetentionHours: drift.Value(preferences.rawOcrRetentionHours),
-            documentRetentionMode: drift.Value(
-              preferences.documentRetentionMode.name,
-            ),
-            purgeFailedImportsAfterHours: drift.Value(
-              preferences.purgeFailedImportsAfterHours,
-            ),
-            dataProtectionExplainerSeen: drift.Value(
-              preferences.dataProtectionExplainerSeen,
-            ),
-          ),
-        );
+          );
+    });
   }
 }
 

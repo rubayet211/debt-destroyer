@@ -26,6 +26,7 @@ const _backendConfig = BackendConfig(
   playIntegrityPackageName: 'com.debtdestroyer.app',
   debugAttestationSecret: null,
   requestTimeout: Duration(seconds: 1),
+  extractionTimeout: Duration(seconds: 1),
   premiumProductId: AppConstants.premiumProductId,
   premiumMonthlyBasePlanId: AppConstants.premiumMonthlyBasePlanId,
   premiumYearlyBasePlanId: AppConstants.premiumYearlyBasePlanId,

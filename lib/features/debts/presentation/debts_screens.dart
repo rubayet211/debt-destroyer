@@ -5,6 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../app/theme/app_colors.dart';
+import '../../../app/theme/app_radius.dart';
+import '../../../app/theme/app_spacing.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/utils/parsers.dart';
 import '../../../core/widgets/app_widgets.dart';
@@ -47,6 +50,18 @@ class _DebtsListScreenState extends ConsumerState<DebtsListScreen> {
       child: debts.when(
         data: (items) {
           final filtered = _sortDebts(_filterDebts(items));
+          if (items.isEmpty) {
+            return EmptyStateView(
+              title: 'No debts yet',
+              message: 'Add your first debt to start building a payoff plan.',
+              icon: Icons.account_balance_wallet_outlined,
+              action: FilledButton.icon(
+                onPressed: () => context.push('/debts/add'),
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('Add debt'),
+              ),
+            );
+          }
           if (filtered.isEmpty) {
             return EmptyStateView(
               title: 'No matching debts',
@@ -61,119 +76,78 @@ class _DebtsListScreenState extends ConsumerState<DebtsListScreen> {
           return Column(
             children: [
               TextField(
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.search),
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.search),
                   hintText: 'Search debts or creditors',
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  filled: true,
+                  fillColor: Theme.of(context).colorScheme.surface,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(100),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
                 onChanged: (value) =>
                     setState(() => _query = value.toLowerCase()),
               ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: DropdownButtonFormField<DebtStatus?>(
-                      initialValue: _status,
-                      decoration: const InputDecoration(labelText: 'Status'),
-                      items: [
-                        const DropdownMenuItem(
-                          value: null,
-                          child: Text('All statuses'),
-                        ),
-                        ...DebtStatus.values.map(
-                          (status) => DropdownMenuItem(
-                            value: status,
-                            child: Text(status.name),
-                          ),
-                        ),
-                      ],
-                      onChanged: (value) => setState(() => _status = value),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: DropdownButtonFormField<DebtType?>(
-                      initialValue: _type,
-                      decoration: const InputDecoration(labelText: 'Type'),
-                      items: [
-                        const DropdownMenuItem(
-                          value: null,
-                          child: Text('All types'),
-                        ),
-                        ...DebtType.values.map(
-                          (type) => DropdownMenuItem(
-                            value: type,
-                            child: Text(Formatters.debtType(type)),
-                          ),
-                        ),
-                      ],
-                      onChanged: (value) => setState(() => _type = value),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                initialValue: _sort,
-                decoration: const InputDecoration(labelText: 'Sort by'),
-                items: const [
-                  DropdownMenuItem(
-                    value: 'updated',
-                    child: Text('Recently updated'),
-                  ),
-                  DropdownMenuItem(value: 'name', child: Text('Name')),
-                  DropdownMenuItem(value: 'balance', child: Text('Balance')),
-                  DropdownMenuItem(value: 'apr', child: Text('APR')),
-                  DropdownMenuItem(value: 'due', child: Text('Due date')),
-                  DropdownMenuItem(
-                    value: 'snowball',
-                    child: Text('Strategy: Snowball'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'avalanche',
-                    child: Text('Strategy: Avalanche'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'custom',
-                    child: Text('Strategy: Custom priority'),
-                  ),
-                ],
-                onChanged: (value) =>
-                    setState(() => _sort = value ?? 'updated'),
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: ListView.separated(
-                  itemCount: filtered.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final debt = filtered[index];
-                    return AppCard(
-                      child: ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(debt.title),
-                        subtitle: Text(
-                          '${debt.creditorName} • ${Formatters.debtType(debt.type)}',
-                        ),
-                        trailing: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            SensitiveValueText(
-                              value: Formatters.currency(
-                                debt.currentBalance,
-                                currencyCode: debt.currency,
-                              ),
-                              hide: hideBalances,
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                            Text(Formatters.percent(debt.apr)),
-                          ],
-                        ),
-                        onTap: () => context.push('/debts/${debt.id}'),
+              const SizedBox(height: AppSpacing.md),
+              SizedBox(
+                height: 38,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    ActionChip(
+                      label: Text('Sort: ${_sortLabel(_sort)}'),
+                      avatar: const Icon(Icons.sort, size: 16),
+                      onPressed: () => _showSortOptions(context),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(100),
                       ),
-                    );
-                  },
+                    ),
+                    const SizedBox(width: 8),
+                    ActionChip(
+                      label: Text('Status: ${_status?.name ?? "All"}'),
+                      onPressed: () => _showStatusOptions(context),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(100),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ActionChip(
+                      label: Text(
+                        'Type: ${_type == null ? "All" : Formatters.debtType(_type!)}',
+                      ),
+                      onPressed: () => _showTypeOptions(context),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(100),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Expanded(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 220),
+                  child: ListView.separated(
+                    key: ValueKey(
+                      '${filtered.length}-$_query-$_sort-$_status-$_type',
+                    ),
+                    itemCount: filtered.length,
+                    separatorBuilder: (_, _) =>
+                        const SizedBox(height: AppSpacing.md),
+                    itemBuilder: (context, index) {
+                      final debt = filtered[index];
+                      return _DebtListCard(
+                        debt: debt,
+                        hideBalances: hideBalances,
+                        onTap: () => context.push('/debts/${debt.id}'),
+                      );
+                    },
+                  ),
                 ),
               ),
               const PremiumAwareBannerAdSlot(placement: AdPlacement.debtsList),
@@ -182,6 +156,161 @@ class _DebtsListScreenState extends ConsumerState<DebtsListScreen> {
         },
         error: (error, _) => AppErrorState(message: error.toString()),
         loading: () => const LoadingPane(message: 'Loading debts...'),
+      ),
+    );
+  }
+
+  String _sortLabel(String sort) {
+    switch (sort) {
+      case 'name':
+        return 'Name';
+      case 'balance':
+        return 'Balance';
+      case 'apr':
+        return 'APR';
+      case 'due':
+        return 'Due date';
+      case 'snowball':
+        return 'Snowball';
+      case 'avalanche':
+        return 'Avalanche';
+      case 'custom':
+        return 'Custom priority';
+      default:
+        return 'Recently updated';
+    }
+  }
+
+  void _showSortOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => ListView(
+        shrinkWrap: true,
+        children: [
+          const Padding(
+            padding: EdgeInsets.all(16),
+            child: Text(
+              'Sort by',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          ...[
+            'updated',
+            'name',
+            'balance',
+            'apr',
+            'due',
+            'snowball',
+            'avalanche',
+            'custom',
+          ].map(
+            (s) => ListTile(
+              title: Text(_sortLabel(s)),
+              trailing: _sort == s
+                  ? Icon(
+                      Icons.check,
+                      color: Theme.of(context).colorScheme.primary,
+                    )
+                  : null,
+              onTap: () {
+                setState(() => _sort = s);
+                Navigator.pop(context);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showStatusOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => ListView(
+        shrinkWrap: true,
+        children: [
+          const Padding(
+            padding: EdgeInsets.all(16),
+            child: Text(
+              'Filter by Status',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          ListTile(
+            title: const Text('All statuses'),
+            trailing: _status == null
+                ? Icon(
+                    Icons.check,
+                    color: Theme.of(context).colorScheme.primary,
+                  )
+                : null,
+            onTap: () {
+              setState(() => _status = null);
+              Navigator.pop(context);
+            },
+          ),
+          ...DebtStatus.values.map(
+            (s) => ListTile(
+              title: Text(s.name),
+              trailing: _status == s
+                  ? Icon(
+                      Icons.check,
+                      color: Theme.of(context).colorScheme.primary,
+                    )
+                  : null,
+              onTap: () {
+                setState(() => _status = s);
+                Navigator.pop(context);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showTypeOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => ListView(
+        shrinkWrap: true,
+        children: [
+          const Padding(
+            padding: EdgeInsets.all(16),
+            child: Text(
+              'Filter by Type',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          ListTile(
+            title: const Text('All types'),
+            trailing: _type == null
+                ? Icon(
+                    Icons.check,
+                    color: Theme.of(context).colorScheme.primary,
+                  )
+                : null,
+            onTap: () {
+              setState(() => _type = null);
+              Navigator.pop(context);
+            },
+          ),
+          ...DebtType.values.map(
+            (t) => ListTile(
+              title: Text(Formatters.debtType(t)),
+              trailing: _type == t
+                  ? Icon(
+                      Icons.check,
+                      color: Theme.of(context).colorScheme.primary,
+                    )
+                  : null,
+              onTap: () {
+                setState(() => _type = t);
+                Navigator.pop(context);
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -226,6 +355,172 @@ class _DebtsListScreenState extends ConsumerState<DebtsListScreen> {
   }
 }
 
+class _DebtListCard extends StatelessWidget {
+  const _DebtListCard({
+    required this.debt,
+    required this.hideBalances,
+    required this.onTap,
+  });
+
+  final Debt debt;
+  final bool hideBalances;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = debt.originalBalance <= 0
+        ? 0.0
+        : (1 - (debt.currentBalance / debt.originalBalance))
+              .clamp(0, 1)
+              .toDouble();
+    final overdue =
+        debt.dueDate != null &&
+        debt.dueDate!.isBefore(DateTime.now()) &&
+        debt.status == DebtStatus.active;
+    final badgeColor = overdue
+        ? AppColors.error
+        : debt.status == DebtStatus.paidOff
+        ? AppColors.secondary
+        : AppColors.secondary;
+    final badgeLabel = overdue
+        ? 'Overdue'
+        : debt.status == DebtStatus.paidOff
+        ? 'Paid off'
+        : 'On track';
+
+    return AppCard(
+      onTap: onTap,
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      borderColor: overdue
+          ? AppColors.error.withValues(alpha: 0.75)
+          : Theme.of(
+              context,
+            ).colorScheme.outlineVariant.withValues(alpha: 0.55),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      debt.title,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${debt.creditorName} • ${Formatters.debtType(debt.type)}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  SensitiveValueText(
+                    value: Formatters.currency(
+                      debt.currentBalance,
+                      currencyCode: debt.currency,
+                    ),
+                    hide: hideBalances,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  AppStatusBadge(
+                    label: badgeLabel,
+                    color: badgeColor,
+                    icon: overdue
+                        ? Icons.priority_high_rounded
+                        : Icons.check_circle_outline_rounded,
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Row(
+            children: [
+              Text('Progress', style: Theme.of(context).textTheme.labelMedium),
+              const Spacer(),
+              Text(
+                '${(progress * 100).toStringAsFixed(0)}%',
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(AppRadius.pill),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 5,
+              color: AppColors.secondary,
+              backgroundColor: AppColors.surfaceHigh,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Row(
+            children: [
+              Expanded(
+                child: _CompactDebtMeta(
+                  label: 'APR',
+                  value: Formatters.percent(debt.apr),
+                ),
+              ),
+              Expanded(
+                child: _CompactDebtMeta(
+                  label: 'Minimum',
+                  value: Formatters.currency(
+                    debt.minimumPayment,
+                    currencyCode: debt.currency,
+                    obscure: hideBalances,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: _CompactDebtMeta(
+                  label: 'Due',
+                  value: Formatters.date(debt.dueDate),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CompactDebtMeta extends StatelessWidget {
+  const _CompactDebtMeta({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: Theme.of(context).textTheme.labelMedium),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurface,
+            fontWeight: FontWeight.w700,
+          ),
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
+}
+
 class DebtDetailsScreen extends ConsumerWidget {
   const DebtDetailsScreen({super.key, required this.debtId});
 
@@ -258,58 +553,99 @@ class DebtDetailsScreen extends ConsumerWidget {
           if (item == null) {
             return const AppErrorState(message: 'Debt not found.');
           }
+          final progress = item.originalBalance <= 0
+              ? 0.0
+              : (1 - (item.currentBalance / item.originalBalance))
+                    .clamp(0, 1)
+                    .toDouble();
           return ListView(
             children: [
-              AppCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.title,
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
-                    const SizedBox(height: 6),
-                    Text(item.creditorName),
-                    const SizedBox(height: 12),
-                    SensitiveValueText(
-                      value: Formatters.currency(
-                        item.currentBalance,
-                        currencyCode: item.currency,
-                      ),
-                      hide: hideBalances,
-                      style: Theme.of(context).textTheme.headlineMedium,
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _DetailStat(
-                            label: 'APR',
-                            value: Formatters.percent(item.apr),
-                          ),
-                        ),
-                        Expanded(
-                          child: _DetailStat(
-                            label: 'Minimum',
-                            value: Formatters.currency(
-                              item.minimumPayment,
-                              currencyCode: item.currency,
-                              obscure: hideBalances,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: _DetailStat(
-                            label: 'Due',
-                            value: Formatters.date(item.dueDate),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+              HeroFinanceCard(
+                label: item.creditorName,
+                value: SensitiveValueText(
+                  value: Formatters.currency(
+                    item.currentBalance,
+                    currencyCode: item.currency,
+                  ),
+                  hide: hideBalances,
                 ),
+                subtitle: item.title,
+                trailing: AppStatusBadge(
+                  label: item.status == DebtStatus.paidOff
+                      ? 'Paid off'
+                      : 'Active',
+                  color: item.status == DebtStatus.paidOff
+                      ? AppColors.secondaryContainer
+                      : AppColors.tertiaryFixed,
+                  icon: Icons.receipt_long_outlined,
+                ),
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        'Payoff Progress',
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(
+                              color: Colors.white.withValues(alpha: 0.78),
+                            ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        '${(progress * 100).toStringAsFixed(0)}%',
+                        style: Theme.of(
+                          context,
+                        ).textTheme.labelLarge?.copyWith(color: Colors.white),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(AppRadius.pill),
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      minHeight: 8,
+                      color: AppColors.secondaryContainer,
+                      backgroundColor: Colors.white.withValues(alpha: 0.15),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.md),
+              Row(
+                children: [
+                  Expanded(
+                    child: AppStatCard(
+                      label: 'APR',
+                      icon: Icons.percent_rounded,
+                      value: Text(Formatters.percent(item.apr)),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: AppStatCard(
+                      label: 'Min Pay',
+                      icon: Icons.payments_outlined,
+                      value: Text(
+                        Formatters.currency(
+                          item.minimumPayment,
+                          currencyCode: item.currency,
+                          obscure: hideBalances,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: AppStatCard(
+                      label: 'Due Date',
+                      icon: Icons.event_outlined,
+                      accentColor: AppColors.error,
+                      value: Text(Formatters.date(item.dueDate)),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.md),
               AppCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -528,6 +864,67 @@ class EditDebtLoaderScreen extends ConsumerWidget {
   }
 }
 
+class _DebtFormProgress extends StatelessWidget {
+  const _DebtFormProgress();
+
+  @override
+  Widget build(BuildContext context) {
+    final steps = ['Basic Info', 'Balance', 'Schedule'];
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Positioned(
+          left: 28,
+          right: 28,
+          top: 15,
+          child: Container(
+            height: 3,
+            decoration: BoxDecoration(
+              color: AppColors.surfaceHigh,
+              borderRadius: BorderRadius.circular(AppRadius.pill),
+            ),
+          ),
+        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            for (var index = 0; index < steps.length; index++)
+              Column(
+                children: [
+                  Container(
+                    width: 30,
+                    height: 30,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: index == 0
+                          ? Theme.of(context).colorScheme.secondary
+                          : AppColors.surfaceHighest,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      '${index + 1}',
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: index == 0
+                            ? Theme.of(context).colorScheme.onSecondary
+                            : Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    steps[index],
+                    style: Theme.of(context).textTheme.labelMedium,
+                  ),
+                ],
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
 class _AddEditDebtScreenState extends ConsumerState<AddEditDebtScreen> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _title;
@@ -636,6 +1033,13 @@ class _AddEditDebtScreenState extends ConsumerState<AddEditDebtScreen> {
         key: _formKey,
         child: ListView(
           children: [
+            const _DebtFormProgress(),
+            const SizedBox(height: AppSpacing.xl),
+            const SectionHeader(
+              title: 'Basic Info',
+              subtitle: 'Name the account and choose how it should be grouped.',
+            ),
+            const SizedBox(height: AppSpacing.md),
             TextFormField(
               controller: _title,
               decoration: const InputDecoration(labelText: 'Debt title'),
@@ -664,6 +1068,11 @@ class _AddEditDebtScreenState extends ConsumerState<AddEditDebtScreen> {
               onChanged: (value) => setState(() => _type = value ?? _type),
             ),
             const SizedBox(height: 12),
+            const SectionHeader(
+              title: 'Balance & Rates',
+              subtitle: 'Use the latest statement numbers for projections.',
+            ),
+            const SizedBox(height: AppSpacing.md),
             Row(
               children: [
                 Expanded(
@@ -728,6 +1137,12 @@ class _AddEditDebtScreenState extends ConsumerState<AddEditDebtScreen> {
               ],
             ),
             const SizedBox(height: 12),
+            const SectionHeader(
+              title: 'Schedule',
+              subtitle:
+                  'Due dates and reminder settings stay local to this device.',
+            ),
+            const SizedBox(height: AppSpacing.md),
             DropdownButtonFormField<PaymentFrequency>(
               initialValue: _frequency,
               decoration: const InputDecoration(labelText: 'Payment frequency'),
@@ -788,179 +1203,185 @@ class _AddEditDebtScreenState extends ConsumerState<AddEditDebtScreen> {
               decoration: const InputDecoration(labelText: 'Notes'),
               maxLines: 4,
             ),
-            const SizedBox(height: 12),
-            ExpansionTile(
-              tilePadding: EdgeInsets.zero,
-              childrenPadding: EdgeInsets.zero,
-              title: const Text('Advanced payoff terms'),
-              subtitle: const Text(
-                'Optional promo APR, fees, and payment rules for better projections.',
+            const SizedBox(height: AppSpacing.md),
+            AppCard(
+              child: ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                childrenPadding: const EdgeInsets.only(top: AppSpacing.md),
+                title: const Text('Advanced payoff terms'),
+                subtitle: const Text(
+                  'Optional promo APR, fees, and payment rules for better projections.',
+                ),
+                children: [
+                  DropdownButtonFormField<InterestCompounding>(
+                    initialValue: _interestCompounding,
+                    decoration: const InputDecoration(
+                      labelText: 'Interest compounding',
+                    ),
+                    items: InterestCompounding.values
+                        .map(
+                          (value) => DropdownMenuItem(
+                            value: value,
+                            child: Text(_interestCompoundingLabel(value)),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) => setState(
+                      () =>
+                          _interestCompounding = value ?? _interestCompounding,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<MinimumPaymentRule>(
+                    initialValue: _minimumPaymentRule,
+                    decoration: const InputDecoration(
+                      labelText: 'Minimum payment rule',
+                    ),
+                    items: MinimumPaymentRule.values
+                        .map(
+                          (value) => DropdownMenuItem(
+                            value: value,
+                            child: Text(_minimumPaymentRuleLabel(value)),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) => setState(
+                      () => _minimumPaymentRule = value ?? _minimumPaymentRule,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _minimumPercent,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          decoration: const InputDecoration(
+                            labelText: 'Minimum % of balance',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _statementDay,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'Statement day',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _promoApr,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          decoration: const InputDecoration(
+                            labelText: 'Promo APR %',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            _promoEndsOn == null
+                                ? 'Promo end date'
+                                : Formatters.date(_promoEndsOn),
+                          ),
+                          trailing: const Icon(Icons.event_outlined),
+                          onTap: () async {
+                            final selected = await showDatePicker(
+                              context: context,
+                              firstDate: DateTime.now().subtract(
+                                const Duration(days: 365),
+                              ),
+                              lastDate: DateTime.now().add(
+                                const Duration(days: 3650),
+                              ),
+                              initialDate: _promoEndsOn ?? DateTime.now(),
+                            );
+                            if (selected != null) {
+                              setState(() => _promoEndsOn = selected);
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _monthlyFee,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          decoration: const InputDecoration(
+                            labelText: 'Monthly fee',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _lateFee,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          decoration: const InputDecoration(
+                            labelText: 'Late fee',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _lateFeeGraceDays,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'Late fee grace days',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _penaltyApr,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          decoration: const InputDecoration(
+                            labelText: 'Penalty APR %',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              children: [
-                DropdownButtonFormField<InterestCompounding>(
-                  initialValue: _interestCompounding,
-                  decoration: const InputDecoration(
-                    labelText: 'Interest compounding',
-                  ),
-                  items: InterestCompounding.values
-                      .map(
-                        (value) => DropdownMenuItem(
-                          value: value,
-                          child: Text(_interestCompoundingLabel(value)),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) => setState(
-                    () => _interestCompounding = value ?? _interestCompounding,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<MinimumPaymentRule>(
-                  initialValue: _minimumPaymentRule,
-                  decoration: const InputDecoration(
-                    labelText: 'Minimum payment rule',
-                  ),
-                  items: MinimumPaymentRule.values
-                      .map(
-                        (value) => DropdownMenuItem(
-                          value: value,
-                          child: Text(_minimumPaymentRuleLabel(value)),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) => setState(
-                    () => _minimumPaymentRule = value ?? _minimumPaymentRule,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: _minimumPercent,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        decoration: const InputDecoration(
-                          labelText: 'Minimum % of balance',
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _statementDay,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Statement day',
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: _promoApr,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        decoration: const InputDecoration(
-                          labelText: 'Promo APR %',
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(
-                          _promoEndsOn == null
-                              ? 'Promo end date'
-                              : Formatters.date(_promoEndsOn),
-                        ),
-                        trailing: const Icon(Icons.event_outlined),
-                        onTap: () async {
-                          final selected = await showDatePicker(
-                            context: context,
-                            firstDate: DateTime.now().subtract(
-                              const Duration(days: 365),
-                            ),
-                            lastDate: DateTime.now().add(
-                              const Duration(days: 3650),
-                            ),
-                            initialDate: _promoEndsOn ?? DateTime.now(),
-                          );
-                          if (selected != null) {
-                            setState(() => _promoEndsOn = selected);
-                          }
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: _monthlyFee,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        decoration: const InputDecoration(
-                          labelText: 'Monthly fee',
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _lateFee,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        decoration: const InputDecoration(
-                          labelText: 'Late fee',
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: _lateFeeGraceDays,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Late fee grace days',
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _penaltyApr,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        decoration: const InputDecoration(
-                          labelText: 'Penalty APR %',
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
             ),
-            const SizedBox(height: 24),
-            FilledButton(
+            const SizedBox(height: AppSpacing.xl),
+            FilledButton.icon(
               onPressed: () => _save(context, preferences),
-              child: const Text('Save debt'),
+              icon: const Icon(Icons.arrow_forward_rounded),
+              label: Text(
+                widget.initialDebt == null ? 'Save debt' : 'Update debt',
+              ),
             ),
           ],
         ),
@@ -1272,25 +1693,6 @@ class PaymentHistoryScreen extends ConsumerWidget {
         error: (error, _) => AppErrorState(message: error.toString()),
         loading: () => const LoadingPane(),
       ),
-    );
-  }
-}
-
-class _DetailStat extends StatelessWidget {
-  const _DetailStat({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label),
-        const SizedBox(height: 4),
-        Text(value, style: Theme.of(context).textTheme.titleMedium),
-      ],
     );
   }
 }

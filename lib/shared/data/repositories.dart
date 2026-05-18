@@ -375,23 +375,24 @@ class DriftPreferencesRepository implements PreferencesRepository {
 
   @override
   Stream<UserPreferences> watchPreferences() {
-    return database
-        .select(database.appPreferencesTable)
-        .watchSingleOrNull()
-        .asyncMap((row) async {
-          final preferences = row == null
-              ? UserPreferences.defaults()
-              : _map(row);
-          await protectedPreferencesStore.migrateFromLegacy(preferences);
-          return protectedPreferencesStore.mergeInto(preferences);
-        });
+    final query = database.select(database.appPreferencesTable)
+      ..where((tbl) => tbl.key.equals(1))
+      ..limit(1);
+    return query.watch().asyncMap((rows) async {
+      final row = rows.isEmpty ? null : rows.first;
+      final preferences = row == null ? UserPreferences.defaults() : _map(row);
+      await protectedPreferencesStore.migrateFromLegacy(preferences);
+      return protectedPreferencesStore.mergeInto(preferences);
+    });
   }
 
   @override
   Future<UserPreferences> loadPreferences() async {
-    final row = await database
-        .select(database.appPreferencesTable)
-        .getSingleOrNull();
+    final query = database.select(database.appPreferencesTable)
+      ..where((tbl) => tbl.key.equals(1))
+      ..limit(1);
+    final rows = await query.get();
+    final row = rows.isEmpty ? null : rows.first;
     final preferences = row == null ? UserPreferences.defaults() : _map(row);
     await protectedPreferencesStore.migrateFromLegacy(preferences);
     return protectedPreferencesStore.mergeInto(preferences);
@@ -410,41 +411,47 @@ class DriftPreferencesRepository implements PreferencesRepository {
             preferences.privacyShieldOnAppSwitcherEnabled,
       ),
     );
-    await database
-        .into(database.appPreferencesTable)
-        .insertOnConflictUpdate(
-          AppPreferencesTableCompanion.insert(
-            themeMode: Value(preferences.themeMode.name),
-            currencyCode: Value(preferences.currencyCode),
-            localeCode: Value(preferences.localeCode),
-            defaultStrategy: Value(preferences.defaultStrategy.name),
-            hideBalances: const Value(false),
-            appLockEnabled: const Value(false),
-            aiConsentEnabled: const Value(false),
-            notificationsEnabled: Value(preferences.notificationsEnabled),
-            dueRemindersEnabled: Value(preferences.dueRemindersEnabled),
-            overdueRemindersEnabled: Value(preferences.overdueRemindersEnabled),
-            milestoneNotificationsEnabled: Value(
-              preferences.milestoneNotificationsEnabled,
+    await database.transaction(() async {
+      await database.delete(database.appPreferencesTable).go();
+      await database
+          .into(database.appPreferencesTable)
+          .insert(
+            AppPreferencesTableCompanion.insert(
+              key: const Value(1),
+              themeMode: Value(preferences.themeMode.name),
+              currencyCode: Value(preferences.currencyCode),
+              localeCode: Value(preferences.localeCode),
+              defaultStrategy: Value(preferences.defaultStrategy.name),
+              hideBalances: const Value(false),
+              appLockEnabled: const Value(false),
+              aiConsentEnabled: const Value(false),
+              notificationsEnabled: Value(preferences.notificationsEnabled),
+              dueRemindersEnabled: Value(preferences.dueRemindersEnabled),
+              overdueRemindersEnabled: Value(
+                preferences.overdueRemindersEnabled,
+              ),
+              milestoneNotificationsEnabled: Value(
+                preferences.milestoneNotificationsEnabled,
+              ),
+              onboardingCompleted: Value(preferences.onboardingCompleted),
+              weeklySummaryEnabled: Value(preferences.weeklySummaryEnabled),
+              dueReminderLeadDays: Value(
+                preferences.dueReminderLeadDays.clamp(1, 3),
+              ),
+              rawOcrRetentionEnabled: Value(preferences.rawOcrRetentionEnabled),
+              rawOcrRetentionHours: Value(preferences.rawOcrRetentionHours),
+              documentRetentionMode: Value(
+                preferences.documentRetentionMode.name,
+              ),
+              purgeFailedImportsAfterHours: Value(
+                preferences.purgeFailedImportsAfterHours,
+              ),
+              dataProtectionExplainerSeen: Value(
+                preferences.dataProtectionExplainerSeen,
+              ),
             ),
-            onboardingCompleted: Value(preferences.onboardingCompleted),
-            weeklySummaryEnabled: Value(preferences.weeklySummaryEnabled),
-            dueReminderLeadDays: Value(
-              preferences.dueReminderLeadDays.clamp(1, 3),
-            ),
-            rawOcrRetentionEnabled: Value(preferences.rawOcrRetentionEnabled),
-            rawOcrRetentionHours: Value(preferences.rawOcrRetentionHours),
-            documentRetentionMode: Value(
-              preferences.documentRetentionMode.name,
-            ),
-            purgeFailedImportsAfterHours: Value(
-              preferences.purgeFailedImportsAfterHours,
-            ),
-            dataProtectionExplainerSeen: Value(
-              preferences.dataProtectionExplainerSeen,
-            ),
-          ),
-        );
+          );
+    });
   }
 
   UserPreferences _map(AppPreferencesTableData row) {

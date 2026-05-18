@@ -947,6 +947,8 @@ class ImportCoordinator {
         'Backend network connection failed. Manual review is shown.',
       'backend_timeout' =>
         'Secure cloud extraction timed out. Manual review is shown.',
+      'file_too_large' || 'provider_file_too_large' =>
+        'Document is too large for secure cloud extraction. Crop the image or upload a smaller file.',
       'file_unavailable' =>
         'Selected file could not be read. Pick the file again or enter details manually.',
       'empty_ocr' =>

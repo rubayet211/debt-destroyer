@@ -155,6 +155,8 @@ export class GeminiProvider implements AiProvider {
 
 function shouldRetry(status: number) {
   return (
+    status === 408 ||
+    status === 425 ||
     status === 429 ||
     status === 500 ||
     status === 502 ||
@@ -183,6 +185,12 @@ function mapProviderHttpError(status: number, _body: string | null) {
   }
   if (status === 400 || status === 404) {
     return new AppError(502, "provider_error", "Gemini request rejected", {
+      providerStatus: status,
+      providerBodySnippet: _body,
+    });
+  }
+  if (status === 413) {
+    return new AppError(413, "provider_file_too_large", "Gemini payload too large", {
       providerStatus: status,
       providerBodySnippet: _body,
     });

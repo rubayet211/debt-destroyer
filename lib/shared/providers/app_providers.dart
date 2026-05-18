@@ -78,6 +78,7 @@ final backendConfigProvider = Provider<BackendConfig>((ref) {
         AppConstants.androidPackageName,
     debugAttestationSecret: dotenv.env['DEBUG_ATTESTATION_SECRET'],
     requestTimeout: const Duration(seconds: 15),
+    extractionTimeout: const Duration(seconds: 60),
     premiumProductId:
         dotenv.env['PREMIUM_PRODUCT_ID'] ?? AppConstants.premiumProductId,
     premiumMonthlyBasePlanId:
