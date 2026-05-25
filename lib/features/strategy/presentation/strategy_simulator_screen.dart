@@ -1,6 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../app/theme/app_colors.dart';
@@ -73,6 +74,13 @@ class _StrategySimulatorScreenState
 
     return AppPage(
       title: 'Strategy simulator',
+      actions: [
+        IconButton(
+          tooltip: 'Compare strategies',
+          onPressed: () => context.push('/strategy/compare'),
+          icon: const Icon(Icons.compare_arrows_rounded),
+        ),
+      ],
       child: activeDebts.isEmpty
           ? const EmptyStateView(
               title: 'Add debts to compare strategies',

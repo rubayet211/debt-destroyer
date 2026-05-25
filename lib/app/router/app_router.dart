@@ -9,9 +9,11 @@ import '../../features/onboarding/presentation/onboarding_screen.dart';
 import '../../features/onboarding/presentation/splash_screen.dart';
 import '../../features/reports/presentation/reports_screen.dart';
 import '../../features/scan_import/domain/import_services.dart';
+import '../../features/scan_import/presentation/debt_review_screen.dart';
 import '../../features/scan_import/presentation/scan_screens.dart';
 import '../../features/settings/presentation/data_protection_screens.dart';
 import '../../features/settings/presentation/settings_screens.dart';
+import '../../features/strategy/presentation/strategy_comparison_screen.dart';
 import '../../features/strategy/presentation/strategy_simulator_screen.dart';
 import '../../shared/models/import_models.dart';
 
@@ -119,11 +121,14 @@ GoRouter buildRouter(Ref ref) {
       ),
       GoRoute(
         path: '/scan/review',
-        builder: (_, state) => ParsedReviewConfirmScreen(
-          bundle: state.extra! as ImportReviewBundle,
-        ),
+        builder: (_, state) =>
+            DebtReviewScreen(bundle: state.extra! as ImportReviewBundle),
       ),
       GoRoute(path: '/reports', builder: (_, __) => const ReportsScreen()),
+      GoRoute(
+        path: '/strategy/compare',
+        builder: (_, __) => const StrategyComparisonScreen(),
+      ),
       GoRoute(
         path: '/notifications',
         builder: (_, __) => const NotificationSettingsScreen(),
