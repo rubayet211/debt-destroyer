@@ -58,4 +58,57 @@ void main() {
     expect(snapshot.interestExpected, greaterThan(0));
     expect(snapshot.monthlyMinimumTotal, 120);
   });
+
+  test('dashboard only surfaces active debts due in the next 14 days', () {
+    const metricsService = DebtMetricsService(PortfolioProjectionService());
+    final now = DateTime.now();
+    final dueSoon = _debt(
+      id: 'soon',
+      dueDate: now.add(const Duration(days: 7)),
+    );
+    final dueLater = _debt(
+      id: 'later',
+      dueDate: now.add(const Duration(days: 21)),
+    );
+    final paidOff = _debt(
+      id: 'paid',
+      dueDate: now.add(const Duration(days: 4)),
+      status: DebtStatus.paidOff,
+    );
+
+    final snapshot = metricsService.buildDashboard(
+      debts: [dueLater, paidOff, dueSoon],
+      recentPayments: const [],
+      strategyType: StrategyType.avalanche,
+    );
+
+    expect(snapshot.upcomingDueDebts.map((debt) => debt.id), ['soon']);
+  });
+}
+
+Debt _debt({
+  required String id,
+  required DateTime dueDate,
+  DebtStatus status = DebtStatus.active,
+}) {
+  return Debt(
+    id: id,
+    title: id,
+    creditorName: 'Bank',
+    type: DebtType.creditCard,
+    currency: 'USD',
+    originalBalance: 1000,
+    currentBalance: 800,
+    apr: 18,
+    minimumPayment: 40,
+    dueDate: dueDate,
+    paymentFrequency: PaymentFrequency.monthly,
+    createdAt: DateTime(2026, 1, 1),
+    updatedAt: DateTime(2026, 3, 1),
+    notes: '',
+    tags: const [],
+    status: status,
+    remindersEnabled: true,
+    customPriority: 1,
+  );
 }

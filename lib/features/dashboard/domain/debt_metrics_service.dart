@@ -60,11 +60,18 @@ class DebtMetricsService {
 
   List<Debt> _upcomingDue(List<Debt> debts) {
     final now = DateTime.now();
-    final withDueDates = debts.where((debt) => debt.dueDate != null).toList();
+    final today = DateTime(now.year, now.month, now.day);
+    final horizon = today.add(const Duration(days: 14));
+    final withDueDates = debts.where((debt) {
+      final dueDate = debt.dueDate;
+      if (dueDate == null) {
+        return false;
+      }
+      final dueDay = DateTime(dueDate.year, dueDate.month, dueDate.day);
+      return !dueDay.isBefore(today) && !dueDay.isAfter(horizon);
+    }).toList();
     withDueDates.sort((a, b) {
-      final aDiff = a.dueDate!.difference(now).inDays.abs();
-      final bDiff = b.dueDate!.difference(now).inDays.abs();
-      return aDiff.compareTo(bDiff);
+      return a.dueDate!.compareTo(b.dueDate!);
     });
     return withDueDates;
   }

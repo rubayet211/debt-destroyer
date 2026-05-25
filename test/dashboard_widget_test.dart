@@ -90,10 +90,20 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    expect(find.text('Total outstanding'), findsOneWidget);
+    expect(find.text('Debt-Free Date'), findsOneWidget);
+    expect(find.text('Total debt'), findsOneWidget);
     expect(find.textContaining('\$3,200'), findsOneWidget);
-    expect(find.text('Projected debt-free'), findsOneWidget);
-    expect(find.text('Interest horizon'), findsOneWidget);
+    expect(find.text("You're 36% of the way there."), findsOneWidget);
+    expect(find.text('Current strategy'), findsOneWidget);
+    expect(find.text('Avalanche'), findsOneWidget);
+    expect(find.text('Change'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Log a Payment'), 120);
+    expect(find.text('Log a Payment'), findsOneWidget);
+    expect(find.text('Add New Debt'), findsOneWidget);
+    expect(find.text('Scan Document'), findsOneWidget);
+    expect(find.text('View Full Plan'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Interest saved'), 120);
+    expect(find.text('Interest saved'), findsOneWidget);
   });
 
   testWidgets('dashboard masks balances when privacy mode is enabled', (
@@ -136,7 +146,7 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('••••'), findsWidgets);
+    expect(find.text('••••••'), findsWidgets);
     expect(find.textContaining('\$3,200'), findsNothing);
   });
 }
