@@ -4564,6 +4564,18 @@ class $AppPreferencesTableTable extends AppPreferencesTable
     requiredDuringInsert: false,
     defaultValue: const Constant('avalanche'),
   );
+  static const VerificationMeta _planExtraMonthlyPaymentMeta =
+      const VerificationMeta('planExtraMonthlyPayment');
+  @override
+  late final GeneratedColumn<double> planExtraMonthlyPayment =
+      GeneratedColumn<double>(
+        'plan_extra_monthly_payment',
+        aliasedName,
+        false,
+        type: DriftSqlType.double,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(0.0),
+      );
   static const VerificationMeta _hideBalancesMeta = const VerificationMeta(
     'hideBalances',
   );
@@ -4778,6 +4790,7 @@ class $AppPreferencesTableTable extends AppPreferencesTable
     currencyCode,
     localeCode,
     defaultStrategy,
+    planExtraMonthlyPayment,
     hideBalances,
     appLockEnabled,
     aiConsentEnabled,
@@ -4839,6 +4852,15 @@ class $AppPreferencesTableTable extends AppPreferencesTable
         defaultStrategy.isAcceptableOrUnknown(
           data['default_strategy']!,
           _defaultStrategyMeta,
+        ),
+      );
+    }
+    if (data.containsKey('plan_extra_monthly_payment')) {
+      context.handle(
+        _planExtraMonthlyPaymentMeta,
+        planExtraMonthlyPayment.isAcceptableOrUnknown(
+          data['plan_extra_monthly_payment']!,
+          _planExtraMonthlyPaymentMeta,
         ),
       );
     }
@@ -5009,6 +5031,10 @@ class $AppPreferencesTableTable extends AppPreferencesTable
         DriftSqlType.string,
         data['${effectivePrefix}default_strategy'],
       )!,
+      planExtraMonthlyPayment: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}plan_extra_monthly_payment'],
+      )!,
       hideBalances: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}hide_balances'],
@@ -5085,6 +5111,7 @@ class AppPreferencesTableData extends DataClass
   final String currencyCode;
   final String localeCode;
   final String defaultStrategy;
+  final double planExtraMonthlyPayment;
   final bool hideBalances;
   final bool appLockEnabled;
   final bool aiConsentEnabled;
@@ -5106,6 +5133,7 @@ class AppPreferencesTableData extends DataClass
     required this.currencyCode,
     required this.localeCode,
     required this.defaultStrategy,
+    required this.planExtraMonthlyPayment,
     required this.hideBalances,
     required this.appLockEnabled,
     required this.aiConsentEnabled,
@@ -5130,6 +5158,9 @@ class AppPreferencesTableData extends DataClass
     map['currency_code'] = Variable<String>(currencyCode);
     map['locale_code'] = Variable<String>(localeCode);
     map['default_strategy'] = Variable<String>(defaultStrategy);
+    map['plan_extra_monthly_payment'] = Variable<double>(
+      planExtraMonthlyPayment,
+    );
     map['hide_balances'] = Variable<bool>(hideBalances);
     map['app_lock_enabled'] = Variable<bool>(appLockEnabled);
     map['ai_consent_enabled'] = Variable<bool>(aiConsentEnabled);
@@ -5161,6 +5192,7 @@ class AppPreferencesTableData extends DataClass
       currencyCode: Value(currencyCode),
       localeCode: Value(localeCode),
       defaultStrategy: Value(defaultStrategy),
+      planExtraMonthlyPayment: Value(planExtraMonthlyPayment),
       hideBalances: Value(hideBalances),
       appLockEnabled: Value(appLockEnabled),
       aiConsentEnabled: Value(aiConsentEnabled),
@@ -5190,6 +5222,9 @@ class AppPreferencesTableData extends DataClass
       currencyCode: serializer.fromJson<String>(json['currencyCode']),
       localeCode: serializer.fromJson<String>(json['localeCode']),
       defaultStrategy: serializer.fromJson<String>(json['defaultStrategy']),
+      planExtraMonthlyPayment: serializer.fromJson<double>(
+        json['planExtraMonthlyPayment'],
+      ),
       hideBalances: serializer.fromJson<bool>(json['hideBalances']),
       appLockEnabled: serializer.fromJson<bool>(json['appLockEnabled']),
       aiConsentEnabled: serializer.fromJson<bool>(json['aiConsentEnabled']),
@@ -5240,6 +5275,9 @@ class AppPreferencesTableData extends DataClass
       'currencyCode': serializer.toJson<String>(currencyCode),
       'localeCode': serializer.toJson<String>(localeCode),
       'defaultStrategy': serializer.toJson<String>(defaultStrategy),
+      'planExtraMonthlyPayment': serializer.toJson<double>(
+        planExtraMonthlyPayment,
+      ),
       'hideBalances': serializer.toJson<bool>(hideBalances),
       'appLockEnabled': serializer.toJson<bool>(appLockEnabled),
       'aiConsentEnabled': serializer.toJson<bool>(aiConsentEnabled),
@@ -5272,6 +5310,7 @@ class AppPreferencesTableData extends DataClass
     String? currencyCode,
     String? localeCode,
     String? defaultStrategy,
+    double? planExtraMonthlyPayment,
     bool? hideBalances,
     bool? appLockEnabled,
     bool? aiConsentEnabled,
@@ -5293,6 +5332,8 @@ class AppPreferencesTableData extends DataClass
     currencyCode: currencyCode ?? this.currencyCode,
     localeCode: localeCode ?? this.localeCode,
     defaultStrategy: defaultStrategy ?? this.defaultStrategy,
+    planExtraMonthlyPayment:
+        planExtraMonthlyPayment ?? this.planExtraMonthlyPayment,
     hideBalances: hideBalances ?? this.hideBalances,
     appLockEnabled: appLockEnabled ?? this.appLockEnabled,
     aiConsentEnabled: aiConsentEnabled ?? this.aiConsentEnabled,
@@ -5327,6 +5368,9 @@ class AppPreferencesTableData extends DataClass
       defaultStrategy: data.defaultStrategy.present
           ? data.defaultStrategy.value
           : this.defaultStrategy,
+      planExtraMonthlyPayment: data.planExtraMonthlyPayment.present
+          ? data.planExtraMonthlyPayment.value
+          : this.planExtraMonthlyPayment,
       hideBalances: data.hideBalances.present
           ? data.hideBalances.value
           : this.hideBalances,
@@ -5383,6 +5427,7 @@ class AppPreferencesTableData extends DataClass
           ..write('currencyCode: $currencyCode, ')
           ..write('localeCode: $localeCode, ')
           ..write('defaultStrategy: $defaultStrategy, ')
+          ..write('planExtraMonthlyPayment: $planExtraMonthlyPayment, ')
           ..write('hideBalances: $hideBalances, ')
           ..write('appLockEnabled: $appLockEnabled, ')
           ..write('aiConsentEnabled: $aiConsentEnabled, ')
@@ -5407,12 +5452,13 @@ class AppPreferencesTableData extends DataClass
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     key,
     themeMode,
     currencyCode,
     localeCode,
     defaultStrategy,
+    planExtraMonthlyPayment,
     hideBalances,
     appLockEnabled,
     aiConsentEnabled,
@@ -5428,7 +5474,7 @@ class AppPreferencesTableData extends DataClass
     documentRetentionMode,
     purgeFailedImportsAfterHours,
     dataProtectionExplainerSeen,
-  );
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -5438,6 +5484,7 @@ class AppPreferencesTableData extends DataClass
           other.currencyCode == this.currencyCode &&
           other.localeCode == this.localeCode &&
           other.defaultStrategy == this.defaultStrategy &&
+          other.planExtraMonthlyPayment == this.planExtraMonthlyPayment &&
           other.hideBalances == this.hideBalances &&
           other.appLockEnabled == this.appLockEnabled &&
           other.aiConsentEnabled == this.aiConsentEnabled &&
@@ -5465,6 +5512,7 @@ class AppPreferencesTableCompanion
   final Value<String> currencyCode;
   final Value<String> localeCode;
   final Value<String> defaultStrategy;
+  final Value<double> planExtraMonthlyPayment;
   final Value<bool> hideBalances;
   final Value<bool> appLockEnabled;
   final Value<bool> aiConsentEnabled;
@@ -5486,6 +5534,7 @@ class AppPreferencesTableCompanion
     this.currencyCode = const Value.absent(),
     this.localeCode = const Value.absent(),
     this.defaultStrategy = const Value.absent(),
+    this.planExtraMonthlyPayment = const Value.absent(),
     this.hideBalances = const Value.absent(),
     this.appLockEnabled = const Value.absent(),
     this.aiConsentEnabled = const Value.absent(),
@@ -5508,6 +5557,7 @@ class AppPreferencesTableCompanion
     this.currencyCode = const Value.absent(),
     this.localeCode = const Value.absent(),
     this.defaultStrategy = const Value.absent(),
+    this.planExtraMonthlyPayment = const Value.absent(),
     this.hideBalances = const Value.absent(),
     this.appLockEnabled = const Value.absent(),
     this.aiConsentEnabled = const Value.absent(),
@@ -5530,6 +5580,7 @@ class AppPreferencesTableCompanion
     Expression<String>? currencyCode,
     Expression<String>? localeCode,
     Expression<String>? defaultStrategy,
+    Expression<double>? planExtraMonthlyPayment,
     Expression<bool>? hideBalances,
     Expression<bool>? appLockEnabled,
     Expression<bool>? aiConsentEnabled,
@@ -5552,6 +5603,8 @@ class AppPreferencesTableCompanion
       if (currencyCode != null) 'currency_code': currencyCode,
       if (localeCode != null) 'locale_code': localeCode,
       if (defaultStrategy != null) 'default_strategy': defaultStrategy,
+      if (planExtraMonthlyPayment != null)
+        'plan_extra_monthly_payment': planExtraMonthlyPayment,
       if (hideBalances != null) 'hide_balances': hideBalances,
       if (appLockEnabled != null) 'app_lock_enabled': appLockEnabled,
       if (aiConsentEnabled != null) 'ai_consent_enabled': aiConsentEnabled,
@@ -5588,6 +5641,7 @@ class AppPreferencesTableCompanion
     Value<String>? currencyCode,
     Value<String>? localeCode,
     Value<String>? defaultStrategy,
+    Value<double>? planExtraMonthlyPayment,
     Value<bool>? hideBalances,
     Value<bool>? appLockEnabled,
     Value<bool>? aiConsentEnabled,
@@ -5610,6 +5664,8 @@ class AppPreferencesTableCompanion
       currencyCode: currencyCode ?? this.currencyCode,
       localeCode: localeCode ?? this.localeCode,
       defaultStrategy: defaultStrategy ?? this.defaultStrategy,
+      planExtraMonthlyPayment:
+          planExtraMonthlyPayment ?? this.planExtraMonthlyPayment,
       hideBalances: hideBalances ?? this.hideBalances,
       appLockEnabled: appLockEnabled ?? this.appLockEnabled,
       aiConsentEnabled: aiConsentEnabled ?? this.aiConsentEnabled,
@@ -5651,6 +5707,11 @@ class AppPreferencesTableCompanion
     }
     if (defaultStrategy.present) {
       map['default_strategy'] = Variable<String>(defaultStrategy.value);
+    }
+    if (planExtraMonthlyPayment.present) {
+      map['plan_extra_monthly_payment'] = Variable<double>(
+        planExtraMonthlyPayment.value,
+      );
     }
     if (hideBalances.present) {
       map['hide_balances'] = Variable<bool>(hideBalances.value);
@@ -5724,6 +5785,7 @@ class AppPreferencesTableCompanion
           ..write('currencyCode: $currencyCode, ')
           ..write('localeCode: $localeCode, ')
           ..write('defaultStrategy: $defaultStrategy, ')
+          ..write('planExtraMonthlyPayment: $planExtraMonthlyPayment, ')
           ..write('hideBalances: $hideBalances, ')
           ..write('appLockEnabled: $appLockEnabled, ')
           ..write('aiConsentEnabled: $aiConsentEnabled, ')
@@ -9313,6 +9375,7 @@ typedef $$AppPreferencesTableTableCreateCompanionBuilder =
       Value<String> currencyCode,
       Value<String> localeCode,
       Value<String> defaultStrategy,
+      Value<double> planExtraMonthlyPayment,
       Value<bool> hideBalances,
       Value<bool> appLockEnabled,
       Value<bool> aiConsentEnabled,
@@ -9336,6 +9399,7 @@ typedef $$AppPreferencesTableTableUpdateCompanionBuilder =
       Value<String> currencyCode,
       Value<String> localeCode,
       Value<String> defaultStrategy,
+      Value<double> planExtraMonthlyPayment,
       Value<bool> hideBalances,
       Value<bool> appLockEnabled,
       Value<bool> aiConsentEnabled,
@@ -9384,6 +9448,11 @@ class $$AppPreferencesTableTableFilterComposer
 
   ColumnFilters<String> get defaultStrategy => $composableBuilder(
     column: $table.defaultStrategy,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get planExtraMonthlyPayment => $composableBuilder(
+    column: $table.planExtraMonthlyPayment,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -9497,6 +9566,11 @@ class $$AppPreferencesTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get planExtraMonthlyPayment => $composableBuilder(
+    column: $table.planExtraMonthlyPayment,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get hideBalances => $composableBuilder(
     column: $table.hideBalances,
     builder: (column) => ColumnOrderings(column),
@@ -9600,6 +9674,11 @@ class $$AppPreferencesTableTableAnnotationComposer
 
   GeneratedColumn<String> get defaultStrategy => $composableBuilder(
     column: $table.defaultStrategy,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get planExtraMonthlyPayment => $composableBuilder(
+    column: $table.planExtraMonthlyPayment,
     builder: (column) => column,
   );
 
@@ -9727,6 +9806,7 @@ class $$AppPreferencesTableTableTableManager
                 Value<String> currencyCode = const Value.absent(),
                 Value<String> localeCode = const Value.absent(),
                 Value<String> defaultStrategy = const Value.absent(),
+                Value<double> planExtraMonthlyPayment = const Value.absent(),
                 Value<bool> hideBalances = const Value.absent(),
                 Value<bool> appLockEnabled = const Value.absent(),
                 Value<bool> aiConsentEnabled = const Value.absent(),
@@ -9749,6 +9829,7 @@ class $$AppPreferencesTableTableTableManager
                 currencyCode: currencyCode,
                 localeCode: localeCode,
                 defaultStrategy: defaultStrategy,
+                planExtraMonthlyPayment: planExtraMonthlyPayment,
                 hideBalances: hideBalances,
                 appLockEnabled: appLockEnabled,
                 aiConsentEnabled: aiConsentEnabled,
@@ -9772,6 +9853,7 @@ class $$AppPreferencesTableTableTableManager
                 Value<String> currencyCode = const Value.absent(),
                 Value<String> localeCode = const Value.absent(),
                 Value<String> defaultStrategy = const Value.absent(),
+                Value<double> planExtraMonthlyPayment = const Value.absent(),
                 Value<bool> hideBalances = const Value.absent(),
                 Value<bool> appLockEnabled = const Value.absent(),
                 Value<bool> aiConsentEnabled = const Value.absent(),
@@ -9794,6 +9876,7 @@ class $$AppPreferencesTableTableTableManager
                 currencyCode: currencyCode,
                 localeCode: localeCode,
                 defaultStrategy: defaultStrategy,
+                planExtraMonthlyPayment: planExtraMonthlyPayment,
                 hideBalances: hideBalances,
                 appLockEnabled: appLockEnabled,
                 aiConsentEnabled: aiConsentEnabled,

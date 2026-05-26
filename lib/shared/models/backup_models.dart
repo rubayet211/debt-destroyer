@@ -385,6 +385,7 @@ Map<String, Object?> preferencesToJson(UserPreferences preferences) {
     'currencyCode': preferences.currencyCode,
     'localeCode': preferences.localeCode,
     'defaultStrategy': preferences.defaultStrategy.name,
+    'planExtraMonthlyPayment': preferences.planExtraMonthlyPayment,
     'hideBalances': preferences.hideBalances,
     'appLockEnabled': preferences.appLockEnabled,
     'aiConsentEnabled': preferences.aiConsentEnabled,
@@ -423,6 +424,10 @@ UserPreferences preferencesFromJson(Map<String, Object?> json) {
       json['defaultStrategy'],
       field: 'defaultStrategy',
       fallback: defaults.defaultStrategy,
+    ),
+    planExtraMonthlyPayment: _readDoubleWithDefault(
+      json['planExtraMonthlyPayment'],
+      defaults.planExtraMonthlyPayment,
     ),
     hideBalances: _readBoolWithDefault(
       json['hideBalances'],
@@ -592,6 +597,14 @@ double _readDouble(Map<String, Object?> json, String key) {
     throw FormatException('Missing or invalid number for $key');
   }
   return parsed;
+}
+
+double _readDoubleWithDefault(Object? raw, double fallback) {
+  if (raw is num) {
+    return raw.toDouble();
+  }
+  final parsed = double.tryParse(raw?.toString() ?? '');
+  return parsed ?? fallback;
 }
 
 bool _readBool(Map<String, Object?> json, String key) {

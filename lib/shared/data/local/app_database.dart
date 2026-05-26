@@ -138,6 +138,8 @@ class AppPreferencesTable extends Table {
   TextColumn get localeCode => text().withDefault(const Constant('en_US'))();
   TextColumn get defaultStrategy =>
       text().withDefault(const Constant('avalanche'))();
+  RealColumn get planExtraMonthlyPayment =>
+      real().withDefault(const Constant(0.0))();
   BoolColumn get hideBalances => boolean().withDefault(const Constant(false))();
   BoolColumn get appLockEnabled =>
       boolean().withDefault(const Constant(false))();
@@ -205,7 +207,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -343,6 +345,12 @@ class AppDatabase extends _$AppDatabase {
         await migrator.addColumn(
           appPreferencesTable,
           appPreferencesTable.dueReminderLeadDays,
+        );
+      }
+      if (from < 8) {
+        await migrator.addColumn(
+          appPreferencesTable,
+          appPreferencesTable.planExtraMonthlyPayment,
         );
       }
     },

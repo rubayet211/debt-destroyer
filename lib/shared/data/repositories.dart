@@ -422,6 +422,9 @@ class DriftPreferencesRepository implements PreferencesRepository {
               currencyCode: Value(preferences.currencyCode),
               localeCode: Value(preferences.localeCode),
               defaultStrategy: Value(preferences.defaultStrategy.name),
+              planExtraMonthlyPayment: Value(
+                preferences.planExtraMonthlyPayment,
+              ),
               hideBalances: const Value(false),
               appLockEnabled: const Value(false),
               aiConsentEnabled: const Value(false),
@@ -460,6 +463,7 @@ class DriftPreferencesRepository implements PreferencesRepository {
       currencyCode: row.currencyCode,
       localeCode: row.localeCode,
       defaultStrategy: StrategyType.values.byName(row.defaultStrategy),
+      planExtraMonthlyPayment: row.planExtraMonthlyPayment,
       hideBalances: row.hideBalances,
       appLockEnabled: row.appLockEnabled,
       aiConsentEnabled: row.aiConsentEnabled,

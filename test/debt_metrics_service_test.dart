@@ -84,6 +84,32 @@ void main() {
 
     expect(snapshot.upcomingDueDebts.map((debt) => debt.id), ['soon']);
   });
+
+  test('dashboard projection includes the applied extra monthly payment', () {
+    const metricsService = DebtMetricsService(PortfolioProjectionService());
+    final debt = _debt(id: 'card', dueDate: DateTime.now());
+
+    final original = metricsService.buildDashboard(
+      debts: [debt],
+      recentPayments: const [],
+      strategyType: StrategyType.avalanche,
+    );
+    final withExtra = metricsService.buildDashboard(
+      debts: [debt],
+      recentPayments: const [],
+      strategyType: StrategyType.avalanche,
+      extraMonthlyPayment: 100,
+    );
+
+    expect(withExtra.projectedDebtFreeDate, isNotNull);
+    expect(
+      withExtra.projectedDebtFreeDate!.isBefore(
+        original.projectedDebtFreeDate!,
+      ),
+      isTrue,
+    );
+    expect(withExtra.interestSavedVsBaseline, greaterThan(0));
+  });
 }
 
 Debt _debt({

@@ -15,6 +15,7 @@ import '../../features/settings/presentation/data_protection_screens.dart';
 import '../../features/settings/presentation/settings_screens.dart';
 import '../../features/strategy/presentation/strategy_comparison_screen.dart';
 import '../../features/strategy/presentation/strategy_simulator_screen.dart';
+import '../../features/strategy/presentation/what_if_scenario_screen.dart';
 import '../../shared/models/import_models.dart';
 
 GoRouter buildRouter(Ref ref) {
@@ -70,7 +71,7 @@ GoRouter buildRouter(Ref ref) {
             routes: [
               GoRoute(
                 path: '/strategy',
-                builder: (_, __) => const StrategySimulatorScreen(),
+                builder: (_, __) => const WhatIfScenarioScreen(),
               ),
             ],
           ),
@@ -128,6 +129,10 @@ GoRouter buildRouter(Ref ref) {
       GoRoute(
         path: '/strategy/compare',
         builder: (_, __) => const StrategyComparisonScreen(),
+      ),
+      GoRoute(
+        path: '/strategy/simulator',
+        builder: (_, __) => const StrategySimulatorScreen(),
       ),
       GoRoute(
         path: '/notifications',
