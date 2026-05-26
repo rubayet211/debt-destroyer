@@ -20,6 +20,7 @@ void main() {
       DateTime? startDate,
       bool allowUnderMinimumBudget = true,
       Map<String, int> priorities = const {},
+      Set<String> pausedDebtIds = const {},
     }) {
       return StrategyRequest(
         strategyType: type,
@@ -30,6 +31,7 @@ void main() {
         includeArchived: false,
         customPriorities: priorities,
         allowUnderMinimumBudget: allowUnderMinimumBudget,
+        pausedDebtIds: pausedDebtIds,
       );
     }
 
@@ -402,6 +404,48 @@ void main() {
       expect(result.schedule.first.debts, hasLength(1));
       expect(result.schedule.first.debts.single.debtId, 'active');
     });
+
+    test(
+      'paused debts receive minimums but are skipped for extra payments',
+      () {
+        final debts = [
+          _debt(
+            id: 'paused-high-apr',
+            currentBalance: 1200,
+            apr: 29,
+            minimumPayment: 60,
+          ),
+          _debt(
+            id: 'active-low-apr',
+            currentBalance: 1100,
+            apr: 4,
+            minimumPayment: 55,
+            type: DebtType.personalLoan,
+          ),
+        ];
+
+        final result = engine.simulate(
+          debts: debts,
+          request: request(
+            StrategyType.avalanche,
+            budget: 115,
+            extra: 200,
+            pausedDebtIds: const {'paused-high-apr'},
+          ),
+        );
+
+        final paused = result.schedule.first.debts.firstWhere(
+          (debt) => debt.debtId == 'paused-high-apr',
+        );
+        final active = result.schedule.first.debts.firstWhere(
+          (debt) => debt.debtId == 'active-low-apr',
+        );
+
+        expect(paused.minimumPaymentApplied, greaterThan(0));
+        expect(paused.extraPaymentApplied, 0);
+        expect(active.extraPaymentApplied, greaterThan(0));
+      },
+    );
   });
 }
 

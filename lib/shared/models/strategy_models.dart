@@ -37,6 +37,7 @@ class StrategyRequest {
     this.projectionAsOf,
     this.comparisonStrategy,
     this.allowUnderMinimumBudget = true,
+    this.pausedDebtIds = const {},
   });
 
   final StrategyType strategyType;
@@ -49,6 +50,7 @@ class StrategyRequest {
   final DateTime? projectionAsOf;
   final StrategyType? comparisonStrategy;
   final bool allowUnderMinimumBudget;
+  final Set<String> pausedDebtIds;
 }
 
 class StrategyDebtSnapshot {

@@ -253,6 +253,7 @@ class DataProtectionBootstrapService {
       localeCode: row.localeCode,
       defaultStrategy: StrategyType.values.byName(row.defaultStrategy),
       planExtraMonthlyPayment: row.planExtraMonthlyPayment,
+      planOneTimeExtraPayment: row.planOneTimeExtraPayment,
       hideBalances: row.hideBalances,
       appLockEnabled: row.appLockEnabled,
       aiConsentEnabled: row.aiConsentEnabled,
@@ -303,6 +304,9 @@ class DataProtectionBootstrapService {
               defaultStrategy: drift.Value(preferences.defaultStrategy.name),
               planExtraMonthlyPayment: drift.Value(
                 preferences.planExtraMonthlyPayment,
+              ),
+              planOneTimeExtraPayment: drift.Value(
+                preferences.planOneTimeExtraPayment,
               ),
               hideBalances: const drift.Value(false),
               appLockEnabled: const drift.Value(false),

@@ -181,6 +181,7 @@ class DataPortabilityService {
                 status: debt.status.name,
                 remindersEnabled: Value(debt.remindersEnabled),
                 customPriority: Value(debt.customPriority),
+                planPaused: Value(debt.planPaused),
               ),
             );
       }
@@ -288,6 +289,12 @@ class DataPortabilityService {
               currencyCode: Value(preferences.currencyCode),
               localeCode: Value(preferences.localeCode),
               defaultStrategy: Value(preferences.defaultStrategy.name),
+              planExtraMonthlyPayment: Value(
+                preferences.planExtraMonthlyPayment,
+              ),
+              planOneTimeExtraPayment: Value(
+                preferences.planOneTimeExtraPayment,
+              ),
               hideBalances: const Value(false),
               appLockEnabled: const Value(false),
               aiConsentEnabled: const Value(false),
@@ -782,6 +789,7 @@ class DataPortabilityService {
       'status': row.status,
       'remindersEnabled': row.remindersEnabled,
       'customPriority': row.customPriority,
+      'planPaused': row.planPaused,
       'financialTerms':
           jsonDecode(row.financialTermsJson) as Map<String, dynamic>,
     });

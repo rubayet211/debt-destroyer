@@ -67,6 +67,10 @@ class _StrategySimulatorScreenState
             customPriorities: {
               for (final debt in activeDebts) debt.id: debt.customPriority,
             },
+            pausedDebtIds: {
+              for (final debt in activeDebts)
+                if (debt.planPaused) debt.id,
+            },
           ),
         );
     final currency = preferences?.currencyCode ?? 'USD';

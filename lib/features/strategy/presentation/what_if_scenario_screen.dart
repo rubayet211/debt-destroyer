@@ -218,9 +218,13 @@ class _PlannerContent extends ConsumerWidget {
         monthlyBudget: minimumBudget,
         extraMonthlyPayment: preferences.planExtraMonthlyPayment,
         startDate: startDate,
-        lumpSum: 0,
+        lumpSum: preferences.planOneTimeExtraPayment,
         includeArchived: false,
         customPriorities: customPriorities,
+        pausedDebtIds: {
+          for (final debt in debts)
+            if (debt.planPaused) debt.id,
+        },
       ),
     );
     final scenario = engine.simulate(
@@ -230,9 +234,13 @@ class _PlannerContent extends ConsumerWidget {
         monthlyBudget: minimumBudget,
         extraMonthlyPayment: selectedExtra,
         startDate: startDate,
-        lumpSum: 0,
+        lumpSum: preferences.planOneTimeExtraPayment,
         includeArchived: false,
         customPriorities: customPriorities,
+        pausedDebtIds: {
+          for (final debt in debts)
+            if (debt.planPaused) debt.id,
+        },
       ),
     );
     final interestSaved = max(

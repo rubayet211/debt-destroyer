@@ -160,6 +160,10 @@ class _ReportsBody extends StatelessWidget {
             customPriorities: {
               for (final debt in activeDebts) debt.id: debt.customPriority,
             },
+            pausedDebtIds: {
+              for (final debt in activeDebts)
+                if (debt.planPaused) debt.id,
+            },
             allowUnderMinimumBudget: false,
           ),
         );

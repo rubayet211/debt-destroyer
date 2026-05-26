@@ -15,6 +15,7 @@ class DebtMetricsService {
     required List<Payment> recentPayments,
     required StrategyType strategyType,
     double extraMonthlyPayment = 0,
+    double oneTimeExtraPayment = 0,
   }) {
     final activeDebts = debts.where((debt) => debt.isActive).toList();
     final totalOutstanding = activeDebts.fold<double>(
@@ -38,10 +39,14 @@ class DebtMetricsService {
         monthlyBudget: minimumTotal,
         extraMonthlyPayment: extraMonthlyPayment,
         startDate: DateTime.now(),
-        lumpSum: 0,
+        lumpSum: oneTimeExtraPayment,
         includeArchived: false,
         customPriorities: {
           for (final debt in activeDebts) debt.id: debt.customPriority,
+        },
+        pausedDebtIds: {
+          for (final debt in activeDebts)
+            if (debt.planPaused) debt.id,
         },
       ),
     );

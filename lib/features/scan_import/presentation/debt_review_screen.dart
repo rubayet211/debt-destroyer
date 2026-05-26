@@ -598,6 +598,10 @@ class _PlanPreviewCard extends StatelessWidget {
         customPriorities: {
           for (final debt in debts) debt.id: debt.customPriority,
         },
+        pausedDebtIds: {
+          for (final debt in debts)
+            if (debt.planPaused) debt.id,
+        },
         allowUnderMinimumBudget: false,
       ),
     );

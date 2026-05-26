@@ -434,6 +434,7 @@ final dashboardSnapshotProvider = Provider<AsyncValue<DashboardSnapshot>>((
           recentPayments: payments.value,
           strategyType: prefs.value.defaultStrategy,
           extraMonthlyPayment: prefs.value.planExtraMonthlyPayment,
+          oneTimeExtraPayment: prefs.value.planOneTimeExtraPayment,
         ),
   );
 });

@@ -7,6 +7,7 @@ class UserPreferences {
     required this.localeCode,
     required this.defaultStrategy,
     required this.planExtraMonthlyPayment,
+    required this.planOneTimeExtraPayment,
     required this.hideBalances,
     required this.appLockEnabled,
     required this.aiConsentEnabled,
@@ -33,6 +34,7 @@ class UserPreferences {
     localeCode: 'en_US',
     defaultStrategy: StrategyType.avalanche,
     planExtraMonthlyPayment: 0,
+    planOneTimeExtraPayment: 0,
     hideBalances: false,
     appLockEnabled: false,
     aiConsentEnabled: false,
@@ -58,6 +60,7 @@ class UserPreferences {
   final String localeCode;
   final StrategyType defaultStrategy;
   final double planExtraMonthlyPayment;
+  final double planOneTimeExtraPayment;
   final bool hideBalances;
   final bool appLockEnabled;
   final bool aiConsentEnabled;
@@ -83,6 +86,7 @@ class UserPreferences {
     String? localeCode,
     StrategyType? defaultStrategy,
     double? planExtraMonthlyPayment,
+    double? planOneTimeExtraPayment,
     bool? hideBalances,
     bool? appLockEnabled,
     bool? aiConsentEnabled,
@@ -109,6 +113,8 @@ class UserPreferences {
       defaultStrategy: defaultStrategy ?? this.defaultStrategy,
       planExtraMonthlyPayment:
           planExtraMonthlyPayment ?? this.planExtraMonthlyPayment,
+      planOneTimeExtraPayment:
+          planOneTimeExtraPayment ?? this.planOneTimeExtraPayment,
       hideBalances: hideBalances ?? this.hideBalances,
       appLockEnabled: appLockEnabled ?? this.appLockEnabled,
       aiConsentEnabled: aiConsentEnabled ?? this.aiConsentEnabled,

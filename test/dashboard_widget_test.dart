@@ -96,7 +96,7 @@ void main() {
     expect(find.text("You're 36% of the way there."), findsOneWidget);
     expect(find.text('Current strategy'), findsOneWidget);
     expect(find.text('Avalanche'), findsOneWidget);
-    expect(find.text('Change'), findsOneWidget);
+    expect(find.text('Adjust'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('Log a Payment'), 120);
     expect(find.text('Log a Payment'), findsOneWidget);
     expect(find.text('Add New Debt'), findsOneWidget);

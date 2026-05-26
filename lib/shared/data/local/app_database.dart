@@ -35,6 +35,7 @@ class DebtsTable extends Table {
   BoolColumn get remindersEnabled =>
       boolean().withDefault(const Constant(false))();
   IntColumn get customPriority => integer().withDefault(const Constant(0))();
+  BoolColumn get planPaused => boolean().withDefault(const Constant(false))();
 
   @override
   Set<Column<Object>> get primaryKey => {id};
@@ -140,6 +141,8 @@ class AppPreferencesTable extends Table {
       text().withDefault(const Constant('avalanche'))();
   RealColumn get planExtraMonthlyPayment =>
       real().withDefault(const Constant(0.0))();
+  RealColumn get planOneTimeExtraPayment =>
+      real().withDefault(const Constant(0.0))();
   BoolColumn get hideBalances => boolean().withDefault(const Constant(false))();
   BoolColumn get appLockEnabled =>
       boolean().withDefault(const Constant(false))();
@@ -207,7 +210,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -351,6 +354,13 @@ class AppDatabase extends _$AppDatabase {
         await migrator.addColumn(
           appPreferencesTable,
           appPreferencesTable.planExtraMonthlyPayment,
+        );
+      }
+      if (from < 9) {
+        await migrator.addColumn(debtsTable, debtsTable.planPaused);
+        await migrator.addColumn(
+          appPreferencesTable,
+          appPreferencesTable.planOneTimeExtraPayment,
         );
       }
     },

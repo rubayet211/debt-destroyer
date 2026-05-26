@@ -65,6 +65,10 @@ class StrategyComparisonService {
         includeArchived: false,
         customPriorities: customPriorities,
         allowUnderMinimumBudget: false,
+        pausedDebtIds: {
+          for (final debt in debts)
+            if (debt.planPaused) debt.id,
+        },
       ),
     );
     final totalAmountPaid = result.schedule.fold<double>(

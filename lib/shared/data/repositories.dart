@@ -140,6 +140,7 @@ class DriftDebtsRepository implements DebtsRepository {
             status: debt.status.name,
             remindersEnabled: Value(debt.remindersEnabled),
             customPriority: Value(debt.customPriority),
+            planPaused: Value(debt.planPaused),
           ),
         );
   }
@@ -206,6 +207,7 @@ class DriftDebtsRepository implements DebtsRepository {
       status: DebtStatus.values.byName(row.status),
       remindersEnabled: row.remindersEnabled,
       customPriority: row.customPriority,
+      planPaused: row.planPaused,
     );
   }
 }
@@ -425,6 +427,9 @@ class DriftPreferencesRepository implements PreferencesRepository {
               planExtraMonthlyPayment: Value(
                 preferences.planExtraMonthlyPayment,
               ),
+              planOneTimeExtraPayment: Value(
+                preferences.planOneTimeExtraPayment,
+              ),
               hideBalances: const Value(false),
               appLockEnabled: const Value(false),
               aiConsentEnabled: const Value(false),
@@ -464,6 +469,7 @@ class DriftPreferencesRepository implements PreferencesRepository {
       localeCode: row.localeCode,
       defaultStrategy: StrategyType.values.byName(row.defaultStrategy),
       planExtraMonthlyPayment: row.planExtraMonthlyPayment,
+      planOneTimeExtraPayment: row.planOneTimeExtraPayment,
       hideBalances: row.hideBalances,
       appLockEnabled: row.appLockEnabled,
       aiConsentEnabled: row.aiConsentEnabled,

@@ -214,6 +214,21 @@ class $DebtsTableTable extends DebtsTable
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _planPausedMeta = const VerificationMeta(
+    'planPaused',
+  );
+  @override
+  late final GeneratedColumn<bool> planPaused = GeneratedColumn<bool>(
+    'plan_paused',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("plan_paused" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -235,6 +250,7 @@ class $DebtsTableTable extends DebtsTable
     status,
     remindersEnabled,
     customPriority,
+    planPaused,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -409,6 +425,12 @@ class $DebtsTableTable extends DebtsTable
         ),
       );
     }
+    if (data.containsKey('plan_paused')) {
+      context.handle(
+        _planPausedMeta,
+        planPaused.isAcceptableOrUnknown(data['plan_paused']!, _planPausedMeta),
+      );
+    }
     return context;
   }
 
@@ -494,6 +516,10 @@ class $DebtsTableTable extends DebtsTable
         DriftSqlType.int,
         data['${effectivePrefix}custom_priority'],
       )!,
+      planPaused: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}plan_paused'],
+      )!,
     );
   }
 
@@ -523,6 +549,7 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
   final String status;
   final bool remindersEnabled;
   final int customPriority;
+  final bool planPaused;
   const DebtsTableData({
     required this.id,
     required this.title,
@@ -543,6 +570,7 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
     required this.status,
     required this.remindersEnabled,
     required this.customPriority,
+    required this.planPaused,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -568,6 +596,7 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
     map['status'] = Variable<String>(status);
     map['reminders_enabled'] = Variable<bool>(remindersEnabled);
     map['custom_priority'] = Variable<int>(customPriority);
+    map['plan_paused'] = Variable<bool>(planPaused);
     return map;
   }
 
@@ -594,6 +623,7 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
       status: Value(status),
       remindersEnabled: Value(remindersEnabled),
       customPriority: Value(customPriority),
+      planPaused: Value(planPaused),
     );
   }
 
@@ -624,6 +654,7 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
       status: serializer.fromJson<String>(json['status']),
       remindersEnabled: serializer.fromJson<bool>(json['remindersEnabled']),
       customPriority: serializer.fromJson<int>(json['customPriority']),
+      planPaused: serializer.fromJson<bool>(json['planPaused']),
     );
   }
   @override
@@ -649,6 +680,7 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
       'status': serializer.toJson<String>(status),
       'remindersEnabled': serializer.toJson<bool>(remindersEnabled),
       'customPriority': serializer.toJson<int>(customPriority),
+      'planPaused': serializer.toJson<bool>(planPaused),
     };
   }
 
@@ -672,6 +704,7 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
     String? status,
     bool? remindersEnabled,
     int? customPriority,
+    bool? planPaused,
   }) => DebtsTableData(
     id: id ?? this.id,
     title: title ?? this.title,
@@ -692,6 +725,7 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
     status: status ?? this.status,
     remindersEnabled: remindersEnabled ?? this.remindersEnabled,
     customPriority: customPriority ?? this.customPriority,
+    planPaused: planPaused ?? this.planPaused,
   );
   DebtsTableData copyWithCompanion(DebtsTableCompanion data) {
     return DebtsTableData(
@@ -730,6 +764,9 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
       customPriority: data.customPriority.present
           ? data.customPriority.value
           : this.customPriority,
+      planPaused: data.planPaused.present
+          ? data.planPaused.value
+          : this.planPaused,
     );
   }
 
@@ -754,7 +791,8 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
           ..write('financialTermsJson: $financialTermsJson, ')
           ..write('status: $status, ')
           ..write('remindersEnabled: $remindersEnabled, ')
-          ..write('customPriority: $customPriority')
+          ..write('customPriority: $customPriority, ')
+          ..write('planPaused: $planPaused')
           ..write(')'))
         .toString();
   }
@@ -780,6 +818,7 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
     status,
     remindersEnabled,
     customPriority,
+    planPaused,
   );
   @override
   bool operator ==(Object other) =>
@@ -803,7 +842,8 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
           other.financialTermsJson == this.financialTermsJson &&
           other.status == this.status &&
           other.remindersEnabled == this.remindersEnabled &&
-          other.customPriority == this.customPriority);
+          other.customPriority == this.customPriority &&
+          other.planPaused == this.planPaused);
 }
 
 class DebtsTableCompanion extends UpdateCompanion<DebtsTableData> {
@@ -826,6 +866,7 @@ class DebtsTableCompanion extends UpdateCompanion<DebtsTableData> {
   final Value<String> status;
   final Value<bool> remindersEnabled;
   final Value<int> customPriority;
+  final Value<bool> planPaused;
   final Value<int> rowid;
   const DebtsTableCompanion({
     this.id = const Value.absent(),
@@ -847,6 +888,7 @@ class DebtsTableCompanion extends UpdateCompanion<DebtsTableData> {
     this.status = const Value.absent(),
     this.remindersEnabled = const Value.absent(),
     this.customPriority = const Value.absent(),
+    this.planPaused = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   DebtsTableCompanion.insert({
@@ -869,6 +911,7 @@ class DebtsTableCompanion extends UpdateCompanion<DebtsTableData> {
     required String status,
     this.remindersEnabled = const Value.absent(),
     this.customPriority = const Value.absent(),
+    this.planPaused = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        title = Value(title),
@@ -903,6 +946,7 @@ class DebtsTableCompanion extends UpdateCompanion<DebtsTableData> {
     Expression<String>? status,
     Expression<bool>? remindersEnabled,
     Expression<int>? customPriority,
+    Expression<bool>? planPaused,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -926,6 +970,7 @@ class DebtsTableCompanion extends UpdateCompanion<DebtsTableData> {
       if (status != null) 'status': status,
       if (remindersEnabled != null) 'reminders_enabled': remindersEnabled,
       if (customPriority != null) 'custom_priority': customPriority,
+      if (planPaused != null) 'plan_paused': planPaused,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -950,6 +995,7 @@ class DebtsTableCompanion extends UpdateCompanion<DebtsTableData> {
     Value<String>? status,
     Value<bool>? remindersEnabled,
     Value<int>? customPriority,
+    Value<bool>? planPaused,
     Value<int>? rowid,
   }) {
     return DebtsTableCompanion(
@@ -972,6 +1018,7 @@ class DebtsTableCompanion extends UpdateCompanion<DebtsTableData> {
       status: status ?? this.status,
       remindersEnabled: remindersEnabled ?? this.remindersEnabled,
       customPriority: customPriority ?? this.customPriority,
+      planPaused: planPaused ?? this.planPaused,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1036,6 +1083,9 @@ class DebtsTableCompanion extends UpdateCompanion<DebtsTableData> {
     if (customPriority.present) {
       map['custom_priority'] = Variable<int>(customPriority.value);
     }
+    if (planPaused.present) {
+      map['plan_paused'] = Variable<bool>(planPaused.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1064,6 +1114,7 @@ class DebtsTableCompanion extends UpdateCompanion<DebtsTableData> {
           ..write('status: $status, ')
           ..write('remindersEnabled: $remindersEnabled, ')
           ..write('customPriority: $customPriority, ')
+          ..write('planPaused: $planPaused, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -4576,6 +4627,18 @@ class $AppPreferencesTableTable extends AppPreferencesTable
         requiredDuringInsert: false,
         defaultValue: const Constant(0.0),
       );
+  static const VerificationMeta _planOneTimeExtraPaymentMeta =
+      const VerificationMeta('planOneTimeExtraPayment');
+  @override
+  late final GeneratedColumn<double> planOneTimeExtraPayment =
+      GeneratedColumn<double>(
+        'plan_one_time_extra_payment',
+        aliasedName,
+        false,
+        type: DriftSqlType.double,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(0.0),
+      );
   static const VerificationMeta _hideBalancesMeta = const VerificationMeta(
     'hideBalances',
   );
@@ -4791,6 +4854,7 @@ class $AppPreferencesTableTable extends AppPreferencesTable
     localeCode,
     defaultStrategy,
     planExtraMonthlyPayment,
+    planOneTimeExtraPayment,
     hideBalances,
     appLockEnabled,
     aiConsentEnabled,
@@ -4861,6 +4925,15 @@ class $AppPreferencesTableTable extends AppPreferencesTable
         planExtraMonthlyPayment.isAcceptableOrUnknown(
           data['plan_extra_monthly_payment']!,
           _planExtraMonthlyPaymentMeta,
+        ),
+      );
+    }
+    if (data.containsKey('plan_one_time_extra_payment')) {
+      context.handle(
+        _planOneTimeExtraPaymentMeta,
+        planOneTimeExtraPayment.isAcceptableOrUnknown(
+          data['plan_one_time_extra_payment']!,
+          _planOneTimeExtraPaymentMeta,
         ),
       );
     }
@@ -5035,6 +5108,10 @@ class $AppPreferencesTableTable extends AppPreferencesTable
         DriftSqlType.double,
         data['${effectivePrefix}plan_extra_monthly_payment'],
       )!,
+      planOneTimeExtraPayment: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}plan_one_time_extra_payment'],
+      )!,
       hideBalances: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}hide_balances'],
@@ -5112,6 +5189,7 @@ class AppPreferencesTableData extends DataClass
   final String localeCode;
   final String defaultStrategy;
   final double planExtraMonthlyPayment;
+  final double planOneTimeExtraPayment;
   final bool hideBalances;
   final bool appLockEnabled;
   final bool aiConsentEnabled;
@@ -5134,6 +5212,7 @@ class AppPreferencesTableData extends DataClass
     required this.localeCode,
     required this.defaultStrategy,
     required this.planExtraMonthlyPayment,
+    required this.planOneTimeExtraPayment,
     required this.hideBalances,
     required this.appLockEnabled,
     required this.aiConsentEnabled,
@@ -5160,6 +5239,9 @@ class AppPreferencesTableData extends DataClass
     map['default_strategy'] = Variable<String>(defaultStrategy);
     map['plan_extra_monthly_payment'] = Variable<double>(
       planExtraMonthlyPayment,
+    );
+    map['plan_one_time_extra_payment'] = Variable<double>(
+      planOneTimeExtraPayment,
     );
     map['hide_balances'] = Variable<bool>(hideBalances);
     map['app_lock_enabled'] = Variable<bool>(appLockEnabled);
@@ -5193,6 +5275,7 @@ class AppPreferencesTableData extends DataClass
       localeCode: Value(localeCode),
       defaultStrategy: Value(defaultStrategy),
       planExtraMonthlyPayment: Value(planExtraMonthlyPayment),
+      planOneTimeExtraPayment: Value(planOneTimeExtraPayment),
       hideBalances: Value(hideBalances),
       appLockEnabled: Value(appLockEnabled),
       aiConsentEnabled: Value(aiConsentEnabled),
@@ -5224,6 +5307,9 @@ class AppPreferencesTableData extends DataClass
       defaultStrategy: serializer.fromJson<String>(json['defaultStrategy']),
       planExtraMonthlyPayment: serializer.fromJson<double>(
         json['planExtraMonthlyPayment'],
+      ),
+      planOneTimeExtraPayment: serializer.fromJson<double>(
+        json['planOneTimeExtraPayment'],
       ),
       hideBalances: serializer.fromJson<bool>(json['hideBalances']),
       appLockEnabled: serializer.fromJson<bool>(json['appLockEnabled']),
@@ -5278,6 +5364,9 @@ class AppPreferencesTableData extends DataClass
       'planExtraMonthlyPayment': serializer.toJson<double>(
         planExtraMonthlyPayment,
       ),
+      'planOneTimeExtraPayment': serializer.toJson<double>(
+        planOneTimeExtraPayment,
+      ),
       'hideBalances': serializer.toJson<bool>(hideBalances),
       'appLockEnabled': serializer.toJson<bool>(appLockEnabled),
       'aiConsentEnabled': serializer.toJson<bool>(aiConsentEnabled),
@@ -5311,6 +5400,7 @@ class AppPreferencesTableData extends DataClass
     String? localeCode,
     String? defaultStrategy,
     double? planExtraMonthlyPayment,
+    double? planOneTimeExtraPayment,
     bool? hideBalances,
     bool? appLockEnabled,
     bool? aiConsentEnabled,
@@ -5334,6 +5424,8 @@ class AppPreferencesTableData extends DataClass
     defaultStrategy: defaultStrategy ?? this.defaultStrategy,
     planExtraMonthlyPayment:
         planExtraMonthlyPayment ?? this.planExtraMonthlyPayment,
+    planOneTimeExtraPayment:
+        planOneTimeExtraPayment ?? this.planOneTimeExtraPayment,
     hideBalances: hideBalances ?? this.hideBalances,
     appLockEnabled: appLockEnabled ?? this.appLockEnabled,
     aiConsentEnabled: aiConsentEnabled ?? this.aiConsentEnabled,
@@ -5371,6 +5463,9 @@ class AppPreferencesTableData extends DataClass
       planExtraMonthlyPayment: data.planExtraMonthlyPayment.present
           ? data.planExtraMonthlyPayment.value
           : this.planExtraMonthlyPayment,
+      planOneTimeExtraPayment: data.planOneTimeExtraPayment.present
+          ? data.planOneTimeExtraPayment.value
+          : this.planOneTimeExtraPayment,
       hideBalances: data.hideBalances.present
           ? data.hideBalances.value
           : this.hideBalances,
@@ -5428,6 +5523,7 @@ class AppPreferencesTableData extends DataClass
           ..write('localeCode: $localeCode, ')
           ..write('defaultStrategy: $defaultStrategy, ')
           ..write('planExtraMonthlyPayment: $planExtraMonthlyPayment, ')
+          ..write('planOneTimeExtraPayment: $planOneTimeExtraPayment, ')
           ..write('hideBalances: $hideBalances, ')
           ..write('appLockEnabled: $appLockEnabled, ')
           ..write('aiConsentEnabled: $aiConsentEnabled, ')
@@ -5459,6 +5555,7 @@ class AppPreferencesTableData extends DataClass
     localeCode,
     defaultStrategy,
     planExtraMonthlyPayment,
+    planOneTimeExtraPayment,
     hideBalances,
     appLockEnabled,
     aiConsentEnabled,
@@ -5485,6 +5582,7 @@ class AppPreferencesTableData extends DataClass
           other.localeCode == this.localeCode &&
           other.defaultStrategy == this.defaultStrategy &&
           other.planExtraMonthlyPayment == this.planExtraMonthlyPayment &&
+          other.planOneTimeExtraPayment == this.planOneTimeExtraPayment &&
           other.hideBalances == this.hideBalances &&
           other.appLockEnabled == this.appLockEnabled &&
           other.aiConsentEnabled == this.aiConsentEnabled &&
@@ -5513,6 +5611,7 @@ class AppPreferencesTableCompanion
   final Value<String> localeCode;
   final Value<String> defaultStrategy;
   final Value<double> planExtraMonthlyPayment;
+  final Value<double> planOneTimeExtraPayment;
   final Value<bool> hideBalances;
   final Value<bool> appLockEnabled;
   final Value<bool> aiConsentEnabled;
@@ -5535,6 +5634,7 @@ class AppPreferencesTableCompanion
     this.localeCode = const Value.absent(),
     this.defaultStrategy = const Value.absent(),
     this.planExtraMonthlyPayment = const Value.absent(),
+    this.planOneTimeExtraPayment = const Value.absent(),
     this.hideBalances = const Value.absent(),
     this.appLockEnabled = const Value.absent(),
     this.aiConsentEnabled = const Value.absent(),
@@ -5558,6 +5658,7 @@ class AppPreferencesTableCompanion
     this.localeCode = const Value.absent(),
     this.defaultStrategy = const Value.absent(),
     this.planExtraMonthlyPayment = const Value.absent(),
+    this.planOneTimeExtraPayment = const Value.absent(),
     this.hideBalances = const Value.absent(),
     this.appLockEnabled = const Value.absent(),
     this.aiConsentEnabled = const Value.absent(),
@@ -5581,6 +5682,7 @@ class AppPreferencesTableCompanion
     Expression<String>? localeCode,
     Expression<String>? defaultStrategy,
     Expression<double>? planExtraMonthlyPayment,
+    Expression<double>? planOneTimeExtraPayment,
     Expression<bool>? hideBalances,
     Expression<bool>? appLockEnabled,
     Expression<bool>? aiConsentEnabled,
@@ -5605,6 +5707,8 @@ class AppPreferencesTableCompanion
       if (defaultStrategy != null) 'default_strategy': defaultStrategy,
       if (planExtraMonthlyPayment != null)
         'plan_extra_monthly_payment': planExtraMonthlyPayment,
+      if (planOneTimeExtraPayment != null)
+        'plan_one_time_extra_payment': planOneTimeExtraPayment,
       if (hideBalances != null) 'hide_balances': hideBalances,
       if (appLockEnabled != null) 'app_lock_enabled': appLockEnabled,
       if (aiConsentEnabled != null) 'ai_consent_enabled': aiConsentEnabled,
@@ -5642,6 +5746,7 @@ class AppPreferencesTableCompanion
     Value<String>? localeCode,
     Value<String>? defaultStrategy,
     Value<double>? planExtraMonthlyPayment,
+    Value<double>? planOneTimeExtraPayment,
     Value<bool>? hideBalances,
     Value<bool>? appLockEnabled,
     Value<bool>? aiConsentEnabled,
@@ -5666,6 +5771,8 @@ class AppPreferencesTableCompanion
       defaultStrategy: defaultStrategy ?? this.defaultStrategy,
       planExtraMonthlyPayment:
           planExtraMonthlyPayment ?? this.planExtraMonthlyPayment,
+      planOneTimeExtraPayment:
+          planOneTimeExtraPayment ?? this.planOneTimeExtraPayment,
       hideBalances: hideBalances ?? this.hideBalances,
       appLockEnabled: appLockEnabled ?? this.appLockEnabled,
       aiConsentEnabled: aiConsentEnabled ?? this.aiConsentEnabled,
@@ -5711,6 +5818,11 @@ class AppPreferencesTableCompanion
     if (planExtraMonthlyPayment.present) {
       map['plan_extra_monthly_payment'] = Variable<double>(
         planExtraMonthlyPayment.value,
+      );
+    }
+    if (planOneTimeExtraPayment.present) {
+      map['plan_one_time_extra_payment'] = Variable<double>(
+        planOneTimeExtraPayment.value,
       );
     }
     if (hideBalances.present) {
@@ -5786,6 +5898,7 @@ class AppPreferencesTableCompanion
           ..write('localeCode: $localeCode, ')
           ..write('defaultStrategy: $defaultStrategy, ')
           ..write('planExtraMonthlyPayment: $planExtraMonthlyPayment, ')
+          ..write('planOneTimeExtraPayment: $planOneTimeExtraPayment, ')
           ..write('hideBalances: $hideBalances, ')
           ..write('appLockEnabled: $appLockEnabled, ')
           ..write('aiConsentEnabled: $aiConsentEnabled, ')
@@ -6447,6 +6560,7 @@ typedef $$DebtsTableTableCreateCompanionBuilder =
       required String status,
       Value<bool> remindersEnabled,
       Value<int> customPriority,
+      Value<bool> planPaused,
       Value<int> rowid,
     });
 typedef $$DebtsTableTableUpdateCompanionBuilder =
@@ -6470,6 +6584,7 @@ typedef $$DebtsTableTableUpdateCompanionBuilder =
       Value<String> status,
       Value<bool> remindersEnabled,
       Value<int> customPriority,
+      Value<bool> planPaused,
       Value<int> rowid,
     });
 
@@ -6627,6 +6742,11 @@ class $$DebtsTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<bool> get planPaused => $composableBuilder(
+    column: $table.planPaused,
+    builder: (column) => ColumnFilters(column),
+  );
+
   Expression<bool> paymentsTableRefs(
     Expression<bool> Function($$PaymentsTableTableFilterComposer f) f,
   ) {
@@ -6781,6 +6901,11 @@ class $$DebtsTableTableOrderingComposer
     column: $table.customPriority,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get planPaused => $composableBuilder(
+    column: $table.planPaused,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$DebtsTableTableAnnotationComposer
@@ -6862,6 +6987,11 @@ class $$DebtsTableTableAnnotationComposer
 
   GeneratedColumn<int> get customPriority => $composableBuilder(
     column: $table.customPriority,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get planPaused => $composableBuilder(
+    column: $table.planPaused,
     builder: (column) => column,
   );
 
@@ -6967,6 +7097,7 @@ class $$DebtsTableTableTableManager
                 Value<String> status = const Value.absent(),
                 Value<bool> remindersEnabled = const Value.absent(),
                 Value<int> customPriority = const Value.absent(),
+                Value<bool> planPaused = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DebtsTableCompanion(
                 id: id,
@@ -6988,6 +7119,7 @@ class $$DebtsTableTableTableManager
                 status: status,
                 remindersEnabled: remindersEnabled,
                 customPriority: customPriority,
+                planPaused: planPaused,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -7011,6 +7143,7 @@ class $$DebtsTableTableTableManager
                 required String status,
                 Value<bool> remindersEnabled = const Value.absent(),
                 Value<int> customPriority = const Value.absent(),
+                Value<bool> planPaused = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DebtsTableCompanion.insert(
                 id: id,
@@ -7032,6 +7165,7 @@ class $$DebtsTableTableTableManager
                 status: status,
                 remindersEnabled: remindersEnabled,
                 customPriority: customPriority,
+                planPaused: planPaused,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -9376,6 +9510,7 @@ typedef $$AppPreferencesTableTableCreateCompanionBuilder =
       Value<String> localeCode,
       Value<String> defaultStrategy,
       Value<double> planExtraMonthlyPayment,
+      Value<double> planOneTimeExtraPayment,
       Value<bool> hideBalances,
       Value<bool> appLockEnabled,
       Value<bool> aiConsentEnabled,
@@ -9400,6 +9535,7 @@ typedef $$AppPreferencesTableTableUpdateCompanionBuilder =
       Value<String> localeCode,
       Value<String> defaultStrategy,
       Value<double> planExtraMonthlyPayment,
+      Value<double> planOneTimeExtraPayment,
       Value<bool> hideBalances,
       Value<bool> appLockEnabled,
       Value<bool> aiConsentEnabled,
@@ -9453,6 +9589,11 @@ class $$AppPreferencesTableTableFilterComposer
 
   ColumnFilters<double> get planExtraMonthlyPayment => $composableBuilder(
     column: $table.planExtraMonthlyPayment,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get planOneTimeExtraPayment => $composableBuilder(
+    column: $table.planOneTimeExtraPayment,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -9571,6 +9712,11 @@ class $$AppPreferencesTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get planOneTimeExtraPayment => $composableBuilder(
+    column: $table.planOneTimeExtraPayment,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get hideBalances => $composableBuilder(
     column: $table.hideBalances,
     builder: (column) => ColumnOrderings(column),
@@ -9679,6 +9825,11 @@ class $$AppPreferencesTableTableAnnotationComposer
 
   GeneratedColumn<double> get planExtraMonthlyPayment => $composableBuilder(
     column: $table.planExtraMonthlyPayment,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get planOneTimeExtraPayment => $composableBuilder(
+    column: $table.planOneTimeExtraPayment,
     builder: (column) => column,
   );
 
@@ -9807,6 +9958,7 @@ class $$AppPreferencesTableTableTableManager
                 Value<String> localeCode = const Value.absent(),
                 Value<String> defaultStrategy = const Value.absent(),
                 Value<double> planExtraMonthlyPayment = const Value.absent(),
+                Value<double> planOneTimeExtraPayment = const Value.absent(),
                 Value<bool> hideBalances = const Value.absent(),
                 Value<bool> appLockEnabled = const Value.absent(),
                 Value<bool> aiConsentEnabled = const Value.absent(),
@@ -9830,6 +9982,7 @@ class $$AppPreferencesTableTableTableManager
                 localeCode: localeCode,
                 defaultStrategy: defaultStrategy,
                 planExtraMonthlyPayment: planExtraMonthlyPayment,
+                planOneTimeExtraPayment: planOneTimeExtraPayment,
                 hideBalances: hideBalances,
                 appLockEnabled: appLockEnabled,
                 aiConsentEnabled: aiConsentEnabled,
@@ -9854,6 +10007,7 @@ class $$AppPreferencesTableTableTableManager
                 Value<String> localeCode = const Value.absent(),
                 Value<String> defaultStrategy = const Value.absent(),
                 Value<double> planExtraMonthlyPayment = const Value.absent(),
+                Value<double> planOneTimeExtraPayment = const Value.absent(),
                 Value<bool> hideBalances = const Value.absent(),
                 Value<bool> appLockEnabled = const Value.absent(),
                 Value<bool> aiConsentEnabled = const Value.absent(),
@@ -9877,6 +10031,7 @@ class $$AppPreferencesTableTableTableManager
                 localeCode: localeCode,
                 defaultStrategy: defaultStrategy,
                 planExtraMonthlyPayment: planExtraMonthlyPayment,
+                planOneTimeExtraPayment: planOneTimeExtraPayment,
                 hideBalances: hideBalances,
                 appLockEnabled: appLockEnabled,
                 aiConsentEnabled: aiConsentEnabled,

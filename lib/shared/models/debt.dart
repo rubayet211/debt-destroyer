@@ -21,6 +21,7 @@ class Debt {
     required this.status,
     required this.remindersEnabled,
     required this.customPriority,
+    this.planPaused = false,
     this.financialTerms = const DebtFinancialTerms(),
   });
 
@@ -42,6 +43,7 @@ class Debt {
   final DebtStatus status;
   final bool remindersEnabled;
   final int customPriority;
+  final bool planPaused;
   final DebtFinancialTerms financialTerms;
 
   bool get isActive => status == DebtStatus.active;
@@ -65,6 +67,7 @@ class Debt {
     DebtStatus? status,
     bool? remindersEnabled,
     int? customPriority,
+    bool? planPaused,
     DebtFinancialTerms? financialTerms,
   }) {
     return Debt(
@@ -86,6 +89,7 @@ class Debt {
       status: status ?? this.status,
       remindersEnabled: remindersEnabled ?? this.remindersEnabled,
       customPriority: customPriority ?? this.customPriority,
+      planPaused: planPaused ?? this.planPaused,
       financialTerms: financialTerms ?? this.financialTerms,
     );
   }

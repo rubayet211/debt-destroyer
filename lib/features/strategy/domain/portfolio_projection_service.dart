@@ -63,6 +63,7 @@ class PortfolioProjectionService {
         customPriorities: request.customPriorities,
         projectionAsOf: request.projectionAsOf,
         allowUnderMinimumBudget: request.allowUnderMinimumBudget,
+        pausedDebtIds: request.pausedDebtIds,
       ),
     );
 
@@ -429,7 +430,17 @@ class DebtProjectionEngine {
           );
         });
     }
-    return prioritized;
+    if (request.pausedDebtIds.isEmpty) {
+      return prioritized;
+    }
+    return [
+      ...prioritized.where(
+        (entry) => !request.pausedDebtIds.contains(entry.state.debt.id),
+      ),
+      ...prioritized.where(
+        (entry) => request.pausedDebtIds.contains(entry.state.debt.id),
+      ),
+    ];
   }
 
   int _minimumPriorityCompare(_MonthlyDebtEntry a, _MonthlyDebtEntry b) {

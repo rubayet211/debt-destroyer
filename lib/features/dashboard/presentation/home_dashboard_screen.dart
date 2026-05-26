@@ -14,6 +14,7 @@ import '../../../shared/models/dashboard_snapshot.dart';
 import '../../../shared/models/debt.dart';
 import '../../../shared/models/payment.dart';
 import '../../../shared/providers/app_providers.dart';
+import '../../strategy/presentation/adjust_plan_sheet.dart';
 
 class HomeDashboardScreen extends ConsumerWidget {
   const HomeDashboardScreen({super.key});
@@ -536,8 +537,8 @@ class _StrategyCard extends StatelessWidget {
             ),
           ),
           TextButton(
-            onPressed: () => context.push('/strategy/compare'),
-            child: const Text('Change'),
+            onPressed: () => showAdjustPlanSheet(context),
+            child: const Text('Adjust'),
           ),
         ],
       ),

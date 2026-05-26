@@ -153,6 +153,7 @@ Map<String, Object?> debtToJson(Debt debt) {
     'status': debt.status.name,
     'remindersEnabled': debt.remindersEnabled,
     'customPriority': debt.customPriority,
+    'planPaused': debt.planPaused,
     'financialTerms': debt.financialTerms.toJson(),
   };
 }
@@ -192,6 +193,7 @@ Debt debtFromJson(Map<String, Object?> json) {
     ),
     remindersEnabled: _readBoolWithDefault(json['remindersEnabled'], false),
     customPriority: _readIntWithDefault(json['customPriority'], 0),
+    planPaused: _readBoolWithDefault(json['planPaused'], false),
     financialTerms: DebtFinancialTerms.fromJson(
       _readMap(json['financialTerms']),
     ),
@@ -386,6 +388,7 @@ Map<String, Object?> preferencesToJson(UserPreferences preferences) {
     'localeCode': preferences.localeCode,
     'defaultStrategy': preferences.defaultStrategy.name,
     'planExtraMonthlyPayment': preferences.planExtraMonthlyPayment,
+    'planOneTimeExtraPayment': preferences.planOneTimeExtraPayment,
     'hideBalances': preferences.hideBalances,
     'appLockEnabled': preferences.appLockEnabled,
     'aiConsentEnabled': preferences.aiConsentEnabled,
@@ -428,6 +431,10 @@ UserPreferences preferencesFromJson(Map<String, Object?> json) {
     planExtraMonthlyPayment: _readDoubleWithDefault(
       json['planExtraMonthlyPayment'],
       defaults.planExtraMonthlyPayment,
+    ),
+    planOneTimeExtraPayment: _readDoubleWithDefault(
+      json['planOneTimeExtraPayment'],
+      defaults.planOneTimeExtraPayment,
     ),
     hideBalances: _readBoolWithDefault(
       json['hideBalances'],
